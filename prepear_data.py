@@ -625,8 +625,8 @@ def print_file_head(path, n=5, encoding="utf-8"):
 
 #%%
 # Завантаження даних з CSV-файлу
-thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate/"
-# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate/"
+thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
 
@@ -643,7 +643,7 @@ df_trnl.loc[idx, df_trnl.columns[2]] = (
     df_trnl.loc[idx, df_trnl.columns[2]]
     .str.replace("\\n", "\n", regex=False)
 )
-num = 0
+# num = 0
 all_rows = []
 for i in idx:
     # print(f"index = {i}")
@@ -655,7 +655,7 @@ for i in idx:
     list_row = process_text_and_build_csv_rows(df_trnl.iat[i, 2])
     # if list_row != []:
     all_rows.extend(list_row)
-    num += 1
+    # num += 1
 
 # for i in idx[:10]:  # первые 10 для проверки
 #     text = df_trnl.iat[i, 2]
