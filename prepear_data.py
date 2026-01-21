@@ -117,11 +117,11 @@ def extract_quoted_substring(text: str, start_pos: int):
     Возвращает:
         (substring, is_longer_than_30, closing_quote_pos)
 
-    Если ничего не найдено — (None, None, None)
     """
     translate = False
     open_seq = ' "'
-
+    if start_pos != 0:
+        start_pos += 1
     # поиск начинается С start_pos
     open_pos = text.find(open_seq, start_pos)
 
@@ -129,7 +129,7 @@ def extract_quoted_substring(text: str, start_pos: int):
         return None, None, start_pos
 
     # позиция открывающей кавычки "
-    quote_start = open_pos + 1
+    quote_start = open_pos
 
     # ищем закрывающую кавычку "
     quote_end = text.find('"', quote_start + 1)
@@ -142,13 +142,13 @@ def extract_quoted_substring(text: str, start_pos: int):
 
     if len(substring) > 30:
         translate = True
-         # 1. найти открывающую скобку
-        open_pos = text.find("(", quote_end)
-        # if open_pos == -1:
-        #     return None, None, None
-        # 2. проверить расстояние от закрывающей кавычки до открывающей скобки
-        if open_pos - quote_end > 3:
-            translate = False
+        #  # 1. найти открывающую скобку
+        # open_pos = text.find("(", quote_end+1)
+        # # if open_pos == -1:
+        # #     return None, None, None
+        # # 2. проверить расстояние от закрывающей кавычки до открывающей скобки
+        # if open_pos - quote_end > 3:
+        #     translate = False
 
     return substring, translate, quote_end
 
@@ -161,14 +161,13 @@ def extract_parenthesized_substring(text: str, start_pos: int):
     """
 
     # 1. найти открывающую скобку
-    open_pos = text.find("(", start_pos)
+    open_pos = text.find("(", start_pos+1)
     if open_pos == -1:
         return None, None, start_pos
 
     # 2. проверить расстояние
-    if open_pos - start_pos > 3:
+    if open_pos - start_pos <= 3:
         close_pos_tz = text.find(";", open_pos + 1)
-        # скобка найдена, но слишком далеко
         close_pos_s = text.find(")", open_pos + 1)
         if close_pos_tz != -1 and close_pos_s != -1:
             close_pos = min(close_pos_tz, close_pos_s)
@@ -179,48 +178,49 @@ def extract_parenthesized_substring(text: str, start_pos: int):
                 close_pos = close_pos_tz
         if close_pos == -1:
             return None, None, start_pos
-        return text[open_pos + 1 : close_pos], False, close_pos
+        # return text[open_pos + 1 : close_pos], False, close_pos
 
-    # 3. найти закрывающую скобку
-    close_pos_tz = text.find(";", open_pos + 1)
-    # скобка найдена, но слишком далеко
-    close_pos_s = text.find(")", open_pos + 1)
-    if close_pos_tz != -1 and close_pos_s != -1:
-        close_pos = min(close_pos_tz, close_pos_s)
-    else:
-        if close_pos_tz == -1:
-            close_pos = close_pos_s
-        if close_pos_s == -1:
-            close_pos = close_pos_tz
-    if close_pos == -1:
-        return None, None, start_pos
+    # # 3. найти закрывающую скобку
+    # close_pos_tz = text.find(";", open_pos + 1)
+    # # скобка найдена, но слишком далеко
+    # close_pos_s = text.find(")", open_pos + 1)
+    # if close_pos_tz != -1 and close_pos_s != -1:
+    #     close_pos = min(close_pos_tz, close_pos_s)
+    # else:
+    #     if close_pos_tz == -1:
+    #         close_pos = close_pos_s
+    #     if close_pos_s == -1:
+    #         close_pos = close_pos_tz
+    # if close_pos == -1:
+    #     return None, None, start_pos
 
-    substring = text[open_pos + 1 : close_pos]
+        substring = text[open_pos + 1 : close_pos]
 
-    # 4. условия
-    is_long = len(substring) > 30
-    dash_count = substring.count("-")
+        # 4. условия
+        is_long = len(substring) > 30
+        dash_count = substring.count("-")
 
-    flag = is_long and dash_count >= 6
+        flag = is_long and dash_count >= 6
 
-    return substring, flag, close_pos
+        return substring, flag, close_pos
+    return None, None, start_pos
 
 #%%
 def extract_letter_space_digit_colon_space(text: str, start_search_pos: int):
     # 1. Основной шаблон
     pattern = re.compile(
-        r'[A-Za-z]{3,7} \d{4}: \d{1}'
+        r'[A-Za-z]{3,} \d{4}: \d{1,}'
     )
 
-    match = pattern.search(text, start_search_pos)
+    match = pattern.search(text, start_search_pos+1)
     if not match:
         return None, None, start_search_pos
     # 2. Проверка 5 символов после группы
     pos = match.end()
     limit = min(pos + 5, len(text))
-
+    # поиск начаала транслитерации
     start_pos = pos
-    for i in range(pos, limit):
+    for i in range(start_pos, limit):
         if text[i].isdigit() or text[i] == '-':
             start_pos = i + 1
         else:
@@ -228,16 +228,16 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int):
             break
 
     # 3. Поиск одинарной открывающей кавычки
-    quote_pos = text.find("'", start_pos)
+    quote_pos = text.find("'", start_pos+1)
     if quote_pos == -1:
         return None, None, start_pos
-
-    diff = quote_pos - start_pos
+    # длина транслитерации
+    diff = quote_pos - 1 - start_pos
     if diff >= 1000:
         return None, None, start_pos
 
     # 4. Проверка подстроки
-    substr = text[start_pos:quote_pos]
+    substr = text[start_pos+1:quote_pos]
 
     dash_count = substr.count('-')
     aleph_count = substr.count('ℵ')
@@ -246,7 +246,7 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int):
 
     if dash_count >= dash_required or aleph_count >= 2:
         transliter_txt = substr
-        return transliter_txt, True, quote_pos - 1
+        return transliter_txt, True, quote_pos
 
     return None, None, start_pos
 
@@ -256,7 +256,7 @@ def extract_single_quotes(text: str, start_pos: int):
         return None, None, start_pos
 
     # 1. Поиск закрывающей одинарной кавычки
-    quote_pos = text.find("'", start_pos)
+    quote_pos = text.find("'", start_pos+1)
     if quote_pos == -1:
         return None, None, start_pos
 
@@ -265,10 +265,10 @@ def extract_single_quotes(text: str, start_pos: int):
         return None, None, start_pos
 
     # 3. Извлечение подстроки
-    translate_txt = text[start_pos:quote_pos]
+    translate_txt = text[start_pos+1:quote_pos]
 
     # 4. Возврат результата
-    return translate_txt, True, quote_pos - 1
+    return translate_txt, True, quote_pos
 
 #%%
 def normalize_akkadian_determinatives(text: str) -> str:
@@ -501,19 +501,22 @@ def align_and_mark_sentences(translit_text: str, translation_sentences: list, ma
 #     return csv_rows
 def process_text_and_build_csv_rows(text: str):
     """
-    Обрабатывает текст и возвращает список строк CSV
+    Обрабатывает текст ячейкеи и возвращает список строк CSV
     (без заголовка)
     """
     translate_str, accad_str = '', ''
-    next_pos = 0
-    close_pos = 0
+    # next_pos = 0
+    # close_pos = 0
     extract_function_1 = [extract_quoted_substring, extract_letter_space_digit_colon_space]
     extract_function_2 = [extract_parenthesized_substring, extract_single_quotes]
-    str_txt = [translate_str, accad_str]
-    str_txt_1 = [accad_str, translate_str]
-    pos_num = [next_pos, close_pos]
-    pos_num_1 = [close_pos, next_pos]
-    len_arr = len(str_txt)
+    # str_txt = [translate_str, accad_str]
+    # str_txt_1 = [accad_str, translate_str]
+    str_txt = ['', '']
+    str_txt_1 = ['', '']
+    # pos_num = [next_pos, close_pos]
+    # pos_num_1 = [close_pos, next_pos]
+    # len_arr = len(str_txt)
+    len_arr = 1
     i = 0
     csv_rows = []
     start_pos = 0
@@ -521,15 +524,18 @@ def process_text_and_build_csv_rows(text: str):
     # while start_pos < len(text):
     while i < len_arr:
         # поиск по двойным кавычкам потом по буквам пробелам цифрам
-        str_txt[i % len_arr], flag, pos_num[i % len_arr] = extract_function_1[i % len_arr](text, start_pos)
+        str_txt[i % len_arr], flag, next_pos = extract_function_1[i % len_arr](text, start_pos)
         # if translate_str is None:
         #     break
 
         if flag:
             # print(translate_str)
             # поиск по круглым скобкам потом по одинарным кавычкам
-            str_txt_1[i % len_arr], flag2, pos_num_1[i % len_arr] = extract_function_2[i % len_arr](text, pos_num[i % len_arr])
+            str_txt_1[i % len_arr], flag2, close_pos = extract_function_2[i % len_arr](text, next_pos)
             if flag2:
+                double_txt, double_flag, double_next_pos = extract_function_1[i % len_arr](text, next_pos)
+                if double_flag and double_next_pos < (close_pos - len(str_txt_1[i % len_arr])):
+                    str_txt[i % len_arr] = double_txt
                 match i:
                     case 0:
                         translate_str = str_txt[i % len_arr]
@@ -558,11 +564,13 @@ def process_text_and_build_csv_rows(text: str):
                 t = t.replace('"', '""')
 
                 csv_rows.append(f'"{a}","{t}"\n')
-                start_pos = pos_num_1[i % len_arr] + 1
+                start_pos = close_pos + 1
             else:
-                start_pos = pos_num[i % len_arr] + 1
+                # start_pos = pos_num[i % len_arr] + 1
+                start_pos = len(text)
         else:
-            start_pos = pos_num[i % len_arr] + 1
+            # start_pos = pos_num[i % len_arr] + 1
+            start_pos = len(text)
         if start_pos >= len(text):
             i += 1
             start_pos = 0
@@ -637,8 +645,8 @@ df_trnl = pd.read_csv(csv_file_path)
 # print(df_trnl.isnull().sum())  # Missing Values
 print('\n')
 
-idx = df_trnl[df_trnl['has_akkadian']].head(5).index
-# idx = df_trnl[df_trnl['has_akkadian']].index
+# idx = df_trnl[df_trnl['has_akkadian']].head(5).index
+idx = df_trnl[df_trnl['has_akkadian']].index
 df_trnl.loc[idx, df_trnl.columns[2]] = (
     df_trnl.loc[idx, df_trnl.columns[2]]
     .str.replace("\\n", "\n", regex=False)
@@ -666,9 +674,9 @@ for i in idx:
 
 new_df = split_accad_and_translate(all_rows)
 new_df.to_csv('translate_from_publication.csv', index=False, quoting=csv.QUOTE_ALL)
-# print("Примеры строк:")
-# print(new_df)
-# print(len(idx))
+print("Примеры строк:")
+print(new_df)
+print(len(idx))
 # print(num)
 print('\n')
 
