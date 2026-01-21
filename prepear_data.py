@@ -113,15 +113,24 @@ def extract_quoted_substring(text: str, start_pos: int):
     """
     Ищет в строке text, начиная С позиции start_pos,
     подстроку вида: ' "текст"'.
-
     Возвращает:
         (substring, is_longer_than_30, closing_quote_pos)
-
     """
-    translate = False
-    open_seq = ' "'
     if start_pos != 0:
         start_pos += 1
+    # 1. Основной шаблон
+    pattern = re.compile(
+        r'/k \d{4}:'
+    )
+
+    match = pattern.search(text, start_pos)
+    if not match:
+        return None, None, start_pos
+    start_pos = match.end()
+    translate = False
+    open_seq = ' "'
+    # if start_pos != 0:
+    #     start_pos += 1
     # поиск начинается С start_pos
     open_pos = text.find(open_seq, start_pos)
 
@@ -129,7 +138,7 @@ def extract_quoted_substring(text: str, start_pos: int):
         return None, None, start_pos
 
     # позиция открывающей кавычки "
-    quote_start = open_pos
+    quote_start = open_pos + 1
 
     # ищем закрывающую кавычку "
     quote_end = text.find('"', quote_start + 1)
@@ -140,15 +149,20 @@ def extract_quoted_substring(text: str, start_pos: int):
     # подстрока между кавычками
     substring = text[quote_start + 1 : quote_end]
 
+    dash_count = substring.count('-')
+    aleph_count = substring.count('ℵ')
+    # dash_required = len(substring) / 50
+    if dash_count > 0 or aleph_count > 0:
+        if dash_count > 0:
+            dash_required = len(substring) / dash_count
+        else:
+            dash_required = 34
+        # много символов транслитерации
+        if dash_required < 25 or aleph_count > 0:
+            return None, None, start_pos
+
     if len(substring) > 30:
         translate = True
-        #  # 1. найти открывающую скобку
-        # open_pos = text.find("(", quote_end+1)
-        # # if open_pos == -1:
-        # #     return None, None, None
-        # # 2. проверить расстояние от закрывающей кавычки до открывающей скобки
-        # if open_pos - quote_end > 3:
-        #     translate = False
 
     return substring, translate, quote_end
 
@@ -159,7 +173,6 @@ def extract_parenthesized_substring(text: str, start_pos: int):
     Возвращает:
         (substring, flag, close_pos)
     """
-
     # 1. найти открывающую скобку
     open_pos = text.find("(", start_pos+1)
     if open_pos == -1:
@@ -178,29 +191,21 @@ def extract_parenthesized_substring(text: str, start_pos: int):
                 close_pos = close_pos_tz
         if close_pos == -1:
             return None, None, start_pos
-        # return text[open_pos + 1 : close_pos], False, close_pos
-
-    # # 3. найти закрывающую скобку
-    # close_pos_tz = text.find(";", open_pos + 1)
-    # # скобка найдена, но слишком далеко
-    # close_pos_s = text.find(")", open_pos + 1)
-    # if close_pos_tz != -1 and close_pos_s != -1:
-    #     close_pos = min(close_pos_tz, close_pos_s)
-    # else:
-    #     if close_pos_tz == -1:
-    #         close_pos = close_pos_s
-    #     if close_pos_s == -1:
-    #         close_pos = close_pos_tz
-    # if close_pos == -1:
-    #     return None, None, start_pos
-
+        # # подстрока между скобками
         substring = text[open_pos + 1 : close_pos]
 
+        dash_count = substring.count('-')
+        aleph_count = substring.count('ℵ')
+        if dash_count > 0:
+            dash_required = len(substring) / dash_count
+        else:
+            dash_required = 0
+        if dash_required > 10 or aleph_count <= 2 and dash_count == 0:
+            return None, None, start_pos
         # 4. условия
         is_long = len(substring) > 30
-        dash_count = substring.count("-")
 
-        flag = is_long and dash_count >= 6
+        flag = is_long
 
         return substring, flag, close_pos
     return None, None, start_pos
@@ -294,38 +299,7 @@ def normalize_gaps(text: str) -> str:
 
     return text
 
-#%%
-# def normalize_assyrian_line(text: str) -> str:
-#     # 1. Удаляем редакторскую метку Pl-/
-#     text = re.sub(r"^Pl-/\s*", "", text)
-#
-#     # 2. Удаляем перенос строки (\)
-#     text = text.replace("\\", "")
-#
-#     # 3. Удаляем запятую (маркер переноса строки)
-#     text = text.replace(",", "")
-#
-#     # 4. Обрабатываем квадратные скобки
-#     def replace_supplied(match):
-#         content = match.group(1).strip()
-#
-#         # лакуны — не трогаем
-#         if content == "x":
-#             return "[x]"
-#         if re.fullmatch(r"[.\s…]+", content):
-#             return f"[{content}]"
-#
-#         # восстановленный текст → склеиваем
-#         return "-" + content
-#
-#     text = re.sub(r"\[([^\]]+)\]", replace_supplied, text)
-#
-#     # 5. Убираем лишние пробелы
-#     text = re.sub(r"\s+", " ", text).strip()
-#
-#     return text
 
-#%%
 def normalize_for_mt(text: str) -> str:
     # 0. Базовая очистка (translate-таблица уже применяется снаружи)
     a = text
@@ -410,95 +384,6 @@ def align_and_mark_sentences(translit_text: str, translation_sentences: list, ma
 
 #%%
 
-# def process_text_and_build_csv_rows(text: str):
-#     """
-#     Обрабатывает текст и возвращает список строк CSV
-#     (без заголовка)
-#     """
-#     translate_str, accad_str = ''
-#     next_pos, close_pos =0
-#     extract_function_translate = [extract_quoted_substring, extract_single_quotes]
-#     extract_function_accad_txt = [extract_parenthesized_substring, extract_letter_space_digit_colon_space]
-#     str_txt = [translate_str, accad_str]
-#     pos_num = [next_pos, close_pos]
-#
-#     csv_rows = []
-#     start_pos = 0
-#
-#     while start_pos < len(text):
-#         # поиск по двойным кавычкам
-#         translate_str, flag, next_pos = extract_quoted_substring(text, start_pos)
-#         # if translate_str is None:
-#         #     break
-#
-#         if flag:
-#             # print(translate_str)
-#             # поиск по круглым скобкам
-#             accad_str, flag2, close_pos = extract_parenthesized_substring(
-#                 text, next_pos)
-#
-#             if flag2:
-#                 # 1. Очистка перевода
-#                 t = translate_str.replace("\n", " ")
-#
-#                 # 2. Очистка аккадского
-#                 a = accad_str.replace("\n", " ")
-#                 a = normalize_for_mt(a)
-#
-#                 # 3. Токенизация перевода
-#                 t_sentences = sent_tokenize(t)
-#
-#                 # 4. Выравнивание + маркеры
-#                 a = align_and_mark_sentences(a, t_sentences, marker="<sent>")
-#
-#                 # 5. Склеиваем перевод обратно
-#                 t = " ".join(t_sentences)
-#
-#                 # 6. CSV-экранирование (ОДИН РАЗ!)
-#                 a = a.replace('"', '""')
-#                 t = t.replace('"', '""')
-#
-#                 csv_rows.append(f'"{a}","{t}"\n')
-#                 start_pos = close_pos + 1
-#             else:
-#                 start_pos = next_pos + 1
-#         # elif flag == False:
-#         #     start_pos = next_pos + 1
-#         else:
-#             # поиск по буквам пробел цифрам двоеточию пробелу цифрам
-#             accad_str, flag3, next_pos = extract_letter_space_digit_colon_space(text, start_pos)
-#             if flag3:
-#                 # поиск по одинарным кавычкам
-#                 translate_str, flag4, close_pos = extract_parenthesized_substring(text, next_pos)
-#                 if flag4:
-#                     # 1. Очистка перевода
-#                     t = translate_str.replace("\n", " ")
-#
-#                     # 2. Очистка аккадского
-#                     a = accad_str.replace("\n", " ")
-#                     a = normalize_for_mt(a)
-#
-#                     # 3. Токенизация перевода
-#                     t_sentences = sent_tokenize(t)
-#
-#                     # 4. Выравнивание + маркеры
-#                     a = align_and_mark_sentences(a, t_sentences, marker="<sent>")
-#
-#                     # 5. Склеиваем перевод обратно
-#                     t = " ".join(t_sentences)
-#
-#                     # 6. CSV-экранирование (ОДИН РАЗ!)
-#                     a = a.replace('"', '""')
-#                     t = t.replace('"', '""')
-#
-#                     csv_rows.append(f'"{a}","{t}"\n')
-#                     start_pos = close_pos + 1
-#                 else:
-#                     start_pos = next_pos + 1
-#             # else:
-#             #     # start_pos = next_pos + 1
-#             #     return  []
-#     return csv_rows
 def process_text_and_build_csv_rows(text: str):
     """
     Обрабатывает текст ячейкеи и возвращает список строк CSV
@@ -509,10 +394,10 @@ def process_text_and_build_csv_rows(text: str):
     # close_pos = 0
     extract_function_1 = [extract_quoted_substring, extract_letter_space_digit_colon_space]
     extract_function_2 = [extract_parenthesized_substring, extract_single_quotes]
-    # str_txt = [translate_str, accad_str]
-    # str_txt_1 = [accad_str, translate_str]
-    str_txt = ['', '']
-    str_txt_1 = ['', '']
+    str_txt = [translate_str, accad_str]
+    str_txt_1 = [accad_str, translate_str]
+    # str_txt = ['', '']
+    # str_txt_1 = ['', '']
     # pos_num = [next_pos, close_pos]
     # pos_num_1 = [close_pos, next_pos]
     # len_arr = len(str_txt)
@@ -525,10 +410,14 @@ def process_text_and_build_csv_rows(text: str):
     while i < len_arr:
         # поиск по двойным кавычкам потом по буквам пробелам цифрам
         str_txt[i % len_arr], flag, next_pos = extract_function_1[i % len_arr](text, start_pos)
-        # if translate_str is None:
-        #     break
 
         if flag:
+            if i == 0:
+                tx = "Перевод1 \n"
+            else:
+                tx = "Транслитерация2 \n"
+            print(f"{tx}{str_txt[i % len_arr]}")
+
             # print(translate_str)
             # поиск по круглым скобкам потом по одинарным кавычкам
             str_txt_1[i % len_arr], flag2, close_pos = extract_function_2[i % len_arr](text, next_pos)
@@ -540,9 +429,12 @@ def process_text_and_build_csv_rows(text: str):
                     case 0:
                         translate_str = str_txt[i % len_arr]
                         accad_str = str_txt_1[i % len_arr]
+                        tx = "Транслитерация1 \n"
                     case 1:
                         translate_str = str_txt_1[i % len_arr]
                         accad_str = str_txt[i % len_arr]
+                        tx = "Перевод2 \n"
+                print(f"{tx}{str_txt_1[i % len_arr]}")
                 # 1. Очистка перевода
                 t = translate_str.replace("\n", " ")
 
@@ -633,8 +525,8 @@ def print_file_head(path, n=5, encoding="utf-8"):
 
 #%%
 # Завантаження даних з CSV-файлу
-# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate/"
-thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate/"
+# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
 
