@@ -109,7 +109,7 @@ CHAR_MAP = {
 }
 
 #%%
-def extract_quoted_substring(text: str, start_pos: int):
+def extract_quoted_substring(text: str, start_pos: int, pattern: str):
     """
     Ищет в строке text, начиная С позиции start_pos,
     подстроку вида: ' "текст"'.
@@ -119,18 +119,14 @@ def extract_quoted_substring(text: str, start_pos: int):
     if start_pos != 0:
         start_pos += 1
     # 1. Основной шаблон
-    pattern = re.compile(
-        r'/k \d{4}:'
-    )
+    pattern = re.compile(pattern)
 
     match = pattern.search(text, start_pos)
     if not match:
         return None, None, start_pos
-    start_pos = match.end()
+    start_pos = match.end() + 1
     translate = False
     open_seq = ' "'
-    # if start_pos != 0:
-    #     start_pos += 1
     # поиск начинается С start_pos
     open_pos = text.find(open_seq, start_pos)
 
@@ -151,7 +147,6 @@ def extract_quoted_substring(text: str, start_pos: int):
 
     dash_count = substring.count('-')
     aleph_count = substring.count('ℵ')
-    # dash_required = len(substring) / 50
     if dash_count > 0 or aleph_count > 0:
         if dash_count > 0:
             dash_required = len(substring) / dash_count
@@ -211,19 +206,18 @@ def extract_parenthesized_substring(text: str, start_pos: int):
     return None, None, start_pos
 
 #%%
-def extract_letter_space_digit_colon_space(text: str, start_search_pos: int):
-    # 1. Основной шаблон
-    pattern = re.compile(
-        r'[A-Za-z]{3,} \d{4}: \d{1,}'
-    )
+def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pattern: str):
+    if start_search_pos != 0:
+        start_search_pos += 1
+    pattern = re.compile(pattern)
 
-    match = pattern.search(text, start_search_pos+1)
+    match = pattern.search(text, start_search_pos)
     if not match:
         return None, None, start_search_pos
-    # 2. Проверка 5 символов после группы
-    pos = match.end()
-    limit = min(pos + 5, len(text))
-    # поиск начаала транслитерации
+    pos = match.end() + 1
+
+    limit = min(pos + 6, len(text))
+    # поиск начала транслитерации
     start_pos = pos
     for i in range(start_pos, limit):
         if text[i].isdigit() or text[i] == '-':
@@ -266,7 +260,7 @@ def extract_single_quotes(text: str, start_pos: int):
         return None, None, start_pos
 
     # 2. Проверка расстояния
-    if quote_pos - start_pos > 1200:
+    if quote_pos - start_pos > 1000:
         return None, None, start_pos
 
     # 3. Извлечение подстроки
@@ -389,83 +383,73 @@ def process_text_and_build_csv_rows(text: str):
     Обрабатывает текст ячейкеи и возвращает список строк CSV
     (без заголовка)
     """
-    translate_str, accad_str = '', ''
-    # next_pos = 0
-    # close_pos = 0
     extract_function_1 = [extract_quoted_substring, extract_letter_space_digit_colon_space]
     extract_function_2 = [extract_parenthesized_substring, extract_single_quotes]
-    str_txt = [translate_str, accad_str]
-    str_txt_1 = [accad_str, translate_str]
-    # str_txt = ['', '']
-    # str_txt_1 = ['', '']
-    # pos_num = [next_pos, close_pos]
-    # pos_num_1 = [close_pos, next_pos]
-    # len_arr = len(str_txt)
-    len_arr = 1
+    str_txt = ['', '']
+    str_txt_1 = ['', '']
+    len_arr = len(str_txt)
+    # len_arr = 1
     i = 0
     csv_rows = []
     start_pos = 0
+    patterns1 = [r'/k \d{2,}:', r'[A-Za-z]{3,5} \d,', r'[A-Za-z]{3,5} \(\d{4},']
+    patterns2 = [r'[A-Za-z]{3,} \d{4}: \d']
+    all_patterns = [patterns1, patterns2]
 
-    # while start_pos < len(text):
     while i < len_arr:
-        # поиск по двойным кавычкам потом по буквам пробелам цифрам
-        str_txt[i % len_arr], flag, next_pos = extract_function_1[i % len_arr](text, start_pos)
+        patterns = all_patterns[i]
+        for pattern in patterns:
+            work = True
+            while work:
+                # поиск по двойным кавычкам потом по буквам пробелам цифрам
+                str_txt[i % len_arr], flag, next_pos = extract_function_1[i % len_arr](text, start_pos, pattern)
 
-        if flag:
-            if i == 0:
-                tx = "Перевод1 \n"
-            else:
-                tx = "Транслитерация2 \n"
-            print(f"{tx}{str_txt[i % len_arr]}")
+                if flag:
+                    # поиск по круглым скобкам потом по одинарным кавычкам
+                    str_txt_1[i % len_arr], flag2, close_pos = extract_function_2[i % len_arr](text, next_pos)
+                    if flag2:
+                        double_txt, double_flag, double_next_pos = extract_function_1[i % len_arr](text, next_pos, pattern)
+                        if double_flag and double_next_pos < (close_pos - len(str_txt_1[i % len_arr])):
+                            str_txt[i % len_arr] = double_txt
+                        match i:
+                            case 0:
+                                translate_str = str_txt[i % len_arr]
+                                accad_str = str_txt_1[i % len_arr]
+                            case 1:
+                                translate_str = str_txt_1[i % len_arr]
+                                accad_str = str_txt[i % len_arr]
+                        print(f"\nТранслитерация{i+1}\n {accad_str}")
+                        print(f"\nПеревод{i+1}\n {translate_str}")
+                        print("-" * 50)
+                        # 1. Очистка перевода
+                        t = translate_str.replace("\n", " ")
 
-            # print(translate_str)
-            # поиск по круглым скобкам потом по одинарным кавычкам
-            str_txt_1[i % len_arr], flag2, close_pos = extract_function_2[i % len_arr](text, next_pos)
-            if flag2:
-                double_txt, double_flag, double_next_pos = extract_function_1[i % len_arr](text, next_pos)
-                if double_flag and double_next_pos < (close_pos - len(str_txt_1[i % len_arr])):
-                    str_txt[i % len_arr] = double_txt
-                match i:
-                    case 0:
-                        translate_str = str_txt[i % len_arr]
-                        accad_str = str_txt_1[i % len_arr]
-                        tx = "Транслитерация1 \n"
-                    case 1:
-                        translate_str = str_txt_1[i % len_arr]
-                        accad_str = str_txt[i % len_arr]
-                        tx = "Перевод2 \n"
-                print(f"{tx}{str_txt_1[i % len_arr]}")
-                # 1. Очистка перевода
-                t = translate_str.replace("\n", " ")
+                        # 2. Очистка аккадского
+                        a = accad_str.replace("\n", " ")
+                        a = normalize_for_mt(a)
 
-                # 2. Очистка аккадского
-                a = accad_str.replace("\n", " ")
-                a = normalize_for_mt(a)
+                        # 3. Токенизация перевода
+                        t_sentences = sent_tokenize(t)
 
-                # 3. Токенизация перевода
-                t_sentences = sent_tokenize(t)
+                        # 4. Выравнивание + маркеры
+                        a = align_and_mark_sentences(a, t_sentences, marker="<sent>")
 
-                # 4. Выравнивание + маркеры
-                a = align_and_mark_sentences(a, t_sentences, marker="<sent>")
+                        # 5. Склеиваем перевод обратно
+                        t = " ".join(t_sentences)
 
-                # 5. Склеиваем перевод обратно
-                t = " ".join(t_sentences)
+                        # 6. CSV-экранирование (ОДИН РАЗ!)
+                        a = a.replace('"', '""')
+                        t = t.replace('"', '""')
 
-                # 6. CSV-экранирование (ОДИН РАЗ!)
-                a = a.replace('"', '""')
-                t = t.replace('"', '""')
-
-                csv_rows.append(f'"{a}","{t}"\n')
-                start_pos = close_pos + 1
-            else:
-                # start_pos = pos_num[i % len_arr] + 1
-                start_pos = len(text)
-        else:
-            # start_pos = pos_num[i % len_arr] + 1
-            start_pos = len(text)
-        if start_pos >= len(text):
-            i += 1
-            start_pos = 0
+                        csv_rows.append(f'"{a}","{t}"\n')
+                        start_pos = close_pos + 1
+                    else:
+                        start_pos = 0
+                        work = False
+                else:
+                    start_pos = 0
+                    work = False
+        i += 1
     return csv_rows
 
 #%%
@@ -525,11 +509,15 @@ def print_file_head(path, n=5, encoding="utf-8"):
 
 #%%
 # Завантаження даних з CSV-файлу
-thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate/"
-# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate/"
+thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
+# ----------------------------------------
+df_trnl = df_trnl.drop_duplicates()
 
+df_trnl.to_csv("publications_new.csv", index=False)
+# -------------------------------------------
 # print(df_trnl[df_trnl['has_akkadian']].head(20))  # Перші 5 строк даних
 # print(df_trnl.shape)  # Dataset Shape
 # print(df_trnl.info())  # Dataset Information
@@ -547,14 +535,15 @@ df_trnl.loc[idx, df_trnl.columns[2]] = (
 all_rows = []
 for i in idx:
     # print(f"index = {i}")
-    # print("Назва файлу:", df_trnl.iat[i, 0])
-    # print("Сторінка з текстом, що містить переклад:", df_trnl.iat[i, 1])
-    # print("Текст всієї статті:\n", df_trnl.iat[i, 2])
+    # print("Назва файлу:", df_trnl.at[i, df_trnl.columns[0]])
+    # print("Сторінка з текстом, що містить переклад:", df_trnl.at[i, df_trnl.columns[1]])
+    # print("Текст всієї статті:\n", df_trnl.at[i, df_trnl.columns[2]])
     # print("-" * 50)
-    list_row = []
-    list_row = process_text_and_build_csv_rows(df_trnl.iat[i, 2])
-    # if list_row != []:
-    all_rows.extend(list_row)
+    list_row = process_text_and_build_csv_rows(df_trnl.at[i, df_trnl.columns[2]])
+    # all_rows.extend(list_row)
+    for row in list_row:
+        if row not in all_rows:
+            all_rows.append(row)
     # num += 1
 
 # for i in idx[:10]:  # первые 10 для проверки
@@ -568,7 +557,7 @@ new_df = split_accad_and_translate(all_rows)
 new_df.to_csv('translate_from_publication.csv', index=False, quoting=csv.QUOTE_ALL)
 print("Примеры строк:")
 print(new_df)
-print(len(idx))
+print(f"Кількість статей з перекладом: {len(idx)}\n")
 # print(num)
 print('\n')
 
