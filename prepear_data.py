@@ -297,7 +297,7 @@ def normalize_gaps(text: str) -> str:
 def normalize_for_mt(text: str) -> str:
     # 0. Базовая очистка (translate-таблица уже применяется снаружи)
     a = text
-    chars_to_remove = "!?/:.<>˹˺[]ℵ⅀⅁"
+    chars_to_remove = "!?/:.<>˹˺[]ℵ⅀⅁ᲟᲠ"
     table = str.maketrans("", "", chars_to_remove)
     # 1. ASCII → Unicode
     for old, new in CHAR_MAP.items():
@@ -393,7 +393,8 @@ def process_text_and_build_csv_rows(text: str):
     csv_rows = []
     start_pos = 0
     patterns1 = [r'/k \d{2,}:', r'[A-Za-z]{3,5} \d,', r'[A-Za-z]{3,5} \(\d{4},']
-    patterns2 = [r'[A-Za-z]{3,} \d{4}: \d']
+    patterns2 = [r'[A-Z][a-z]{4,} \d{4}: \d+(?:[–\-]\d+)?']
+
     all_patterns = [patterns1, patterns2]
 
     while i < len_arr:
@@ -509,8 +510,8 @@ def print_file_head(path, n=5, encoding="utf-8"):
 
 #%%
 # Завантаження даних з CSV-файлу
-# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate/"
-thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate/"
+# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
 # ----------------------------------------
