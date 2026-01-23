@@ -5,9 +5,22 @@ import re
 SEPARATOR_RE = re.compile(r'^-+$')
 
 # Разрешенные символы для транслитерации
-TRANSLIT_LINE_RE = re.compile(
-    r"^[A-Za-zŠšḫḪṣṢṭṬʾʿ0-9\-ℵ \[\]\.\!⅀⅁ᲟᲠ–]+$"
-)
+# TRANSLIT_LINE_RE = re.compile(
+#     r"^[A-Za-zŠšḫḪṣṢṭṬʾʿ0-9\-ℵ \[\]\.\!⅀⅁ᲟᲠ–]+$"
+# )
+TRANSLIT_LINE_RE = re.compile(r'''
+^(?!\s*\d)                |    # не начинается с чистого номера
+(?=.*(
+        -[a-z]            |   # дефисная слоговая морфология
+        \d                |   # индексные цифры (Puzur4)
+        \b(?:DUMU|KIŠIB|LÚ|IGI|EN|AŠ|ŠA)\b |  # формулы / логограммы
+        [šḫṭṣ]            |   # диакритика
+))
+(?!.*[.,;:!?])                # нет пунктуации перевода
+(?!.*\b[A-Z]?[a-z]{3,}\b\s+\b[A-Z]?[a-z]{3,}\b)       # нет нормального текста
+[A-Za-zúēīāíšḫṭṣŠḪṮṢ0-9.\[\] \?§⅀⅁ᲟᲠᲢ–\- ]+
+$
+''', re.VERBOSE)
 
 # Морфемные разделители (дефис или ℵ)
 MORPHEME_SEP_RE = re.compile(r"[-ℵ]")
@@ -372,7 +385,8 @@ def extract_transliteration(text) -> list:
 
 
 # Завантаженние и обработка данных
-thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate/"
+# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate/"
+thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca + '/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
 
@@ -423,13 +437,13 @@ if all_blocks:
     print("\n" + "=" * 60 + "\n")
 
     # Выводим первые 3 блока для проверки
-    for i, block in enumerate(all_blocks[:3], 1):
+    for i, block in enumerate(all_blocks[:6], 1):
         print(f"Блок транслитерации {i}:")
         print(block[:300] + "..." if len(block) > 300 else block)
         print("-" * 50)
 
-    # Сохраняем в файл
-    with open(thiscompteca + '/transliteration_blocks.txt', 'w', encoding='utf-8') as f:
-        f.write(result_text)
+    # # Сохраняем в файл
+    # with open(thiscompteca + '/transliteration_blocks.txt', 'w', encoding='utf-8') as f:
+    #     f.write(result_text)
 else:
     print("Блоки транслитерации не найдены")

@@ -106,10 +106,398 @@ CHAR_MAP = {
     'h,': 'ḫ', 'H,': 'Ḫ',
     "'": 'ʾ', "`": 'ʿ',
     "’": 'ʾ', "‘": 'ʿ',
+    "§": 'S', "⅀": "š",
+    "$": "š", "∫": "š",
+    "ß": "š", "ʃ": "š",
+    "–": "-", "—": "-",
 }
 
+
+# Разделители блоков
+SEPARATOR_RE = re.compile(r'^-+$')
+
+# Разрешенные символы для транслитерации
+# TRANSLIT_LINE_RE = re.compile(
+#     r"^[A-Za-zŠšḫḪṣṢṭṬʾʿ0-9\-ℵ \[\]\.\!⅀⅁ᲟᲠ–]+$"
+# )
+TRANSLIT_LINE_RE = re.compile(r'''
+^(?!\s*\d)                |    # не начинается с чистого номера
+(?=.*(
+        -[a-z]            |   # дефисная слоговая морфология
+        \d                |   # индексные цифры (Puzur4)
+        \b(?:DUMU|KIŠIB|LÚ|IGI|EN|AŠ|ŠA)\b |  # формулы / логограммы
+        [šḫṭṣ]            |   # диакритика
+))
+(?!.*[.,;:!?])                # нет пунктуации перевода
+(?!.*\b[A-Z]?[a-z]{3,}\b\s+\b[A-Z]?[a-z]{3,}\b)       # нет нормального текста
+[A-Za-zúēīāíšḫṭṣŠḪṮṢ0-9.\[\] \?§⅀⅁ᲟᲠᲢ–\- ]+
+$
+''', re.VERBOSE)
+
+# Морфемные разделители (дефис или ℵ)
+MORPHEME_SEP_RE = re.compile(r"[-ℵ]")
+
+# Стоп-слова для фильтрации английского, немецкого и турецкого текста - расширенный список
+FOREIGN_WORD_RE = re.compile(
+    r"\b("
+    # Немецкие слова
+    r"Jetzt|ist|gerade|ein|Brief|des|an|und|der|die|das|von|mit|"
+    r"für|auf|aus|bei|nach|über|unter|zwischen|durch|wegen|"
+
+    # Английские слова
+    r"desk|bound|commercial|manager|who|conducted|"
+    r"this|must|have|been|invented|institution|"
+    r"if|when|is|going|to|in|at|and|palace|textiles|old|assyrian|procedures|"
+    r"the|a|an|of|for|with|from|by|on|as|or|but|not|so|then|also|"
+    r"that|which|what|where|why|how|"
+    r"he|she|it|we|they|"
+    r"was|were|be|being|been|"
+    r"will|would|can|could|should|may|might|must|"
+    r"about|above|after|against|among|around|before|behind|below|beneath|beside|between|beyond|"
+    r"during|except|inside|outside|since|through|throughout|toward|under|until|upon|within|without|"
+
+    # Турецкие слова
+    r"ve|ile|bir|bu|şu|o|ben|sen|biz|siz|onlar|"
+    r"ama|fakat|ancak|çünkü|eğer|"
+    r"evet|hayır|lütfen|teşekkür|ediyorum|ederim|"
+    r"gibi|için|kadar|göre|sonra|önce|arasında|altında|üstünde|içinde|dışında|"
+    r"ile|sadece|hem|de|da|ki|mi|mı|mu|mü|"
+    r"var|yok|olmak|yapmak|gitmek|gelmek|almak|vermek|"
+    r"büyük|küçük|yeni|eski|güzel|iyi|kötü|"
+    r"bugün|dün|yarın|şimdi|sonra|"
+    r"nerede|ne|kim|nasıl|niçin|niye|ne zaman|"
+    r"kitap|defter|kalem|masa|sandalye|ev|okul|iş|"
+    r"türkçe|türk|türkiye|ankara|istanbul|izmir|"
+    r"merhaba|selam|hoşgeldiniz|güle güle|allah|allahım|"
+    r"efendim|bey|hanım|bay|bayan|"
+    r"lütfen|rica|ediyorum|mümkün|mü|"
+    r"anlamak|bilmek|düşünmek|söylemek|konuşmak|"
+    r"üzgünüm|özür|dilerim|affedersiniz|"
+    r"tabii|elbette|belki|muhtemelen|kesinlikle|"
+    r"sağ|sol|ön|arka|yukarı|aşağı|"
+    r"hızlı|yavaş|uzun|kısa|geniş|dar|"
+    r"aç|tok|susuz|susamış|yorgun|dinç|"
+    r"zengin|fakir|mutlu|mutsuz|hasta|sağlıklı|"
+    r"anne|baba|kardeş|çocuk|aile|arkadaş|"
+    r"yemek|içmek|uyumak|çalışmak|oynamak|"
+    r"okumak|yazmak|dinlemek|bakmak|görmek|"
+    r"almak|satmak|ödemek|kazanmak|kaybetmek|"
+    r"gitmek|gelmek|dönmek|kalmak|ayrılmak|"
+    r"başlamak|bitmek|devam|etmek|değişmek|"
+    r"istemek|sevmek|nefret|etmek|beğenmek|"
+    r"anlamak|anlaşılmak|anlaşmak|"
+    r"yardım|istemek|yardım|etmek|"
+    r"beklemek|aramak|bulmak|kaybetmek|"
+    r"düşmek|kalkmak|oturmak|ayakta|durmak|"
+    r"koşmak|yürümek|uçmak|yüzmek|"
+    r"gülmek|ağlamak|bağırmak|fısıldamak|"
+    r"öpmek|sarılmak|tutmak|bırakmak|"
+    r"açmak|kapamak|bağlamak|çözmek|"
+    r"yıkamak|temizlemek|kirletmek|"
+    r"pişirmek|kızartmak|haşlamak|"
+    r"giymek|çıkarmak|değiştirmek|"
+    r"uyanmak|uyumak|rüya|görmek|"
+    r"doğmak|ölmek|yaşamak|yaşam|"
+    r"zaman|mekan|yer|dünya|evren|"
+    r"güneş|ay|yıldız|gezegen|"
+    r"hava|su|toprak|ateş|"
+    r"renk|şekil|boyut|ağırlık|"
+    r"ses|müzik|gürültü|sessizlik|"
+    r"ışık|karanlık|sıcak|soğuk|"
+    r"tatlı|ekşi|tuzlu|acı|"
+    r"yumuşak|sert|pürüzsüz|pürüzlü|"
+    r"taze|bayat|temiz|kirli|"
+    r"canlı|cansız|bitki|hayvan|"
+    r"ağaç|çiçek|yaprak|meyve|"
+    r"kedi|kopek|kuş|balık|"
+    r"şehir|köy|kasaba|ülke|"
+    r"cadde|sokak|meydan|park|"
+    r"bina|ev|apartman|villa|"
+    r"oda|mutfak|banyo|tuvalet|"
+    r"kapı|pencere|duvar|tavan|"
+    r"masa|sandalye|koltuk|yatak|"
+    r"dolap|raf|çekmece|"
+    r"buzdolabı|fırın|ocak|"
+    r"televizyon|radyo|bilgisayar|telefon|"
+    r"para|bank|kredi|borç|"
+    r"iş|meslek|maaş|izin|"
+    r"okul|üniversite|öğrenci|öğretmen|"
+    r"ders|sınav|not|ödev|"
+    r"spor|futbol|basketbol|voleybol|"
+    r"müzik|resim|tiyatro|sinema|"
+    r"kitap|gazete|dergi|internet|"
+    r"tatil|seyahat|otel|plaj|"
+    r"hava|durumu|yağmur|kar|güneş|"
+    r"sağlık|hasta|doktor|hastane|"
+    r"yasa|mahkeme|polis|suç|"
+    r"din|inanç|tanrı|ibadet|"
+    r"siyaset|parti|seçim|hükümet|"
+    r"ekonomi|ticaret|sanayi|tarım|"
+    r"kültür|sanat|edebiyat|bilim|"
+    r"tarih|coğrafya|matematik|fizik|"
+    r"dil|kelime|cümle|gramer|"
+    r"numara|adres|telefon|numara|"
+    r"ad|soyad|yaş|doğum|tarihi|"
+    r"milliyet|vatandaşlık|pasaport|"
+    r"aile|durumu|medeni|hal|"
+    r"eğitim|durumu|mezuniyet|"
+    r"iş|tecrübesi|referans|"
+    r"hobi|ilgi|alanı|beceri|"
+    r"özellik|avantaj|dezavantaj|"
+    r"problem|çözüm|sonuç|etki|"
+    r"sebep|neden|amaç|hedef|"
+    r"plan|program|proje|"
+    r"rapor|belge|dosya|"
+    r"toplantı|konferans|seminer|"
+    r"yazışma|iletişim|görüşme|"
+    r"sözleşme|anlaşma|protokol|"
+    r"satış|pazarlama|reklam|"
+    r"üretim|kalite|kontrol|"
+    r"nakliye|lojistik|depolama|"
+    r"finans|muhasebe|denetim|"
+    r"insan|kaynakları|personel|"
+    r"teknoloji|sistem|yazılım|"
+    r"güvenlik|koruma|tedbir|"
+    r"çevre|doğa|kirlilik|"
+    r"enerji|elektrik|su|doğalgaz|"
+    r"ulaşım|trafik|yol|köprü|"
+    r"iletişim|medya|haber|"
+    r"eğlence|oyun|festival|"
+    r"alışveriş|market|mağaza|"
+    r"restoran|cafe|bar|"
+    r"otel|konaklama|rezervasyon|"
+    r"bank|atm|kredi|kartı|"
+    r"posta|kargo|kurye|"
+    r"sigorta|sağlık|sigortası|"
+    r"vergi|harç|ceza|"
+    r"kanun|yönetmelik|tüzük|"
+    r"hak|özgürlük|sorumluluk|"
+    r"değer|ilk|erdem|"
+    r"sevgi|saygı|hoşgörü|"
+    r"dostluk|arkadaşlık|aşk|"
+    r"mutluluk|hüzün|öfke|"
+    r"korku|endişe|panik|"
+    r"umut|hayal|gerçek|"
+    r"başarı|başarısızlık|tecrübe|"
+    r"zaman|mekan|an|geçmiş|gelecek|"
+    r"hayat|ölüm|doğum|yaşam|"
+    r"ruh|beden|akıl|kalp|"
+    r"düşünce|duygu|davranış|"
+    r"alışkanlık|gelenek|görenek|"
+    r"festival|bayram|kutlama|"
+    r"yemek|içecek|tatlı|"
+    r"giyim|kuşam|moda|"
+    r"mimari|tasarım|estetik|"
+    r"mühendislik|teknik|teknoloji|"
+    r"tarım|hayvancılık|balıkçılık|"
+    r"madencilik|enerji|sanayi|"
+    r"turizm|seyahat|konaklama|"
+    r"eğitim|öğretim|araştırma|"
+    r"sağlık|tıp|hastane|"
+    r"spor|egzersiz|antrenman|"
+    r"sanat|müzik|resim|heykel|"
+    r"edebiyat|şiir|roman|hikaye|"
+    r"sinema|tiyatro|konser|"
+    r"medya|gazete|televizyon|"
+    r"internet|sosyal|medya|"
+    r"bilgisayar|telefon|tablet|"
+    r"yazılım|program|uygulama|"
+    r"veri|bilgi|bilgi|sistemi|"
+    r"güvenlik|şifre|erişim|"
+    r"ağ|internet|bağlantı|"
+    r"donanım|yazılım|sistem|"
+    r"sunucu|istemci|veritabanı|"
+    r"web|site|domain|hosting|"
+    r"e-ticaret|online|alışveriş|"
+    r"dijital|pazarlama|reklam|"
+    r"sosyal|ağ|platform|"
+    r"blog|forum|yorum|"
+    r"fotoğraf|video|ses|"
+    r"grafik|animasyon|efekt|"
+    r"oyun|konsol|simülasyon|"
+    r"yapay|zeka|makine|öğrenme|"
+    r"robot|otomasyon|sensör|"
+    r"sürücü|kontrol|sistemi|"
+    r"enerji|tasarrufu|verimlilik|"
+    r"çevre|dostu|sürdürülebilir|"
+    r"geri|dönüşüm|atık|"
+    r"iklim|değişikliği|küresel|ısınma|"
+    r"doğal|afet|deprem|sel|"
+    r"sağlık|hijyen|temizlik|"
+    r"beslenme|diyet|spor|"
+    r"psikoloji|terapi|danışmanlık|"
+    r"hukuk|avukat|mahkeme|"
+    r"ekonomi|finans|yatırım|"
+    r"emlak|konut|ofis|"
+    r"taşıt|araba|motor|"
+    r"ulaşım|toplu|taşıma|"
+    r"inşaat|mimari|mühendislik|"
+    r"dekorasyon|mobilya|aksesuar|"
+    r"bahçe|peyzaj|bitki|"
+    r"ev|hayvanı|bakım|"
+    r"çocuk|bakımı|eğitim|"
+    r"yaşlı|bakım|hizmet|"
+    r"engelli|erişilebilirlik|"
+    r"kadın|erkek|çocuk|"
+    r"genç|yaşlı|orta|yaş|"
+    r"bekar|evli|boşanmış|"
+    r"çocuk|sahibi|çocuksuz|"
+    r"öğrenci|çalışan|emekli|"
+    r"serbest|meslek|maaşlı|"
+    r"part|time|full|time|"
+    r"uzaktan|çalışma|esnek|saat|"
+    r"kariyer|gelişim|eğitim|"
+    r"yetenek|beceri|deneyim|"
+    r"cv|özgeçmiş|referans|"
+    r"mülakat|görüşme|test|"
+    r"işe|alım|oriantasyon|"
+    r"performans|değerlendirme|"
+    r"terfi|zam|ikramiye|"
+    r"izin|tatil|rapor|"
+    r"işten|çıkarma|istifa|"
+    r"sendika|toplu|sözleşme|"
+    r"grev|lokavt|uzlaşma|"
+    r"vergi|sigorta|prim|"
+    r"emeklilik|fon|yardım|"
+    r"sağlık|sigortası|özel|"
+    r"hayat|sigortası|kaza|"
+    r"konut|sigortası|araba|"
+    r"seyahat|sigortası|bagaj|"
+    r"yasal|sorumluluk|sigortası|"
+
+    # Другие общие иностранные слова
+    r"dass|sich|nicht|nur|auch|aber|oder|"
+    r"por|para|con|sin|sobre|entre|hacia|"
+    r"pour|avec|sans|sur|entre|vers|"
+    r"per|con|senza|su|tra|verso"
+    r")\b",
+    re.I
+)
+
+# Явные признаки аккадской транслитерации
+AKKADIAN_INDICATOR_RE = re.compile(
+    r"[ŠšḪḥṢṣṬṭʾʿ⅀⅁ᲟᲠ]|"  # Аккадские специальные символы
+    r"\[.*?\]|"  # Квадратные скобки
+    r"\(.*?\)|"  # Круглые скобки
+    r"\{.*?\}|"  # Фигурные скобки
+    r"\b[A-Z][a-zšḫṭṣ]+-[a-zšḫṭṣ]+\b|"  # Слова с дефисом, начинающиеся с заглавной
+    r"\b[a-zšḫṭṣ]+-[a-zšḫṭṣ]+\b|"  # Слова с дефисом из строчных
+    r"\b\d+[rv]\b|"  # Номера строк: 14r, 15v и т.д.
+    r"x\+|x\-|x\?|x=\d+|"  # Фрагменты табличек
+    r"\.\.\.|…|"  # Многоточия
+    r"\d+['ˈ]|"  # Числа с апострофом
+    r"–[^ ]"  # Длинное тире не после пробела
+)
+
+# Признаки, что это НЕ транслитерация (пропускать такие строки)
+NOT_TRANSLIT_RE = re.compile(
+    r"\b[A-Z][a-z]{3,} [A-Z][a-z]{3,}\b|"  # Два заглавных слова подряд (имя собственное)
+    r"\b[a-z]{4,} [a-z]{4,} [a-z]{4,}\b|"  # Три длинных слова подряд (предложение)
+    r"^\d+ [A-Z][a-z]|"  # Начинается с цифры и заглавной буквы
+    r"[a-z]{5,}-[a-z]{4,}[^šḫṭṣʾʿ]|"  # Длинные английские слова с дефисом
+    r", |; |: |\. [A-Z]|"  # Знаки пунктуации с пробелом
+    r"\b(?:[A-Za-z]+ ){3,}[A-Za-z]+\b"  # Более 3 слов подряд
+)
+
+
+def extract_transliteration(text) -> list:
+    """
+    Извлекает блоки транслитерации из текста.
+    Склеивает строки, оканчивающиеся на - или ℵ с последующей.
+    Возвращает список блоков.
+    """
+    if isinstance(text, list):
+        text = "\n".join(text)
+
+    raw_lines = text.splitlines()
+    lines = []
+    buffer = ""
+
+    for line in raw_lines:
+        line = line.rstrip()
+        if not line:
+            if buffer:
+                lines.append(buffer)
+                buffer = ""
+            continue
+
+        if not buffer:
+            buffer = line
+        else:
+            buffer += " " + line
+
+        if not line.endswith(("-", "ℵ")):
+            lines.append(buffer)
+            buffer = ""
+
+    if buffer:
+        lines.append(buffer)
+
+    # Формируем блоки транслитерации
+    blocks = []
+    current = []
+
+    for line in lines:
+        # Пропускаем разделители
+        if SEPARATOR_RE.match(line):
+            continue
+
+        line_trimmed = line.strip()
+
+        # Пропускаем пустые строки
+        if not line_trimmed:
+            continue
+
+        # Проверка 1: Соответствует ли базовому формату транслитерации?
+        has_basic_format = (
+                TRANSLIT_LINE_RE.match(line_trimmed) and
+                MORPHEME_SEP_RE.search(line_trimmed)
+        )
+
+        if not has_basic_format:
+            if current:
+                blocks.append("\n".join(current).strip())
+                current = []
+            continue
+
+        # Проверка 2: Содержит ли иностранные слова?
+        has_foreign_words = FOREIGN_WORD_RE.search(line_trimmed)
+
+        # Проверка 3: Содержит ли явные признаки НЕ транслитерации?
+        is_not_translit = NOT_TRANSLIT_RE.search(line_trimmed)
+
+        # Проверка 4: Содержит ли признаки аккадской транслитерации?
+        has_akkadian_indicators = AKKADIAN_INDICATOR_RE.search(line_trimmed)
+
+        # Логика принятия решения:
+        # 1. Должен быть базовый формат
+        # 2. Не должен содержать иностранных слов ИЛИ должен иметь аккадские индикаторы
+        # 3. Не должен быть явно НЕ транслитерацией
+        is_transliteration = (
+                has_basic_format and
+                (not has_foreign_words or has_akkadian_indicators) and
+                not is_not_translit
+        )
+
+        # Особый случай: если есть аккадские индикаторы, принимаем даже с некоторыми иностранными словами
+        if has_akkadian_indicators and has_basic_format and not is_not_translit:
+            is_transliteration = True
+
+        if is_transliteration:
+            current.append(line_trimmed)
+        else:
+            if current:
+                blocks.append("\n".join(current).strip())
+                current = []
+
+    if current:
+        blocks.append("\n".join(current).strip())
+
+    return blocks
+
+
 #%%
-def extract_quoted_substring(text: str, start_pos: int):
+def extract_quoted_substring(text: str, start_pos: int, pattern: str):
     """
     Ищет в строке text, начиная С позиции start_pos,
     подстроку вида: ' "текст"'.
@@ -119,18 +507,14 @@ def extract_quoted_substring(text: str, start_pos: int):
     if start_pos != 0:
         start_pos += 1
     # 1. Основной шаблон
-    pattern = re.compile(
-        r'/k \d{4}:'
-    )
+    pattern = re.compile(pattern)
 
     match = pattern.search(text, start_pos)
     if not match:
         return None, None, start_pos
-    start_pos = match.end()
+    start_pos = match.end() + 1
     translate = False
     open_seq = ' "'
-    # if start_pos != 0:
-    #     start_pos += 1
     # поиск начинается С start_pos
     open_pos = text.find(open_seq, start_pos)
 
@@ -151,7 +535,6 @@ def extract_quoted_substring(text: str, start_pos: int):
 
     dash_count = substring.count('-')
     aleph_count = substring.count('ℵ')
-    # dash_required = len(substring) / 50
     if dash_count > 0 or aleph_count > 0:
         if dash_count > 0:
             dash_required = len(substring) / dash_count
@@ -194,13 +577,15 @@ def extract_parenthesized_substring(text: str, start_pos: int):
         # # подстрока между скобками
         substring = text[open_pos + 1 : close_pos]
 
-        dash_count = substring.count('-')
-        aleph_count = substring.count('ℵ')
-        if dash_count > 0:
-            dash_required = len(substring) / dash_count
-        else:
-            dash_required = 0
-        if dash_required > 10 or aleph_count <= 2 and dash_count == 0:
+        blocks = extract_transliteration(substring)
+        if not blocks:
+        # dash_count = substring.count('-')
+        # aleph_count = substring.count('ℵ')
+        # if dash_count > 0:
+        #     dash_required = len(substring) / dash_count
+        # else:
+        #     dash_required = 0
+        # if dash_required > 10 or aleph_count <= 2 and dash_count == 0:
             return None, None, start_pos
         # 4. условия
         is_long = len(substring) > 30
@@ -211,19 +596,18 @@ def extract_parenthesized_substring(text: str, start_pos: int):
     return None, None, start_pos
 
 #%%
-def extract_letter_space_digit_colon_space(text: str, start_search_pos: int):
-    # 1. Основной шаблон
-    pattern = re.compile(
-        r'[A-Za-z]{3,} \d{4}: \d{1,}'
-    )
+def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pattern: str):
+    if start_search_pos != 0:
+        start_search_pos += 1
+    pattern = re.compile(pattern)
 
-    match = pattern.search(text, start_search_pos+1)
+    match = pattern.search(text, start_search_pos)
     if not match:
         return None, None, start_search_pos
-    # 2. Проверка 5 символов после группы
-    pos = match.end()
-    limit = min(pos + 5, len(text))
-    # поиск начаала транслитерации
+    pos = match.end() + 1
+
+    limit = min(pos + 6, len(text))
+    # поиск начала транслитерации
     start_pos = pos
     for i in range(start_pos, limit):
         if text[i].isdigit() or text[i] == '-':
@@ -243,13 +627,14 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int):
 
     # 4. Проверка подстроки
     substr = text[start_pos+1:quote_pos]
-
-    dash_count = substr.count('-')
-    aleph_count = substr.count('ℵ')
-
-    dash_required = diff / 10.5
-
-    if dash_count >= dash_required or aleph_count >= 2:
+    blocks = extract_transliteration(substr)
+    if blocks:
+    # dash_count = substr.count('-')
+    # aleph_count = substr.count('ℵ')
+    #
+    # dash_required = diff / 10.5
+    #
+    # if dash_count >= dash_required or aleph_count >= 2:
         transliter_txt = substr
         return transliter_txt, True, quote_pos
 
@@ -266,7 +651,7 @@ def extract_single_quotes(text: str, start_pos: int):
         return None, None, start_pos
 
     # 2. Проверка расстояния
-    if quote_pos - start_pos > 1200:
+    if quote_pos - start_pos > 1000:
         return None, None, start_pos
 
     # 3. Извлечение подстроки
@@ -303,7 +688,7 @@ def normalize_gaps(text: str) -> str:
 def normalize_for_mt(text: str) -> str:
     # 0. Базовая очистка (translate-таблица уже применяется снаружи)
     a = text
-    chars_to_remove = "!?/:.<>˹˺[]ℵ⅀⅁"
+    chars_to_remove = "!?/:.<>˹˺[]ℵ⅁ᲟᲠᲢ"
     table = str.maketrans("", "", chars_to_remove)
     # 1. ASCII → Unicode
     for old, new in CHAR_MAP.items():
@@ -317,7 +702,19 @@ def normalize_for_mt(text: str) -> str:
 
     # 3. Подстрочные цифры
     a = normalize_subscripts(a)
-
+    # 4. Удаляем редакторские маркеры
+    replacements = {
+        "⅀": "š",
+        "§": "š",
+        "$": "š",
+        "∫": "š",
+        "ß": "š",
+        "ʃ": "š",
+        "–": "-",
+        "—": "-",
+    }
+    # удалить редакторские параграфы
+    a = re.sub(r"\b§\s*\d+\b", "", a)
     # 4. Удаляем редакторские маркеры
     a = re.sub(r"^Pl-/\s*", "", a)   # Pl-/
     a = a.replace("\\", "")          # перенос строки
@@ -389,83 +786,74 @@ def process_text_and_build_csv_rows(text: str):
     Обрабатывает текст ячейкеи и возвращает список строк CSV
     (без заголовка)
     """
-    translate_str, accad_str = '', ''
-    # next_pos = 0
-    # close_pos = 0
     extract_function_1 = [extract_quoted_substring, extract_letter_space_digit_colon_space]
     extract_function_2 = [extract_parenthesized_substring, extract_single_quotes]
-    str_txt = [translate_str, accad_str]
-    str_txt_1 = [accad_str, translate_str]
-    # str_txt = ['', '']
-    # str_txt_1 = ['', '']
-    # pos_num = [next_pos, close_pos]
-    # pos_num_1 = [close_pos, next_pos]
-    # len_arr = len(str_txt)
-    len_arr = 1
+    str_txt = ['', '']
+    str_txt_1 = ['', '']
+    len_arr = len(str_txt)
+    # len_arr = 1
     i = 0
     csv_rows = []
     start_pos = 0
+    patterns1 = [r'/k \d{2,}:', r'[A-Za-z]{3,5} \d,', r'[A-Za-z]{3,5} \(\d{4},']
+    patterns2 = [r'[A-Z][a-z]{4,} \d{4}: \d+(?:[–\-]\d+)?']
 
-    # while start_pos < len(text):
+    all_patterns = [patterns1, patterns2]
+
     while i < len_arr:
-        # поиск по двойным кавычкам потом по буквам пробелам цифрам
-        str_txt[i % len_arr], flag, next_pos = extract_function_1[i % len_arr](text, start_pos)
+        patterns = all_patterns[i]
+        for pattern in patterns:
+            work = True
+            while work:
+                # поиск по двойным кавычкам потом по буквам пробелам цифрам
+                str_txt[i % len_arr], flag, next_pos = extract_function_1[i % len_arr](text, start_pos, pattern)
 
-        if flag:
-            if i == 0:
-                tx = "Перевод1 \n"
-            else:
-                tx = "Транслитерация2 \n"
-            print(f"{tx}{str_txt[i % len_arr]}")
+                if flag:
+                    # поиск по круглым скобкам потом по одинарным кавычкам
+                    str_txt_1[i % len_arr], flag2, close_pos = extract_function_2[i % len_arr](text, next_pos)
+                    if flag2:
+                        double_txt, double_flag, double_next_pos = extract_function_1[i % len_arr](text, next_pos, pattern)
+                        if double_flag and double_next_pos < (close_pos - len(str_txt_1[i % len_arr])):
+                            str_txt[i % len_arr] = double_txt
+                        match i:
+                            case 0:
+                                translate_str = str_txt[i % len_arr]
+                                accad_str = str_txt_1[i % len_arr]
+                            case 1:
+                                translate_str = str_txt_1[i % len_arr]
+                                accad_str = str_txt[i % len_arr]
+                        print(f"\nТранслитерация{i+1}\n {accad_str}")
+                        print(f"\nПеревод{i+1}\n {translate_str}")
+                        print("-" * 50)
+                        # 1. Очистка перевода
+                        t = translate_str.replace("\n", " ")
 
-            # print(translate_str)
-            # поиск по круглым скобкам потом по одинарным кавычкам
-            str_txt_1[i % len_arr], flag2, close_pos = extract_function_2[i % len_arr](text, next_pos)
-            if flag2:
-                double_txt, double_flag, double_next_pos = extract_function_1[i % len_arr](text, next_pos)
-                if double_flag and double_next_pos < (close_pos - len(str_txt_1[i % len_arr])):
-                    str_txt[i % len_arr] = double_txt
-                match i:
-                    case 0:
-                        translate_str = str_txt[i % len_arr]
-                        accad_str = str_txt_1[i % len_arr]
-                        tx = "Транслитерация1 \n"
-                    case 1:
-                        translate_str = str_txt_1[i % len_arr]
-                        accad_str = str_txt[i % len_arr]
-                        tx = "Перевод2 \n"
-                print(f"{tx}{str_txt_1[i % len_arr]}")
-                # 1. Очистка перевода
-                t = translate_str.replace("\n", " ")
+                        # 2. Очистка аккадского
+                        a = accad_str.replace("\n", " ")
+                        a = normalize_for_mt(a)
 
-                # 2. Очистка аккадского
-                a = accad_str.replace("\n", " ")
-                a = normalize_for_mt(a)
+                        # 3. Токенизация перевода
+                        t_sentences = sent_tokenize(t)
 
-                # 3. Токенизация перевода
-                t_sentences = sent_tokenize(t)
+                        # 4. Выравнивание + маркеры
+                        a = align_and_mark_sentences(a, t_sentences, marker="<sent>")
 
-                # 4. Выравнивание + маркеры
-                a = align_and_mark_sentences(a, t_sentences, marker="<sent>")
+                        # 5. Склеиваем перевод обратно
+                        t = " ".join(t_sentences)
 
-                # 5. Склеиваем перевод обратно
-                t = " ".join(t_sentences)
+                        # 6. CSV-экранирование (ОДИН РАЗ!)
+                        a = a.replace('"', '""')
+                        t = t.replace('"', '""')
 
-                # 6. CSV-экранирование (ОДИН РАЗ!)
-                a = a.replace('"', '""')
-                t = t.replace('"', '""')
-
-                csv_rows.append(f'"{a}","{t}"\n')
-                start_pos = close_pos + 1
-            else:
-                # start_pos = pos_num[i % len_arr] + 1
-                start_pos = len(text)
-        else:
-            # start_pos = pos_num[i % len_arr] + 1
-            start_pos = len(text)
-        if start_pos >= len(text):
-            i += 1
-            start_pos = 0
+                        csv_rows.append(f'"{a}","{t}"\n')
+                        start_pos = close_pos + 1
+                    else:
+                        start_pos = 0
+                        work = False
+                else:
+                    start_pos = 0
+                    work = False
+        i += 1
     return csv_rows
 
 #%%
@@ -525,11 +913,15 @@ def print_file_head(path, n=5, encoding="utf-8"):
 
 #%%
 # Завантаження даних з CSV-файлу
-thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate/"
-# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate/"
+thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
+# ----------------------------------------
+df_trnl = df_trnl.drop_duplicates()
 
+# df_trnl.to_csv("publications_new.csv", index=False)
+# -------------------------------------------
 # print(df_trnl[df_trnl['has_akkadian']].head(20))  # Перші 5 строк даних
 # print(df_trnl.shape)  # Dataset Shape
 # print(df_trnl.info())  # Dataset Information
@@ -547,14 +939,15 @@ df_trnl.loc[idx, df_trnl.columns[2]] = (
 all_rows = []
 for i in idx:
     # print(f"index = {i}")
-    # print("Назва файлу:", df_trnl.iat[i, 0])
-    # print("Сторінка з текстом, що містить переклад:", df_trnl.iat[i, 1])
-    # print("Текст всієї статті:\n", df_trnl.iat[i, 2])
+    # print("Назва файлу:", df_trnl.at[i, df_trnl.columns[0]])
+    # print("Сторінка з текстом, що містить переклад:", df_trnl.at[i, df_trnl.columns[1]])
+    # print("Текст всієї статті:\n", df_trnl.at[i, df_trnl.columns[2]])
     # print("-" * 50)
-    list_row = []
-    list_row = process_text_and_build_csv_rows(df_trnl.iat[i, 2])
-    # if list_row != []:
-    all_rows.extend(list_row)
+    list_row = process_text_and_build_csv_rows(df_trnl.at[i, df_trnl.columns[2]])
+    # all_rows.extend(list_row)
+    for row in list_row:
+        if row not in all_rows:
+            all_rows.append(row)
     # num += 1
 
 # for i in idx[:10]:  # первые 10 для проверки
@@ -568,7 +961,7 @@ new_df = split_accad_and_translate(all_rows)
 new_df.to_csv('translate_from_publication.csv', index=False, quoting=csv.QUOTE_ALL)
 print("Примеры строк:")
 print(new_df)
-print(len(idx))
+print(f"Кількість статей з перекладом: {len(idx)}\n")
 # print(num)
 print('\n')
 
