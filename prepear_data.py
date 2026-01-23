@@ -148,10 +148,10 @@ FOREIGN_WORD_RE = re.compile(
     r"desk|bound|commercial|manager|who|conducted|"
     r"this|must|have|been|invented|institution|"
     r"if|when|going|to|and|palace|textiles|old|assyrian|procedures|"
-    r"the|an|of|for|with|from|by|on|as|or|but|not|so|then|also|"
+    r"the|an|of|for|with|from|by|on|or|but|not|so|then|also|"
     r"that|which|what|where|why|how|"
-    r"he|she|it|we|they|"
-    r"was|were|be|being|been|"
+    r"he|she|we|they|"
+    r"was|were|being|been|"
     r"will|would|can|could|should|may|might|must|"
     r"about|above|after|against|among|around|before|behind|below|beneath|beside|between|beyond|"
     r"during|except|inside|outside|since|through|throughout|toward|under|until|upon|within|without|"
@@ -161,7 +161,7 @@ FOREIGN_WORD_RE = re.compile(
     r"ama|fakat|ancak|çünkü|eğer|"
     r"evet|hayır|lütfen|teşekkür|ediyorum|ederim|"
     r"gibi|kadar|göre|sonra|önce|arasında|altında|üstünde|içinde|dışında|"
-    r"ile|sadece|hem|de|mi|mı|mü|"
+    r"ile|sadece|hem|de|mü|"
     r"var|yok|olmak|yapmak|gitmek|gelmek|almak|vermek|"
     r"büyük|küçük|yeni|eski|güzel|iyi|kötü|"
     r"bugün|dün|yarın|şimdi|sonra|"
@@ -495,14 +495,14 @@ def extract_transliteration(text) -> list:
 
     return blocks
 
-def extract_transliteration_only(text) -> list:
+def extract_transliteration_only(text) -> str:
     """
     Извлекает блоки транслитерации из текста.
     Склеивает строки, оканчивающиеся на - или ℵ с последующей.
     Возвращает список блоков.
     """
-    if isinstance(text, list):
-        text = "\n".join(text)
+    # if isinstance(text, list):
+    #     text = "\n".join(text)
 
     raw_lines = text.splitlines()
     lines = []
@@ -529,8 +529,10 @@ def extract_transliteration_only(text) -> list:
         lines.append(buffer)
 
     # Формируем блоки транслитерации
-    blocks = []
-    current = []
+    # blocks = []
+    blocks = ""
+    # current = []
+    current = ""
 
     for line in lines:
         # Пропускаем разделители
@@ -550,9 +552,11 @@ def extract_transliteration_only(text) -> list:
         )
 
         if not has_basic_format:
-            if current:
-                blocks.append("\n".join(current).strip())
-                current = []
+            # if current:
+            #     # blocks.append("\n".join(current).strip())
+            #     blocks = " ".join(current).strip()
+            #     # current = []
+            #     current = ""
             continue
 
         # Проверка 2: Содержит ли иностранные слова?
@@ -580,14 +584,16 @@ def extract_transliteration_only(text) -> list:
         #     is_transliteration = True
 
         if is_transliteration:
-            current.append(line_trimmed)
+            # current.append(line_trimmed)
+            current = " ".join(line_trimmed)
         # else:
         #     if current:
         #         blocks.append("\n".join(current).strip())
         #         current = []
 
     if current:
-        blocks.append("\n".join(current).strip())
+        # blocks.append("\n".join(current).strip())
+        blocks = " ".join(current).strip()
 
     return blocks
 
@@ -674,7 +680,7 @@ def extract_parenthesized_substring(text: str, start_pos: int):
         # # подстрока между скобками
         substring = text[open_pos + 1 : close_pos]
 
-        blocks = extract_transliteration(substring)
+        blocks = extract_transliteration_only(substring)
         if not blocks:
         # dash_count = substring.count('-')
         # aleph_count = substring.count('ℵ')
@@ -724,11 +730,15 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
         else:
             start_pos = i
             break
+    if start_pos == len(text):
+        return None, None, None
     # --------------------------------------------
     # new_line_pos = 0
     end = text.find('\n', start_pos)
     substring = text[pos:] if end == -1 else text[start_pos:end]
     new_line_pos = None if end == -1 else end + 1
+    if not new_line_pos:
+        return None, None, None
     result = ""
     while new_line_pos < len(text):
         count_empty = 0
@@ -751,15 +761,16 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
             end = text.find('\n', new_line_pos)
         new_line_pos = None if end == -1 else end + 1
         # Пропускаем разделители
-        if not SEPARATOR_RE.match(substring):
-            if result:
-                qu_pos = find_single_quote(text, new_line_pos)
-                if qu_pos:
-                    return result, True, qu_pos
-                else:
-                    return result, None, None
-            else:
-                return None, None, new_line_pos
+        if SEPARATOR_RE.match(substring):
+            continue
+        # if result:
+        #     qu_pos = find_single_quote(text, new_line_pos)
+        #     if qu_pos:
+        #         return result, True, qu_pos
+        #     else:
+        #         return result, None, None
+        # else:
+        #     return None, None, new_line_pos
         substring = substring.strip()
         # Проверка 1: Соответствует ли базовому формату транслитерации?
         has_basic_format = (
@@ -781,7 +792,7 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
                 not is_not_translit
         )
         if is_transliteration:
-            result = " ".join(substring)
+            result = " ".join(substring).strip()
             end = text.find('\n', new_line_pos)
             substring = text[new_line_pos:] if end == -1 else text[new_line_pos:end]
         else:
@@ -995,9 +1006,9 @@ def process_text_and_build_csv_rows(text: str):
                             case 1:
                                 translate_str = str_txt_1[i % len_arr]
                                 accad_str = str_txt[i % len_arr]
-                        print(f"\nТранслитерация{i+1}\n {accad_str}")
-                        print(f"\nПеревод{i+1}\n {translate_str}")
-                        print("-" * 50)
+                        # print(f"\nТранслитерация{i+1}\n {accad_str}")
+                        # print(f"\nПеревод{i+1}\n {translate_str}")
+                        # print("-" * 50)
                         # 1. Очистка перевода
                         t = translate_str.replace("\n", " ")
 
@@ -1017,7 +1028,9 @@ def process_text_and_build_csv_rows(text: str):
                         # 6. CSV-экранирование (ОДИН РАЗ!)
                         a = a.replace('"', '""')
                         t = t.replace('"', '""')
-
+                        print(f"\nТранслитерация{i + 1}\n {a}")
+                        print(f"\nПеревод{i + 1}\n {t}")
+                        print("-" * 50)
                         csv_rows.append(f'"{a}","{t}"\n')
                         start_pos = close_pos + 1
                     else:
@@ -1086,8 +1099,8 @@ def print_file_head(path, n=5, encoding="utf-8"):
 
 #%%
 # Завантаження даних з CSV-файлу
-# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate/"
-thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate/"
+# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
 # ----------------------------------------
@@ -1131,7 +1144,7 @@ for i in idx:
 
 
 new_df = split_accad_and_translate(all_rows)
-new_df.to_csv('translate_from_publication.csv', index=False, quoting=csv.QUOTE_ALL)
+# new_df.to_csv('translate_from_publication.csv', index=False, quoting=csv.QUOTE_ALL)
 print("Примеры строк:")
 print(new_df)
 print(f"Кількість статей з перекладом: {len(idx)}\n")
