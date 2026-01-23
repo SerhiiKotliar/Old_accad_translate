@@ -130,7 +130,7 @@ TRANSLIT_LINE_RE = re.compile(r'''
 ))
 (?!.*[.,;:!?])                # нет пунктуации перевода
 (?!.*\b[A-Z]?[a-z]{3,}\b\s+\b[A-Z]?[a-z]{3,}\b)       # нет нормального текста
-[A-Za-zúēīāíšḫṭṣŠḪṮṢ0-9.\[\] \?§⅀⅁ᲟᲠᲢ–\- ]+
+[A-Za-zúēīāíšḫṭṣŠÍÚḪṮṢ0-9.\[\] \?\!§⅀⅁ᲟᲠᲢ–\- ]+
 $
 ''', re.VERBOSE)
 
@@ -692,6 +692,18 @@ def extract_parenthesized_substring(text: str, start_pos: int):
         return substring, flag, close_pos
     return None, None, start_pos
 
+def find_single_quote(text: str, start_pos: int):
+    # 3. Поиск одинарной открывающей кавычки
+    quote_pos = text.find("'", start_pos)
+    if quote_pos == -1:
+        return None
+    # длина транслитерации
+    diff = quote_pos - 1 - start_pos
+    if diff >= 1000:
+        return None
+    else:
+        return quote_pos
+
 #%%
 def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pattern: str):
     if start_search_pos != 0:
@@ -712,30 +724,99 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
         else:
             start_pos = i
             break
-
-    # 3. Поиск одинарной открывающей кавычки
-    quote_pos = text.find("'", start_pos+1)
-    if quote_pos == -1:
-        return None, None, start_pos
-    # длина транслитерации
-    diff = quote_pos - 1 - start_pos
-    if diff >= 1000:
-        return None, None, start_pos
-
-    # 4. Проверка подстроки
-    substr = text[start_pos+1:quote_pos]
-    blocks = extract_transliteration(substr)
-    if blocks:
-    # dash_count = substr.count('-')
-    # aleph_count = substr.count('ℵ')
+    # --------------------------------------------
+    # new_line_pos = 0
+    end = text.find('\n', start_pos)
+    substring = text[pos:] if end == -1 else text[start_pos:end]
+    new_line_pos = None if end == -1 else end + 1
+    result = ""
+    while new_line_pos < len(text):
+        count_empty = 0
+        if len(substring) == 0:
+            while len(substring) == 0 and count_empty < 3:
+                end = text.find('\n', new_line_pos)
+                substring = text[new_line_pos:] if end == -1 else text[new_line_pos:end]
+                count_empty += 1
+            # две строки после якоря нет транслитерации
+            if len(substring) == 0:
+                if result:
+                    qu_pos = find_single_quote(text, new_line_pos)
+                    if qu_pos:
+                        return result, True, qu_pos
+                    else:
+                        return result, None, None
+                else:
+                    return None, None, new_line_pos
+        else:
+            end = text.find('\n', new_line_pos)
+        new_line_pos = None if end == -1 else end + 1
+        # Пропускаем разделители
+        if not SEPARATOR_RE.match(substring):
+            if result:
+                qu_pos = find_single_quote(text, new_line_pos)
+                if qu_pos:
+                    return result, True, qu_pos
+                else:
+                    return result, None, None
+            else:
+                return None, None, new_line_pos
+        substring = substring.strip()
+        # Проверка 1: Соответствует ли базовому формату транслитерации?
+        has_basic_format = (
+                TRANSLIT_LINE_RE.match(substring) and
+                MORPHEME_SEP_RE.search(substring))
+        # Проверка 2: Содержит ли иностранные слова?
+        has_foreign_words = FOREIGN_WORD_RE.search(substring)
+        # Проверка 3: Содержит ли явные признаки НЕ транслитерации?
+        is_not_translit = NOT_TRANSLIT_RE.search(substring)
+        # Проверка 4: Содержит ли признаки аккадской транслитерации?
+        has_akkadian_indicators = AKKADIAN_INDICATOR_RE.search(substring)
+        # Логика принятия решения:
+        # 1. Должен быть базовый формат
+        # 2. Не должен содержать иностранных слов ИЛИ должен иметь аккадские индикаторы
+        # 3. Не должен быть явно НЕ транслитерацией
+        is_transliteration = (
+                has_basic_format and
+                (not has_foreign_words and has_akkadian_indicators) and
+                not is_not_translit
+        )
+        if is_transliteration:
+            result = " ".join(substring)
+            end = text.find('\n', new_line_pos)
+            substring = text[new_line_pos:] if end == -1 else text[new_line_pos:end]
+        else:
+            if result:
+                qu_pos = find_single_quote(text, new_line_pos)
+                if qu_pos:
+                    return result, True, qu_pos
+                else:
+                    return result, None, None
+            else:
+                return None, None, new_line_pos
+    # -----------------------------------------------
+    # # 3. Поиск одинарной открывающей кавычки
+    # quote_pos = text.find("'", start_pos+1)
+    # if quote_pos == -1:
+    #     return None, None, start_pos
+    # # длина транслитерации
+    # diff = quote_pos - 1 - start_pos
+    # if diff >= 1000:
+    #     return None, None, start_pos
     #
-    # dash_required = diff / 10.5
+    # # 4. Проверка подстроки
+    # substr = text[start_pos+1:quote_pos]
+    # blocks = extract_transliteration(substr)
+    # if blocks:
+    # # dash_count = substr.count('-')
+    # # aleph_count = substr.count('ℵ')
+    # #
+    # # dash_required = diff / 10.5
+    # #
+    # # if dash_count >= dash_required or aleph_count >= 2:
+    #     transliter_txt = substr
+    #     return transliter_txt, True, quote_pos
     #
-    # if dash_count >= dash_required or aleph_count >= 2:
-        transliter_txt = substr
-        return transliter_txt, True, quote_pos
-
-    return None, None, start_pos
+    # return None, None, start_pos
 
 #%%
 def extract_single_quotes(text: str, start_pos: int):
@@ -785,7 +866,7 @@ def normalize_gaps(text: str) -> str:
 def normalize_for_mt(text: str) -> str:
     # 0. Базовая очистка (translate-таблица уже применяется снаружи)
     a = text
-    chars_to_remove = "!?/:.<>˹˺[]ℵ⅁ᲟᲠᲢ"
+    chars_to_remove = "!?/:.<>˹˺[]⅁ᲟᲠᲢ"
     table = str.maketrans("", "", chars_to_remove)
     # удаление ненужных символов
     a = a.translate(table)
@@ -888,7 +969,7 @@ def process_text_and_build_csv_rows(text: str):
     csv_rows = []
     start_pos = 0
     patterns1 = [r'/k \d{2,}:', r'[A-Za-z]{3,5} \d,', r'[A-Za-z]{3,5} \(\d{4},']
-    patterns2 = [r'[A-Z][a-z]{4,} \d{4}[a-z]?: \d+(?:[–\-]\d+)?']
+    patterns2 = [r'[A-Z][a-z]{3,} \d{4}[a-z]?: \d+(?:[–\-]\d+)?']
 
     all_patterns = [patterns1, patterns2]
 

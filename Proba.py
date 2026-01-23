@@ -18,7 +18,7 @@ TRANSLIT_LINE_RE = re.compile(r'''
 ))
 (?!.*[.,;:!?])                # нет пунктуации перевода
 (?!.*\b[A-Z]?[a-z]{3,}\b\s+\b[A-Z]?[a-z]{3,}\b)       # нет нормального текста
-[A-Za-zúēīāíšḫṭṣŠḪṮṢ0-9.\[\] \?§⅀⅁ᲟᲠᲢ–\- ]+
+[A-Za-zúēīāíšḫṭṣŠÍÚḪṮṢ0-9.\[\] \?\!§⅀⅁ᲟᲠᲢ–\- ]+
 $
 ''', re.VERBOSE)
 
@@ -389,24 +389,29 @@ def extract_transliteration(text) -> list:
 
 
 
-def extract_transliteration_only(text) -> list:
+def extract_transliteration_only(text, start_pos: int) -> list:
     """
     Извлекает блоки транслитерации из текста.
     Склеивает строки, оканчивающиеся на - или ℵ с последующей.
     Возвращает список блоков.
     """
-    if isinstance(text, list):
-        text = "\n".join(text)
+    start_line_index = 0
+    result = []
+    # if isinstance(text, list):
+    #     text = "\n".join(text)
 
     raw_lines = text.splitlines()
-    lines = []
+    # 1. Подстрока от позиции до конца строки
+    result.append(raw_lines[start_line_index][start_pos:])
+
+    # lines = []
     buffer = ""
 
     for line in raw_lines:
         line = line.rstrip()
         if not line:
             if buffer:
-                lines.append(buffer)
+                result.append(buffer)
                 buffer = ""
             continue
 
@@ -416,17 +421,18 @@ def extract_transliteration_only(text) -> list:
             buffer += " " + line
 
         if not line.endswith(("-", "ℵ")):
-            lines.append(buffer)
+            result.append(buffer)
             buffer = ""
 
     if buffer:
-        lines.append(buffer)
+        # lines.append(buffer)
+        result.append(buffer)
 
     # Формируем блоки транслитерации
     blocks = []
     current = []
 
-    for line in lines:
+    for line in result:
         # Пропускаем разделители
         if SEPARATOR_RE.match(line):
             continue
