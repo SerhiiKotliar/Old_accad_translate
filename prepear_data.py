@@ -147,8 +147,8 @@ FOREIGN_WORD_RE = re.compile(
     # Английские слова
     r"desk|bound|commercial|manager|who|conducted|"
     r"this|must|have|been|invented|institution|"
-    r"if|when|is|going|to|in|at|and|palace|textiles|old|assyrian|procedures|"
-    r"the|a|an|of|for|with|from|by|on|as|or|but|not|so|then|also|"
+    r"if|when|going|to|and|palace|textiles|old|assyrian|procedures|"
+    r"the|an|of|for|with|from|by|on|as|or|but|not|so|then|also|"
     r"that|which|what|where|why|how|"
     r"he|she|it|we|they|"
     r"was|were|be|being|been|"
@@ -157,11 +157,11 @@ FOREIGN_WORD_RE = re.compile(
     r"during|except|inside|outside|since|through|throughout|toward|under|until|upon|within|without|"
 
     # Турецкие слова
-    r"ve|ile|bir|bu|şu|o|ben|sen|biz|siz|onlar|"
+    r"ile|bir|şu|ben|sen|biz|siz|onlar|"
     r"ama|fakat|ancak|çünkü|eğer|"
     r"evet|hayır|lütfen|teşekkür|ediyorum|ederim|"
-    r"gibi|için|kadar|göre|sonra|önce|arasında|altında|üstünde|içinde|dışında|"
-    r"ile|sadece|hem|de|da|ki|mi|mı|mu|mü|"
+    r"gibi|kadar|göre|sonra|önce|arasında|altında|üstünde|içinde|dışında|"
+    r"ile|sadece|hem|de|mi|mı|mü|"
     r"var|yok|olmak|yapmak|gitmek|gelmek|almak|vermek|"
     r"büyük|küçük|yeni|eski|güzel|iyi|kötü|"
     r"bugün|dün|yarın|şimdi|sonra|"
@@ -199,8 +199,8 @@ FOREIGN_WORD_RE = re.compile(
     r"uyanmak|uyumak|rüya|görmek|"
     r"doğmak|ölmek|yaşamak|yaşam|"
     r"zaman|mekan|yer|dünya|evren|"
-    r"güneş|ay|yıldız|gezegen|"
-    r"hava|su|toprak|ateş|"
+    r"güneş|yıldız|gezegen|"
+    r"hava|toprak|ateş|"
     r"renk|şekil|boyut|ağırlık|"
     r"ses|müzik|gürültü|sessizlik|"
     r"ışık|karanlık|sıcak|soğuk|"
@@ -259,7 +259,7 @@ FOREIGN_WORD_RE = re.compile(
     r"teknoloji|sistem|yazılım|"
     r"güvenlik|koruma|tedbir|"
     r"çevre|doğa|kirlilik|"
-    r"enerji|elektrik|su|doğalgaz|"
+    r"enerji|elektrik|doğalgaz|"
     r"ulaşım|trafik|yol|köprü|"
     r"iletişim|medya|haber|"
     r"eğlence|oyun|festival|"
@@ -343,7 +343,7 @@ FOREIGN_WORD_RE = re.compile(
     r"bekar|evli|boşanmış|"
     r"çocuk|sahibi|çocuksuz|"
     r"öğrenci|çalışan|emekli|"
-    r"serbest|meslek|maaşlı|"
+    r"meslek|maaşlı|"
     r"part|time|full|time|"
     r"uzaktan|çalışma|esnek|saat|"
     r"kariyer|gelişim|eğitim|"
@@ -368,12 +368,11 @@ FOREIGN_WORD_RE = re.compile(
     # Другие общие иностранные слова
     r"dass|sich|nicht|nur|auch|aber|oder|"
     r"por|para|con|sin|sobre|entre|hacia|"
-    r"pour|avec|sans|sur|entre|vers|"
-    r"per|con|senza|su|tra|verso"
+    r"pour|avec|sans|entre|vers|"
+    r"per|con|senza|tra|verso"
     r")\b",
     re.I
 )
-
 # Явные признаки аккадской транслитерации
 AKKADIAN_INDICATOR_RE = re.compile(
     r"[ŠšḪḥṢṣṬṭʾʿ⅀⅁ᲟᲠ]|"  # Аккадские специальные символы
@@ -395,10 +394,11 @@ NOT_TRANSLIT_RE = re.compile(
     r"\b[a-z]{4,} [a-z]{4,} [a-z]{4,}\b|"  # Три длинных слова подряд (предложение)
     r"^\d+ [A-Z][a-z]|"  # Начинается с цифры и заглавной буквы
     r"[a-z]{5,}-[a-z]{4,}[^šḫṭṣʾʿ]|"  # Длинные английские слова с дефисом
+    r"[a-zA-ZäöüÄÖÜß]{5,}-[a-zA-ZäöüÄÖÜß]{4,}|" # Длинные немецкие слова с дефисом
+    r"[a-zA-ZçğıİöşüÇĞİÖŞÜ]{5,}-[a-zA-ZçğıİöşüÇĞİÖŞÜ]{4,}|" # Длинные турецкие слова с дефисом
     r", |; |: |\. [A-Z]|"  # Знаки пунктуации с пробелом
     r"\b(?:[A-Za-z]+ ){3,}[A-Za-z]+\b"  # Более 3 слов подряд
 )
-
 
 def extract_transliteration(text) -> list:
     """
@@ -494,6 +494,103 @@ def extract_transliteration(text) -> list:
         blocks.append("\n".join(current).strip())
 
     return blocks
+
+def extract_transliteration_only(text) -> list:
+    """
+    Извлекает блоки транслитерации из текста.
+    Склеивает строки, оканчивающиеся на - или ℵ с последующей.
+    Возвращает список блоков.
+    """
+    if isinstance(text, list):
+        text = "\n".join(text)
+
+    raw_lines = text.splitlines()
+    lines = []
+    buffer = ""
+
+    for line in raw_lines:
+        line = line.rstrip()
+        if not line:
+            if buffer:
+                lines.append(buffer)
+                buffer = ""
+            continue
+
+        if not buffer:
+            buffer = line
+        else:
+            buffer += " " + line
+
+        if not line.endswith(("-", "ℵ")):
+            lines.append(buffer)
+            buffer = ""
+
+    if buffer:
+        lines.append(buffer)
+
+    # Формируем блоки транслитерации
+    blocks = []
+    current = []
+
+    for line in lines:
+        # Пропускаем разделители
+        if SEPARATOR_RE.match(line):
+            continue
+
+        line_trimmed = line.strip()
+
+        # Пропускаем пустые строки
+        if not line_trimmed:
+            continue
+
+        # Проверка 1: Соответствует ли базовому формату транслитерации?
+        has_basic_format = (
+                TRANSLIT_LINE_RE.match(line_trimmed) and
+                MORPHEME_SEP_RE.search(line_trimmed)
+        )
+
+        if not has_basic_format:
+            if current:
+                blocks.append("\n".join(current).strip())
+                current = []
+            continue
+
+        # Проверка 2: Содержит ли иностранные слова?
+        has_foreign_words = FOREIGN_WORD_RE.search(line_trimmed)
+        if has_foreign_words:
+            print("Найдено слово:", has_foreign_words.group())
+        # Проверка 3: Содержит ли явные признаки НЕ транслитерации?
+        is_not_translit = NOT_TRANSLIT_RE.search(line_trimmed)
+
+        # Проверка 4: Содержит ли признаки аккадской транслитерации?
+        has_akkadian_indicators = AKKADIAN_INDICATOR_RE.search(line_trimmed)
+
+        # Логика принятия решения:
+        # 1. Должен быть базовый формат
+        # 2. Не должен содержать иностранных слов ИЛИ должен иметь аккадские индикаторы
+        # 3. Не должен быть явно НЕ транслитерацией
+        is_transliteration = (
+                has_basic_format and
+                (not has_foreign_words and has_akkadian_indicators) and
+                not is_not_translit
+        )
+
+        # # Особый случай: если есть аккадские индикаторы, принимаем даже с некоторыми иностранными словами
+        # if has_akkadian_indicators and has_basic_format and not is_not_translit:
+        #     is_transliteration = True
+
+        if is_transliteration:
+            current.append(line_trimmed)
+        # else:
+        #     if current:
+        #         blocks.append("\n".join(current).strip())
+        #         current = []
+
+    if current:
+        blocks.append("\n".join(current).strip())
+
+    return blocks
+
 
 
 #%%
@@ -690,25 +787,30 @@ def normalize_for_mt(text: str) -> str:
     a = text
     chars_to_remove = "!?/:.<>˹˺[]ℵ⅁ᲟᲠᲢ"
     table = str.maketrans("", "", chars_to_remove)
+    # удаление ненужных символов
+    a = a.translate(table)
+    normalize_gaps(a)
+    # 4. Удаляем редакторские маркеры
+    a = re.sub(r"^Pl-/\s*", "", a)  # Pl-/
+    a = a.replace("\\", "")  # перенос строки
+    a = a.replace(",", "")  # маркер переноса строки
+    # номера строк
+    a = re.sub(r"^\s*\(\s*\d+\s*(?:[-–]\s*\d+)?\s*\)\s*", "", a)
+    # каталожные таблички
+    a = re.sub(r"\(\s*[A-Z]\.\s*\d+\s*\)","", a)
+
+    # удалить редакторские параграфы
+    a = re.sub(r"\b§{1,2}\s*\d+\b", "", a)
     # 1. ASCII → Unicode
     for old, new in CHAR_MAP.items():
         a = a.replace(old, new)
-
-    # удаление ненужных символов
-    a = a.translate(table)
 
     # 2. Надстрочные детерминативы
     a = normalize_akkadian_determinatives(a)
 
     # 3. Подстрочные цифры
     a = normalize_subscripts(a)
-    # удалить редакторские параграфы
-    a = re.sub(r"\b§{1,2}\s*\d+\b", "", a)
 
-    # 4. Удаляем редакторские маркеры
-    a = re.sub(r"^Pl-/\s*", "", a)   # Pl-/
-    a = a.replace("\\", "")          # перенос строки
-    a = a.replace(",", "")           # маркер переноса строки
 
     # 5. Квадратные скобки: восстановление vs лакуны
     def handle_brackets(match):
@@ -786,7 +888,7 @@ def process_text_and_build_csv_rows(text: str):
     csv_rows = []
     start_pos = 0
     patterns1 = [r'/k \d{2,}:', r'[A-Za-z]{3,5} \d,', r'[A-Za-z]{3,5} \(\d{4},']
-    patterns2 = [r'[A-Z][a-z]{4,} \d{4}: \d+(?:[–\-]\d+)?']
+    patterns2 = [r'[A-Z][a-z]{4,} \d{4}[a-z]?: \d+(?:[–\-]\d+)?']
 
     all_patterns = [patterns1, patterns2]
 
