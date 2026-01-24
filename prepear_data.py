@@ -142,20 +142,18 @@ MORPHEME_SEP_RE = re.compile(r"[-ℵ]")
 FOREIGN_WORD_RE = re.compile(
     r"\b("
     # Немецкие слова
-    r"Jetzt|ist|gerade|ein|Brief|des|und|der|die|das|von|mit|"
+    r"Jetzt|ist|gerade|ein|Brief|des|der|das|von|mit|"
     r"für|auf|aus|bei|nach|über|unter|zwischen|durch|wegen|"
 
     # Английские слова
-    r"desk|bound|commercial|manager|who|conducted|"
-    r"must|been|invented|institution|"
-    r"when|going|textiles|old|assyrian|procedures|"
-    r"on|but|then"
-    r"which|what|where|why|how|"
-    r"he|she|we"
-    r"were|being|been|"
-    r"will|could|might|must|"
-    r"about|above|after|among|around|before|behind|below|beneath|beside|beyond|"
-    r"during|except|inside|outside|throughout|toward|under|until|upon|within|without|"
+    r"desk|bound|commercial|manager|conducted|"
+    r"invented|institution|"
+    r"going|textiles|procedures|"
+    r"what"
+    r"we"
+    r"were"
+    r"after|among|around|before|beneath|beside|"
+    r"during|except|inside|outside|throughout|toward|until|upon|"
 
     # Турецкие слова
     r"ile|bir|şu|ben|biz|siz|onlar|"
@@ -166,7 +164,7 @@ FOREIGN_WORD_RE = re.compile(
     r"var|yok|olmak|yapmak|gitmek|gelmek|almak|vermek|"
     r"büyük|küçük|yeni|eski|güzel|iyi|kötü|"
     r"bugün|dün|yarın|şimdi|sonra|"
-    r"nerede|ne|kim|nasıl|niçin|niye|ne zaman|"
+    r"nerede|kim|nasıl|niçin|niye|ne zaman|"
     r"kitap|defter|kalem|masa|sandalye|ev|okul|iş|"
     r"türkçe|türk|türkiye|ankara|istanbul|izmir|"
     r"merhaba|selam|hoşgeldiniz|güle güle|allah|allahım|"
@@ -175,7 +173,7 @@ FOREIGN_WORD_RE = re.compile(
     r"anlamak|bilmek|düşünmek|söylemek|konuşmak|"
     r"üzgünüm|özür|dilerim|affedersiniz|"
     r"tabii|elbette|belki|muhtemelen|kesinlikle|"
-    r"sağ|sol|ön|arka|yukarı|aşağı|"
+    r"sağ|ön|arka|yukarı|aşağı|"
     r"hızlı|yavaş|uzun|kısa|geniş|dar|"
     r"aç|tok|susuz|susamış|yorgun|dinç|"
     r"zengin|fakir|mutlu|mutsuz|hasta|sağlıklı|"
@@ -220,7 +218,7 @@ FOREIGN_WORD_RE = re.compile(
     r"dolap|raf|çekmece|"
     r"buzdolabı|fırın|ocak|"
     r"televizyon|radyo|bilgisayar|telefon|"
-    r"para|bank|kredi|borç|"
+    r"bank|kredi|borç|"
     r"iş|meslek|maaş|izin|"
     r"okul|üniversite|öğrenci|öğretmen|"
     r"ders|sınav|ödev|"
@@ -245,9 +243,9 @@ FOREIGN_WORD_RE = re.compile(
     r"iş|tecrübesi|referans|"
     r"hobi|ilgi|alanı|beceri|"
     r"özellik|avantaj|dezavantaj|"
-    r"problem|çözüm|sonuç|etki|"
+    r"çözüm|sonuç|etki|"
     r"sebep|neden|amaç|hedef|"
-    r"plan|program|proje|"
+    r"program|proje|"
     r"rapor|belge|dosya|"
     r"toplantı|konferans|seminer|"
     r"yazışma|iletişim|görüşme|"
@@ -263,11 +261,11 @@ FOREIGN_WORD_RE = re.compile(
     r"enerji|elektrik|doğalgaz|"
     r"ulaşım|trafik|yol|köprü|"
     r"iletişim|medya|haber|"
-    r"eğlence|oyun|festival|"
+    r"eğlence|oyun|"
     r"alışveriş|market|mağaza|"
     r"restoran|cafe|bar|"
     r"otel|konaklama|rezervasyon|"
-    r"bank|atm|kredi|kartı|"
+    r"bank|atm|kredi|"
     r"posta|kargo|kurye|"
     r"sigorta|sağlık|sigortası|"
     r"vergi|harç|ceza|"
@@ -285,7 +283,7 @@ FOREIGN_WORD_RE = re.compile(
     r"ruh|beden|akıl|kalp|"
     r"düşünce|duygu|davranış|"
     r"alışkanlık|gelenek|görenek|"
-    r"festival|bayram|kutlama|"
+    r"bayram|kutlama|"
     r"yemek|içecek|tatlı|"
     r"giyim|kuşam|moda|"
     r"mimari|tasarım|estetik|"
@@ -345,7 +343,6 @@ FOREIGN_WORD_RE = re.compile(
     r"çocuk|sahibi|çocuksuz|"
     r"öğrenci|çalışan|emekli|"
     r"meslek|maaşlı|"
-    r"part|time|full|time|"
     r"uzaktan|çalışma|esnek|saat|"
     r"kariyer|gelişim|eğitim|"
     r"yetenek|beceri|deneyim|"
@@ -367,10 +364,10 @@ FOREIGN_WORD_RE = re.compile(
     r"yasal|sorumluluk|sigortası|"
 
     # Другие общие иностранные слова
-    r"dass|sich|nicht|nur|auch|aber|oder|"
-    r"por|para|con|sin|sobre|entre|hacia|"
+    r"dass|nicht|auch|aber|"
+    r"por|sin|sobre|entre|hacia|"
     r"pour|avec|sans|entre|vers|"
-    r"per|con|senza|tra|verso"
+    r"per|senza|tra|verso"
     r")\b",
     re.I
 )
@@ -619,23 +616,23 @@ def extract_quoted_substring(text: str, start_pos: int, pattern: str):
     start_pos = match.end() + 1
     translate = False
     open_seq = ' "'
-    # поиск начинается С start_pos
+    # поиск открывающей кавычки начинается С start_pos
     open_pos = text.find(open_seq, start_pos)
 
     if open_pos == -1:
         return None, None, start_pos
 
-    # позиция открывающей кавычки "
+    # позиция начала текста после открывающей кавычки "
     quote_start = open_pos + 1
 
     # ищем закрывающую кавычку "
-    quote_end = text.find('"', quote_start + 1)
+    quote_end = text.find('"', quote_start)
 
     if quote_end == -1:
         return None, None, start_pos
 
     # подстрока между кавычками
-    substring = text[quote_start + 1 : quote_end]
+    substring = text[quote_start : quote_end]
 
     dash_count = substring.count('-')
     aleph_count = substring.count('ℵ')
@@ -704,9 +701,9 @@ def find_single_quote(text: str, start_pos: int):
     quote_pos = text.find("'", start_pos)
     if quote_pos == -1:
         return None
-    # длина транслитерации
+    # дистанция от транслитерации
     diff = quote_pos - 1 - start_pos
-    if diff >= 1000:
+    if diff >= 100:
         return None
     else:
         return quote_pos
@@ -850,7 +847,7 @@ def extract_single_quotes(text: str, start_pos: int):
     if quote_pos == -1:
         return None, None, start_pos
 
-    # 2. Проверка расстояния
+    # 2. Проверка длины подстроки
     if quote_pos - start_pos > 1000:
         return None, None, start_pos
 
@@ -1010,6 +1007,7 @@ def process_text_and_build_csv_rows(text: str):
                         double_txt, double_flag, double_next_pos = extract_function_1[i % len_arr](text, next_pos, pattern)
                         if double_flag and double_next_pos < (close_pos - len(str_txt_1[i % len_arr])):
                             str_txt[i % len_arr] = double_txt
+                            next_pos = double_next_pos
                         match i:
                             case 0:
                                 translate_str = str_txt[i % len_arr]
@@ -1045,14 +1043,18 @@ def process_text_and_build_csv_rows(text: str):
                         csv_rows.append(f'"{a}","{t}"\n')
                         start_pos = close_pos + 1
                     else:
-                        start_pos = 0
-                        work = False
+                        if close_pos < len(text):
+                            start_pos = close_pos + 1
+                        else:
+                            work = False
+                            start_pos = close_pos + 1
                 else:
-                    if next_pos < len(text):
-                        start_pos = next_pos + 1
-                    else:
-                        work = False
-                        start_pos = 0
+                    # if next_pos < len(text):
+                    #     start_pos = next_pos + 1
+                    # else:
+                    work = False
+                    start_pos = 0
+                # work = False
         i += 1
     return csv_rows
 
@@ -1136,20 +1138,20 @@ print('\n')
 #     .str.replace("\\n", "\n", regex=False)
 # )
 # --------------------------------------------------------------------
-text = "Starke 1985: 68"
-pattern = re.compile(re.escape(text), re.IGNORECASE)
+# text = "Starke 1985: 68"
+# pattern = re.compile(re.escape(text), re.IGNORECASE)
+#
+# matches = []
+#
+# with open(csv_file_path, encoding='utf-8', errors='ignore') as f:
+#     for i, line in enumerate(f):
+#         if pattern.search(line):
+#             matches.append(i)
+#
+# print(matches[:10])   # номера строк файла
 
-matches = []
 
-with open(csv_file_path, encoding='utf-8', errors='ignore') as f:
-    for i, line in enumerate(f):
-        if pattern.search(line):
-            matches.append(i)
-
-print(matches[:10])   # номера строк файла
-
-
-start = matches[0]        # первая строка с интересующим текстом
+start = 225242        # первая строка с интересующим текстом
 count = 1512
 values = []
 
