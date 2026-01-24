@@ -142,31 +142,26 @@ MORPHEME_SEP_RE = re.compile(r"[-ℵ]")
 FOREIGN_WORD_RE = re.compile(
     r"\b("
     # Немецкие слова
-    r"Jetzt|ist|gerade|ein|Brief|des|der|das|von|mit|"
+    r"Jetzt|ist|gerade|ein|Brief|der|das|mit|"
     r"für|auf|aus|bei|nach|über|unter|zwischen|durch|wegen|"
 
     # Английские слова
-    r"desk|bound|commercial|manager|conducted|"
-    r"invented|institution|"
-    r"going|textiles|procedures|"
-    r"what"
-    r"we"
-    r"were"
-    r"after|among|around|before|beneath|beside|"
-    r"during|except|inside|outside|throughout|toward|until|upon|"
+    r"desk|bound|conducted|"
+    r"beneath|beside|"
+    r"except|outside|throughout|toward|"
 
     # Турецкие слова
-    r"ile|bir|şu|ben|biz|siz|onlar|"
+    r"bir|şu|ben|biz|siz|onlar|"
     r"fakat|ancak|çünkü|eğer|"
     r"evet|hayır|lütfen|teşekkür|ediyorum|ederim|"
     r"gibi|kadar|göre|sonra|önce|arasında|altında|üstünde|içinde|dışında|"
-    r"ile|sadece|hem|de|mü|"
+    r"sadece|hem|mü|"
     r"var|yok|olmak|yapmak|gitmek|gelmek|almak|vermek|"
     r"büyük|küçük|yeni|eski|güzel|iyi|kötü|"
     r"bugün|dün|yarın|şimdi|sonra|"
     r"nerede|kim|nasıl|niçin|niye|ne zaman|"
     r"kitap|defter|kalem|masa|sandalye|ev|okul|iş|"
-    r"türkçe|türk|türkiye|ankara|istanbul|izmir|"
+    r"türkçe|türk|türkiye|ankara|izmir|"
     r"merhaba|selam|hoşgeldiniz|güle güle|allah|allahım|"
     r"efendim|bey|hanım|bay|bayan|"
     r"lütfen|rica|ediyorum|mümkün|mü|"
@@ -218,7 +213,7 @@ FOREIGN_WORD_RE = re.compile(
     r"dolap|raf|çekmece|"
     r"buzdolabı|fırın|ocak|"
     r"televizyon|radyo|bilgisayar|telefon|"
-    r"bank|kredi|borç|"
+    r"kredi|borç|"
     r"iş|meslek|maaş|izin|"
     r"okul|üniversite|öğrenci|öğretmen|"
     r"ders|sınav|ödev|"
@@ -229,7 +224,7 @@ FOREIGN_WORD_RE = re.compile(
     r"hava|durumu|yağmur|kar|güneş|"
     r"sağlık|hasta|doktor|hastane|"
     r"yasa|mahkeme|polis|suç|"
-    r"din|inanç|tanrı|ibadet|"
+    r"inanç|tanrı|ibadet|"
     r"siyaset|parti|seçim|hükümet|"
     r"ekonomi|ticaret|sanayi|tarım|"
     r"kültür|sanat|edebiyat|bilim|"
@@ -262,10 +257,10 @@ FOREIGN_WORD_RE = re.compile(
     r"ulaşım|trafik|yol|köprü|"
     r"iletişim|medya|haber|"
     r"eğlence|oyun|"
-    r"alışveriş|market|mağaza|"
-    r"restoran|cafe|bar|"
+    r"alışveriş|mağaza|"
+    r"restoran|cafe|"
     r"otel|konaklama|rezervasyon|"
-    r"bank|atm|kredi|"
+    r"atm|kredi|"
     r"posta|kargo|kurye|"
     r"sigorta|sağlık|sigortası|"
     r"vergi|harç|ceza|"
@@ -283,7 +278,7 @@ FOREIGN_WORD_RE = re.compile(
     r"ruh|beden|akıl|kalp|"
     r"düşünce|duygu|davranış|"
     r"alışkanlık|gelenek|görenek|"
-    r"bayram|kutlama|"
+    r"kutlama|"
     r"yemek|içecek|tatlı|"
     r"giyim|kuşam|moda|"
     r"mimari|tasarım|estetik|"
@@ -295,11 +290,11 @@ FOREIGN_WORD_RE = re.compile(
     r"sağlık|tıp|hastane|"
     r"spor|egzersiz|antrenman|"
     r"sanat|müzik|resim|heykel|"
-    r"edebiyat|şiir|roman|hikaye|"
+    r"edebiyat|şiir|hikaye|"
     r"sinema|tiyatro|konser|"
     r"medya|gazete|televizyon|"
     r"internet|sosyal|medya|"
-    r"bilgisayar|telefon|tablet|"
+    r"bilgisayar|telefon|"
     r"yazılım|program|uygulama|"
     r"veri|bilgi|bilgi|sistemi|"
     r"güvenlik|şifre|erişim|"
@@ -367,7 +362,7 @@ FOREIGN_WORD_RE = re.compile(
     r"dass|nicht|auch|aber|"
     r"por|sin|sobre|entre|hacia|"
     r"pour|avec|sans|entre|vers|"
-    r"per|senza|tra|verso"
+    r"senza|tra|verso"
     r")\b",
     re.I
 )
@@ -591,7 +586,7 @@ def extract_transliteration_only(text) -> str:
 
     if current:
         # blocks.append("\n".join(current).strip())
-        blocks = " ".join(current).strip()
+        blocks = " ".join(current)
 
     return blocks
 
@@ -617,7 +612,7 @@ def extract_quoted_substring(text: str, start_pos: int, pattern: str):
     translate = False
     open_seq = ' "'
     # поиск открывающей кавычки начинается С start_pos
-    open_pos = text.find(open_seq, start_pos)
+    open_pos = text.find(open_seq, start_pos) + 1
 
     if open_pos == -1:
         return None, None, start_pos
@@ -717,7 +712,7 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
     match = pattern.search(text, start_search_pos)
     if not match:
         return None, None, start_search_pos
-    print(f"Найден поисковый якорь: {match.group()}")
+    # print(f"Найден поисковый якорь: {match.group()}")
     pos = match.end() + 1
 
     limit = min(pos + 6, len(text))
@@ -730,7 +725,7 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
             start_pos = i
             break
     if start_pos == len(text):
-        return None, None, None
+        return None, None, start_pos
     # --------------------------------------------
     # new_line_pos = 0
     end = text.find('\\n', start_pos)
@@ -782,9 +777,9 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
                 MORPHEME_SEP_RE.search(substring))
         # Проверка 2: Содержит ли иностранные слова?
         has_foreign_words = FOREIGN_WORD_RE.search(substring)
-        if has_foreign_words:
-            print("Найдено слово:", has_foreign_words.group())
-            sys.exit()
+        # if has_foreign_words:
+            # print("Найдено слово:", has_foreign_words.group())
+            # sys.exit()
         # Проверка 3: Содержит ли явные признаки НЕ транслитерации?
         is_not_translit = NOT_TRANSLIT_RE.search(substring)
         # Проверка 4: Содержит ли признаки аккадской транслитерации?
@@ -798,6 +793,9 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
                 (not has_foreign_words and has_akkadian_indicators) and
                 not is_not_translit
         )
+        # Особый случай: если есть аккадские индикаторы, принимаем даже с некоторыми иностранными словами
+        if has_akkadian_indicators and has_basic_format and not is_not_translit:
+            is_transliteration = True
         if is_transliteration:
             result = "".join(substring)
             new_line_pos = None if end == -1 else end + 1
@@ -807,6 +805,7 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
             if result:
                 qu_pos = find_single_quote(text, end + 1)
                 if qu_pos:
+                    # print(f"Выбрана транслитерация: {result}")
                     return result, True, qu_pos
                 else:
                     return result, None, end
@@ -855,6 +854,7 @@ def extract_single_quotes(text: str, start_pos: int):
     translate_txt = text[start_pos+1:quote_pos]
 
     # 4. Возврат результата
+    # print(f"Выбран перевод: {translate_txt}")
     return translate_txt, True, quote_pos
 
 #%%
@@ -982,8 +982,8 @@ def process_text_and_build_csv_rows(text: str):
     extract_function_2 = [extract_parenthesized_substring, extract_single_quotes]
     str_txt = ['', '']
     str_txt_1 = ['', '']
-    len_arr = len(str_txt)
-    # len_arr = 1
+    # len_arr = len(str_txt)
+    len_arr = 1
     i = 0
     csv_rows = []
     start_pos = 0
@@ -1049,11 +1049,11 @@ def process_text_and_build_csv_rows(text: str):
                             work = False
                             start_pos = close_pos + 1
                 else:
-                    # if next_pos < len(text):
-                    #     start_pos = next_pos + 1
-                    # else:
-                    work = False
-                    start_pos = 0
+                    if next_pos < len(text):
+                        start_pos = next_pos + 1
+                    else:
+                        work = False
+                        start_pos = 0
                 # work = False
         i += 1
     return csv_rows
@@ -1118,11 +1118,11 @@ def print_file_head(path, n=5, encoding="utf-8"):
 thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
 # thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
-# df_trnl = pd.read_csv(csv_file_path)
-# # ----------------------------------------
-# df_trnl = df_trnl.drop_duplicates()
-#
-# # df_trnl.to_csv("publications_new.csv", index=False)
+df_trnl = pd.read_csv(csv_file_path)
+# ----------------------------------------
+df_trnl = df_trnl.drop_duplicates()
+
+# df_trnl.to_csv("publications_new.csv", index=False)
 # # -------------------------------------------
 # # print(df_trnl[df_trnl['has_akkadian']].head(20))  # Перші 5 строк даних
 # # print(df_trnl.shape)  # Dataset Shape
@@ -1131,12 +1131,12 @@ csv_file_path = thiscompteca+'/data/publications.csv'
 # # print(df_trnl.isnull().sum())  # Missing Values
 print('\n')
 
-# # idx = df_trnl[df_trnl['has_akkadian']].head(5).index
-# idx = df_trnl[df_trnl['has_akkadian']].index
-# df_trnl.loc[idx, df_trnl.columns[2]] = (
-#     df_trnl.loc[idx, df_trnl.columns[2]]
-#     .str.replace("\\n", "\n", regex=False)
-# )
+# idx = df_trnl[df_trnl['has_akkadian']].head(5).index
+idx = df_trnl[df_trnl['has_akkadian']].index
+df_trnl.loc[idx, df_trnl.columns[2]] = (
+    df_trnl.loc[idx, df_trnl.columns[2]]
+    .str.replace("\\n", "\n", regex=False)
+)
 # --------------------------------------------------------------------
 # text = "Starke 1985: 68"
 # pattern = re.compile(re.escape(text), re.IGNORECASE)
@@ -1150,34 +1150,34 @@ print('\n')
 #
 # print(matches[:10])   # номера строк файла
 
-
-start = 225242        # первая строка с интересующим текстом
-count = 1512
-values = []
-
-with open(csv_file_path, encoding='utf-8', errors='ignore') as f:
-    for i, line in enumerate(f):
-        if i < start:
-            continue
-        if i >= start + count:
-            break
-        values.append(line.strip())  # тут строка целиком, потом можно взять столбец через split(';') или regex
-
-# print(i)
-# ----------------------------------------------------------------------
+# # -----------------------------------------------------------------------
+# start = 225242        # первая строка с интересующим текстом
+# count = 1512
+# values = []
+#
+# with open(csv_file_path, encoding='utf-8', errors='ignore') as f:
+#     for i, line in enumerate(f):
+#         if i < start:
+#             continue
+#         if i >= start + count:
+#             break
+#         values.append(line.strip())  # тут строка целиком, потом можно взять столбец через split(';') или regex
+#
+# # print(i)
+# # ----------------------------------------------------------------------
 # num = 0
 
 all_rows = []
-for val in values:
+# for val in values:
 
-# for i in idx:
+for i in idx:
             # print(f"index = {i}")
             # print("Назва файлу:", df_trnl.at[i, df_trnl.columns[0]])
             # print("Сторінка з текстом, що містить переклад:", df_trnl.at[i, df_trnl.columns[1]])
             # print("Текст всієї статті:\n", df_trnl.at[i, df_trnl.columns[2]])
             # print("-" * 50)
-    # list_row = process_text_and_build_csv_rows(df_trnl.at[i, df_trnl.columns[2]])
-    list_row = process_text_and_build_csv_rows(val)
+    list_row = process_text_and_build_csv_rows(df_trnl.at[i, df_trnl.columns[2]])
+    # list_row = process_text_and_build_csv_rows(val)
     for row in list_row:
         if row not in all_rows:
             all_rows.append(row)
@@ -1194,8 +1194,8 @@ new_df = split_accad_and_translate(all_rows)
 # new_df.to_csv('translate_from_publication.csv', index=False, quoting=csv.QUOTE_ALL)
 print("Примеры строк:")
 print(new_df)
-# print(f"Кількість статей з перекладом: {len(idx)}\n")
-print(f"Кількість статей з перекладом: {len(values)}\n")
+print(f"Кількість статей з перекладом: {len(idx)}\n")
+# print(f"Кількість статей з перекладом: {len(values)}\n")
 # print(num)
 print('\n')
 
