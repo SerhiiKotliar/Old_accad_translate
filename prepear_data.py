@@ -719,6 +719,7 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
     match = pattern.search(text, start_search_pos)
     if not match:
         return None, None, start_search_pos
+    print(f"Найден поисковый якорь: {match.group()}")
     pos = match.end() + 1
 
     limit = min(pos + 6, len(text))
@@ -1099,38 +1100,69 @@ def print_file_head(path, n=5, encoding="utf-8"):
 
 #%%
 # Завантаження даних з CSV-файлу
-thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate/"
+thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
 # thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
-df_trnl = pd.read_csv(csv_file_path)
-# ----------------------------------------
-df_trnl = df_trnl.drop_duplicates()
-
-# df_trnl.to_csv("publications_new.csv", index=False)
-# -------------------------------------------
-# print(df_trnl[df_trnl['has_akkadian']].head(20))  # Перші 5 строк даних
-# print(df_trnl.shape)  # Dataset Shape
-# print(df_trnl.info())  # Dataset Information
-# print(df_trnl.describe())   # Statistics
-# print(df_trnl.isnull().sum())  # Missing Values
+# df_trnl = pd.read_csv(csv_file_path)
+# # ----------------------------------------
+# df_trnl = df_trnl.drop_duplicates()
+#
+# # df_trnl.to_csv("publications_new.csv", index=False)
+# # -------------------------------------------
+# # print(df_trnl[df_trnl['has_akkadian']].head(20))  # Перші 5 строк даних
+# # print(df_trnl.shape)  # Dataset Shape
+# # print(df_trnl.info())  # Dataset Information
+# # print(df_trnl.describe())   # Statistics
+# # print(df_trnl.isnull().sum())  # Missing Values
 print('\n')
 
-# idx = df_trnl[df_trnl['has_akkadian']].head(5).index
-idx = df_trnl[df_trnl['has_akkadian']].index
-df_trnl.loc[idx, df_trnl.columns[2]] = (
-    df_trnl.loc[idx, df_trnl.columns[2]]
-    .str.replace("\\n", "\n", regex=False)
-)
+# # idx = df_trnl[df_trnl['has_akkadian']].head(5).index
+# idx = df_trnl[df_trnl['has_akkadian']].index
+# df_trnl.loc[idx, df_trnl.columns[2]] = (
+#     df_trnl.loc[idx, df_trnl.columns[2]]
+#     .str.replace("\\n", "\n", regex=False)
+# )
+# --------------------------------------------------------------------
+text = "Starke 1985: 68"
+pattern = re.compile(re.escape(text), re.IGNORECASE)
+
+matches = []
+
+with open(csv_file_path, encoding='utf-8', errors='ignore') as f:
+    for i, line in enumerate(f):
+        if pattern.search(line):
+            matches.append(i)
+
+print(matches[:10])   # номера строк файла
+
+
+start = matches[0]        # первая строка с интересующим текстом
+count = 1512
+values = []
+
+with open(csv_file_path, encoding='utf-8', errors='ignore') as f:
+    for i, line in enumerate(f):
+        if i < start:
+            continue
+        if i >= start + count:
+            break
+        values.append(line.strip())  # тут строка целиком, потом можно взять столбец через split(';') или regex
+
+# print(i)
+# ----------------------------------------------------------------------
 # num = 0
+
 all_rows = []
-for i in idx:
-    # print(f"index = {i}")
-    # print("Назва файлу:", df_trnl.at[i, df_trnl.columns[0]])
-    # print("Сторінка з текстом, що містить переклад:", df_trnl.at[i, df_trnl.columns[1]])
-    # print("Текст всієї статті:\n", df_trnl.at[i, df_trnl.columns[2]])
-    # print("-" * 50)
-    list_row = process_text_and_build_csv_rows(df_trnl.at[i, df_trnl.columns[2]])
-    # all_rows.extend(list_row)
+for val in values:
+
+# for i in idx:
+            # print(f"index = {i}")
+            # print("Назва файлу:", df_trnl.at[i, df_trnl.columns[0]])
+            # print("Сторінка з текстом, що містить переклад:", df_trnl.at[i, df_trnl.columns[1]])
+            # print("Текст всієї статті:\n", df_trnl.at[i, df_trnl.columns[2]])
+            # print("-" * 50)
+    # list_row = process_text_and_build_csv_rows(df_trnl.at[i, df_trnl.columns[2]])
+    list_row = process_text_and_build_csv_rows(val)
     for row in list_row:
         if row not in all_rows:
             all_rows.append(row)
@@ -1147,7 +1179,8 @@ new_df = split_accad_and_translate(all_rows)
 # new_df.to_csv('translate_from_publication.csv', index=False, quoting=csv.QUOTE_ALL)
 print("Примеры строк:")
 print(new_df)
-print(f"Кількість статей з перекладом: {len(idx)}\n")
+# print(f"Кількість статей з перекладом: {len(idx)}\n")
+print(f"Кількість статей з перекладом: {len(values)}\n")
 # print(num)
 print('\n')
 
@@ -1178,7 +1211,7 @@ df_txt = pd.read_csv(csv_file_path)
 
 # print(df_txt.head())  # Перші 5 строк даних
 # print(df_txt.shape)  # Dataset Shape
-print(df_txt.info())  # Dataset Information
+# print(df_txt.info())  # Dataset Information
 # print(df_txt.describe())   # Statistics
 # print(df_txt.isnull().sum())  # Missing Values
 
