@@ -29,14 +29,14 @@ MORPHEME_SEP_RE = re.compile(r"[-ℵ]")
 FOREIGN_WORD_RE = re.compile(
     r"\b("
     # Немецкие слова
-    r"Jetzt|ist|gerade|ein|Brief|des|an|und|der|die|das|von|mit|"
+    r"Jetzt|ist|gerade|ein|Brief|des|und|der|die|das|von|mit|"
     r"für|auf|aus|bei|nach|über|unter|zwischen|durch|wegen|"
 
     # Английские слова
     r"desk|bound|commercial|manager|who|conducted|"
     r"this|must|have|been|invented|institution|"
     r"if|when|going|to|and|palace|textiles|old|assyrian|procedures|"
-    r"the|an|of|for|with|from|by|on|as|or|but|not|so|then|also|"
+    r"the|of|for|with|from|by|on|as|or|but|not|so|then|also|"
     r"that|which|what|where|why|how|"
     r"he|she|it|we|they|"
     r"was|were|be|being|been|"

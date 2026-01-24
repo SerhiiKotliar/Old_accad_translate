@@ -1,4 +1,5 @@
 #%%
+import sys
 from unittest import case
 
 import pandas as pd
@@ -146,19 +147,19 @@ FOREIGN_WORD_RE = re.compile(
 
     # Английские слова
     r"desk|bound|commercial|manager|who|conducted|"
-    r"this|must|have|been|invented|institution|"
-    r"if|when|going|to|and|palace|textiles|old|assyrian|procedures|"
-    r"the|of|for|with|from|by|on|or|but|not|so|then|also|"
-    r"that|which|what|where|why|how|"
-    r"he|she|we|they|"
-    r"was|were|being|been|"
-    r"will|would|can|could|should|may|might|must|"
-    r"about|above|after|against|among|around|before|behind|below|beneath|beside|between|beyond|"
-    r"during|except|inside|outside|since|through|throughout|toward|under|until|upon|within|without|"
+    r"must|been|invented|institution|"
+    r"when|going|textiles|old|assyrian|procedures|"
+    r"on|but|then"
+    r"which|what|where|why|how|"
+    r"he|she|we"
+    r"were|being|been|"
+    r"will|could|might|must|"
+    r"about|above|after|among|around|before|behind|below|beneath|beside|beyond|"
+    r"during|except|inside|outside|throughout|toward|under|until|upon|within|without|"
 
     # Турецкие слова
-    r"ile|bir|şu|ben|sen|biz|siz|onlar|"
-    r"ama|fakat|ancak|çünkü|eğer|"
+    r"ile|bir|şu|ben|biz|siz|onlar|"
+    r"fakat|ancak|çünkü|eğer|"
     r"evet|hayır|lütfen|teşekkür|ediyorum|ederim|"
     r"gibi|kadar|göre|sonra|önce|arasında|altında|üstünde|içinde|dışında|"
     r"ile|sadece|hem|de|mü|"
@@ -222,7 +223,7 @@ FOREIGN_WORD_RE = re.compile(
     r"para|bank|kredi|borç|"
     r"iş|meslek|maaş|izin|"
     r"okul|üniversite|öğrenci|öğretmen|"
-    r"ders|sınav|not|ödev|"
+    r"ders|sınav|ödev|"
     r"spor|futbol|basketbol|voleybol|"
     r"müzik|resim|tiyatro|sinema|"
     r"kitap|gazete|dergi|internet|"
@@ -237,9 +238,9 @@ FOREIGN_WORD_RE = re.compile(
     r"tarih|coğrafya|matematik|fizik|"
     r"dil|kelime|cümle|gramer|"
     r"numara|adres|telefon|numara|"
-    r"ad|soyad|yaş|doğum|tarihi|"
+    r"soyad|yaş|doğum|tarihi|"
     r"milliyet|vatandaşlık|pasaport|"
-    r"aile|durumu|medeni|hal|"
+    r"aile|durumu|medeni|"
     r"eğitim|durumu|mezuniyet|"
     r"iş|tecrübesi|referans|"
     r"hobi|ilgi|alanı|beceri|"
@@ -279,7 +280,7 @@ FOREIGN_WORD_RE = re.compile(
     r"korku|endişe|panik|"
     r"umut|hayal|gerçek|"
     r"başarı|başarısızlık|tecrübe|"
-    r"zaman|mekan|an|geçmiş|gelecek|"
+    r"zaman|mekan|geçmiş|gelecek|"
     r"hayat|ölüm|doğum|yaşam|"
     r"ruh|beden|akıl|kalp|"
     r"düşünce|duygu|davranış|"
@@ -756,7 +757,7 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
             # две строки после якоря нет транслитерации
             if len(substring) == 0:
                 if result:
-                    qu_pos = find_single_quote(text, new_line_pos)
+                    qu_pos = find_single_quote(text, end)
                     if qu_pos:
                         return result, True, qu_pos
                     else:
@@ -786,6 +787,7 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
         has_foreign_words = FOREIGN_WORD_RE.search(substring)
         if has_foreign_words:
             print("Найдено слово:", has_foreign_words.group())
+            sys.exit()
         # Проверка 3: Содержит ли явные признаки НЕ транслитерации?
         is_not_translit = NOT_TRANSLIT_RE.search(substring)
         # Проверка 4: Содержит ли признаки аккадской транслитерации?
@@ -800,7 +802,7 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
                 not is_not_translit
         )
         if is_transliteration:
-            result = " ".join(substring).strip()
+            result = "".join(substring)
             new_line_pos = None if end == -1 else end + 1
             end = text.find('\\n', new_line_pos)
             substring = text[new_line_pos:] if end == -1 else text[new_line_pos:end]
