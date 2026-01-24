@@ -554,8 +554,8 @@ def extract_transliteration_only(text) -> str:
 
         # Проверка 2: Содержит ли иностранные слова?
         has_foreign_words = FOREIGN_WORD_RE.search(line_trimmed)
-        if has_foreign_words:
-            print("Найдено слово:", has_foreign_words.group())
+        # if has_foreign_words:
+        #     print("Найдено слово:", has_foreign_words.group())
         # Проверка 3: Содержит ли явные признаки НЕ транслитерации?
         is_not_translit = NOT_TRANSLIT_RE.search(line_trimmed)
 
@@ -572,13 +572,14 @@ def extract_transliteration_only(text) -> str:
                 not is_not_translit
         )
 
-        # # Особый случай: если есть аккадские индикаторы, принимаем даже с некоторыми иностранными словами
-        # if has_akkadian_indicators and has_basic_format and not is_not_translit:
-        #     is_transliteration = True
+        # Особый случай: если есть аккадские индикаторы, принимаем даже с некоторыми иностранными словами
+        if has_akkadian_indicators and has_basic_format and not is_not_translit:
+            is_transliteration = True
 
         if is_transliteration:
             # current.append(line_trimmed)
-            current = " ".join(line_trimmed)
+            # current = current.join(line_trimmed)
+            current += " " + line_trimmed
         # else:
         #     if current:
         #         blocks.append("\n".join(current).strip())
@@ -586,7 +587,7 @@ def extract_transliteration_only(text) -> str:
 
     if current:
         # blocks.append("\n".join(current).strip())
-        blocks = " ".join(current)
+        blocks += current
 
     return blocks
 
@@ -607,7 +608,7 @@ def extract_quoted_substring(text: str, start_pos: int, pattern: str):
 
     match = pattern.search(text, start_pos)
     if not match:
-        return None, None, start_pos
+        return None, None, len(text)
     start_pos = match.end() + 1
     translate = False
     open_seq = ' "'
@@ -638,7 +639,7 @@ def extract_quoted_substring(text: str, start_pos: int, pattern: str):
             dash_required = 34
         # много символов транслитерации
         if dash_required < 25 or aleph_count > 0:
-            return None, None, start_pos
+            return None, None, quote_end
 
     if len(substring) > 30:
         translate = True
@@ -673,16 +674,9 @@ def extract_parenthesized_substring(text: str, start_pos: int):
         # # подстрока между скобками
         substring = text[open_pos + 1 : close_pos]
 
-        blocks = extract_transliteration_only(substring)
+        blocks = extract_transliteration(substring)
         if not blocks:
-        # dash_count = substring.count('-')
-        # aleph_count = substring.count('ℵ')
-        # if dash_count > 0:
-        #     dash_required = len(substring) / dash_count
-        # else:
-        #     dash_required = 0
-        # if dash_required > 10 or aleph_count <= 2 and dash_count == 0:
-            return None, None, start_pos
+            return None, None, close_pos
         # 4. условия
         is_long = len(substring) > 30
 
@@ -693,7 +687,7 @@ def extract_parenthesized_substring(text: str, start_pos: int):
 
 def find_single_quote(text: str, start_pos: int):
     # 3. Поиск одинарной открывающей кавычки
-    quote_pos = text.find("'", start_pos)
+    quote_pos = text.find(" '", start_pos) + 1
     if quote_pos == -1:
         return None
     # дистанция от транслитерации
@@ -711,7 +705,7 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
 
     match = pattern.search(text, start_search_pos)
     if not match:
-        return None, None, start_search_pos
+        return None, None, len(text)
     # print(f"Найден поисковый якорь: {match.group()}")
     pos = match.end() + 1
 
@@ -725,15 +719,19 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
             start_pos = i
             break
     if start_pos == len(text):
-        return None, None, start_pos
+        return None, None, len(text)
     # --------------------------------------------
     # new_line_pos = 0
-    end = text.find('\\n', start_pos)
+    # end = text.find('\\n', start_pos)
+    end = text.find('\n', start_pos)
     substring = text[start_pos:] if end == -1 else text[start_pos:end]
     while 0 < len(substring) < 30:
         start_pos = end + 1
-        end = text.find('\\n', start_pos)
+        # end = text.find('\\n', start_pos)
+        nd = text.find('\n', start_pos)
         substring = text[start_pos:] if end == -1 else text[start_pos:end]
+        if end == -1:
+            return None, None, len(text)
     # new_line_pos = None if end == -1 else end + 1
     # if not new_line_pos:
     #     return None, None, None
@@ -743,8 +741,11 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
         if len(substring) == 0:
             while len(substring) == 0 and count_empty < 3:
                 new_line_pos = None if end == -1 else end + 1
-                end = text.find('\\n', new_line_pos)
+                # end = text.find('\\n', new_line_pos)
+                end = text.find('\n', new_line_pos)
                 substring = text[new_line_pos:] if end == -1 else text[new_line_pos:end]
+                if end == -1:
+                    return None, None, len(text)
                 count_empty += 1
             # две строки после якоря нет транслитерации
             if len(substring) == 0:
@@ -799,7 +800,10 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
         if is_transliteration:
             result = "".join(substring)
             new_line_pos = None if end == -1 else end + 1
-            end = text.find('\\n', new_line_pos)
+            # end = text.find('\\n', new_line_pos)
+            end = text.find('\n', new_line_pos)
+            if end == -1:
+                return None, None, len(text)
             substring = text[new_line_pos:] if end == -1 else text[new_line_pos:end]
         else:
             if result:
@@ -982,8 +986,8 @@ def process_text_and_build_csv_rows(text: str):
     extract_function_2 = [extract_parenthesized_substring, extract_single_quotes]
     str_txt = ['', '']
     str_txt_1 = ['', '']
-    # len_arr = len(str_txt)
-    len_arr = 1
+    len_arr = len(str_txt)
+    # len_arr = 1
     i = 0
     csv_rows = []
     start_pos = 0
@@ -1015,9 +1019,6 @@ def process_text_and_build_csv_rows(text: str):
                             case 1:
                                 translate_str = str_txt_1[i % len_arr]
                                 accad_str = str_txt[i % len_arr]
-                        # print(f"\nТранслитерация{i+1}\n {accad_str}")
-                        # print(f"\nПеревод{i+1}\n {translate_str}")
-                        # print("-" * 50)
                         # 1. Очистка перевода
                         t = translate_str.replace("\n", " ")
 
@@ -1041,20 +1042,28 @@ def process_text_and_build_csv_rows(text: str):
                         print(f"\nПеревод{i + 1}\n {t}")
                         print("-" * 50)
                         csv_rows.append(f'"{a}","{t}"\n')
+                        # найден 2 блок, ищем следующие первые
                         start_pos = close_pos + 1
                     else:
                         if close_pos < len(text):
+                            # не найден 2 блок, ищем следующие первые
                             start_pos = close_pos + 1
                         else:
+                            # не найден 2 блок,
+                            # прошли текст, меняем шаблон
                             work = False
-                            start_pos = close_pos + 1
+                            start_pos = 0
                 else:
+                    # не найден первый блок
                     if next_pos < len(text):
+                        # продолжаем идти по тексту
                         start_pos = next_pos + 1
                     else:
+                        # прошли текст, меняем шаблон
                         work = False
                         start_pos = 0
-                # work = False
+            # меняем шаблон
+        # меняем очерёдность поиска блоков
         i += 1
     return csv_rows
 
