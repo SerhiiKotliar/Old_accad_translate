@@ -130,7 +130,7 @@ TRANSLIT_LINE_RE = re.compile(r'''
 ))
 (?!.*[.,;:!?])                # нет пунктуации перевода
 (?!.*\b[A-Z]?[a-z]{3,}\b\s+\b[A-Z]?[a-z]{3,}\b)       # нет нормального текста
-[A-Za-zúēīāíšḫṭṣŠÍÚḪṮṢ0-9.\[\] \?\!§⅀⅁ᲟᲠᲢ–\- ]+
+[A-Za-zúēīāíšḫṭṣŠÍÚḪṮṢ0-9.\[\] \?\!§⅀⅁ℵᲟᲠᲢ–\- ]+
 $
 ''', re.VERBOSE)
 
@@ -141,14 +141,14 @@ MORPHEME_SEP_RE = re.compile(r"[-ℵ]")
 FOREIGN_WORD_RE = re.compile(
     r"\b("
     # Немецкие слова
-    r"Jetzt|ist|gerade|ein|Brief|des|an|und|der|die|das|von|mit|"
+    r"Jetzt|ist|gerade|ein|Brief|des|und|der|die|das|von|mit|"
     r"für|auf|aus|bei|nach|über|unter|zwischen|durch|wegen|"
 
     # Английские слова
     r"desk|bound|commercial|manager|who|conducted|"
     r"this|must|have|been|invented|institution|"
     r"if|when|going|to|and|palace|textiles|old|assyrian|procedures|"
-    r"the|an|of|for|with|from|by|on|or|but|not|so|then|also|"
+    r"the|of|for|with|from|by|on|or|but|not|so|then|also|"
     r"that|which|what|where|why|how|"
     r"he|she|we|they|"
     r"was|were|being|been|"
@@ -726,7 +726,7 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
     # поиск начала транслитерации
     start_pos = pos
     for i in range(start_pos, limit):
-        if text[i].isdigit() or text[i] == '-':
+        if text[i].isdigit() or text[i] == '-' or text[i] == 'ℵ' or text[i] == "–":
             start_pos = i + 1
         else:
             start_pos = i
@@ -735,17 +735,22 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
         return None, None, None
     # --------------------------------------------
     # new_line_pos = 0
-    end = text.find('\n', start_pos)
-    substring = text[pos:] if end == -1 else text[start_pos:end]
-    new_line_pos = None if end == -1 else end + 1
-    if not new_line_pos:
-        return None, None, None
+    end = text.find('\\n', start_pos)
+    substring = text[start_pos:] if end == -1 else text[start_pos:end]
+    while 0 < len(substring) < 30:
+        start_pos = end + 1
+        end = text.find('\\n', start_pos)
+        substring = text[start_pos:] if end == -1 else text[start_pos:end]
+    # new_line_pos = None if end == -1 else end + 1
+    # if not new_line_pos:
+    #     return None, None, None
     result = ""
-    while new_line_pos < len(text):
+    while end < len(text):
         count_empty = 0
         if len(substring) == 0:
             while len(substring) == 0 and count_empty < 3:
-                end = text.find('\n', new_line_pos)
+                new_line_pos = None if end == -1 else end + 1
+                end = text.find('\\n', new_line_pos)
                 substring = text[new_line_pos:] if end == -1 else text[new_line_pos:end]
                 count_empty += 1
             # две строки после якоря нет транслитерации
@@ -755,12 +760,12 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
                     if qu_pos:
                         return result, True, qu_pos
                     else:
-                        return result, None, None
+                        return result, None, end
                 else:
-                    return None, None, new_line_pos
-        else:
-            end = text.find('\n', new_line_pos)
-        new_line_pos = None if end == -1 else end + 1
+                    return None, None, end
+        # else:
+        #     end = text.find('\\n', new_line_pos)
+        # new_line_pos = None if end == -1 else end + 1
         # Пропускаем разделители
         if SEPARATOR_RE.match(substring):
             continue
@@ -779,6 +784,8 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
                 MORPHEME_SEP_RE.search(substring))
         # Проверка 2: Содержит ли иностранные слова?
         has_foreign_words = FOREIGN_WORD_RE.search(substring)
+        if has_foreign_words:
+            print("Найдено слово:", has_foreign_words.group())
         # Проверка 3: Содержит ли явные признаки НЕ транслитерации?
         is_not_translit = NOT_TRANSLIT_RE.search(substring)
         # Проверка 4: Содержит ли признаки аккадской транслитерации?
@@ -794,17 +801,18 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
         )
         if is_transliteration:
             result = " ".join(substring).strip()
-            end = text.find('\n', new_line_pos)
+            new_line_pos = None if end == -1 else end + 1
+            end = text.find('\\n', new_line_pos)
             substring = text[new_line_pos:] if end == -1 else text[new_line_pos:end]
         else:
             if result:
-                qu_pos = find_single_quote(text, new_line_pos)
+                qu_pos = find_single_quote(text, end + 1)
                 if qu_pos:
                     return result, True, qu_pos
                 else:
-                    return result, None, None
+                    return result, None, end
             else:
-                return None, None, new_line_pos
+                return None, None, end
     # -----------------------------------------------
     # # 3. Поиск одинарной открывающей кавычки
     # quote_pos = text.find("'", start_pos+1)
@@ -1038,8 +1046,11 @@ def process_text_and_build_csv_rows(text: str):
                         start_pos = 0
                         work = False
                 else:
-                    start_pos = 0
-                    work = False
+                    if next_pos < len(text):
+                        start_pos = next_pos + 1
+                    else:
+                        work = False
+                        start_pos = 0
         i += 1
     return csv_rows
 
