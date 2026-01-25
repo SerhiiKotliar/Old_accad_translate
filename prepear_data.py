@@ -397,6 +397,20 @@ NOT_TRANSLIT_RE = re.compile(
     r"\b(?:[A-Za-z]+ ){3,}[A-Za-z]+\b"  # Более 3 слов подряд
 )
 
+WORD_RE = re.compile(
+    r"[A-Za-zÀ-ÖØ-öø-ÿĞğŞşİıÇçÜüÖöÄäßÉéÈèÊêÂâÎîÔôÛûšṣṭḫʾʿ]{2,}"
+)
+
+MORPHEME_CHAIN_RE = re.compile(
+    r"\b(?:[A-Za-zšṣṭḫʾʿ]{1,3}-){2,}[A-Za-zšṣṭḫʾʿ]{1,3}\b"
+)
+
+AKKADIAN_FUNCTION_WORDS = {
+    "ša", "ina", "ana", "itti", "eli", "kīma", "kima",
+    "ištu", "ištu", "ultu", "adi", "u", "šaṭru"
+}
+
+
 def extract_transliteration(text) -> list:
     """
     Извлекает блоки транслитерации из текста.
@@ -595,6 +609,37 @@ def extract_transliteration_only(text) -> str:
 
     return blocks
 
+
+def is_translation(text: str) -> bool:
+    if not text or len(text) < 10:
+        return False
+
+    text = text.strip()
+
+    # Морфемные цепочки → почти наверняка транслитерация
+    if MORPHEME_CHAIN_RE.search(text):
+        return False
+
+    # Слова длиной ≥ 2
+    words = WORD_RE.findall(text)
+    if len(words) < 2:
+        return False
+
+    # Короткие токены (ša, ina, a-na и т.п.)
+    tokens = re.findall(r"[A-Za-zšṣṭḫʾʿ]+", text.lower())
+    if tokens:
+        short_tokens = [t for t in tokens if len(t) <= 3]
+        if len(short_tokens) / len(tokens) > 0.6:
+            return False
+
+    # Частотные служебные слова аккадского
+    if sum(1 for t in tokens if t in AKKADIAN_FUNCTION_WORDS) >= 2:
+        return False
+
+    return True
+
+
+
 def get_next_line_trl(text: str, start_pos: int) -> str:
     # начало строки поиска
     pos = None if start_pos == len(text) else start_pos
@@ -602,6 +647,9 @@ def get_next_line_trl(text: str, start_pos: int) -> str:
         return None
     # конец строки поиска
     end = text.find('\n', pos)
+    if end == pos:
+        pos = end + 1
+        end = text.find('\n', pos)
     if end == -1:
         return None
     str_line = text[pos:end]
@@ -617,7 +665,7 @@ def get_next_line_trl(text: str, start_pos: int) -> str:
         str_line
     )
 
-    return str_line
+    return str_line, end
 
 def get_next_line(text: str, start_pos: int) -> str:
     # начало строки поиска
@@ -626,6 +674,9 @@ def get_next_line(text: str, start_pos: int) -> str:
         return None
     # конец строки поиска
     end = text.find('\n', pos)
+    if end == pos:
+        pos = end + 1
+        end = text.find('\n', pos)
     if end == -1:
         return None
     str_line = text[pos:end]
@@ -644,14 +695,15 @@ def get_next_line(text: str, start_pos: int) -> str:
     return str_line
 
 def detect_translate(text: str, start_pos: int) -> str:
+    is_translate = False
     # начало строки поиска
     pos = None if start_pos == len(text) else start_pos
     if pos  is None:
-        return None
+        return is_translate, None
     # конец строки поиска
     end = text.find('\n', pos)
     if end == -1:
-        return None
+        return is_translate, None
     str_line = text[pos:end]
     # уборка мусора
     subs = [
@@ -664,12 +716,18 @@ def detect_translate(text: str, start_pos: int) -> str:
         (r'([A-Za-zА-Яа-я]),(\d)', r'\1 \2'),
         (r'\s(\d)\s(\d)\s', r' \1-\2 '),
         (r'(?<=\d)o', '0'),
-        (r'\b\d{1,3}\s*[-–—-]\s*\d{1,3}\b', ''),
+        # (r'\b\d{1,3}\s*[-–—-]\s*\d{1,3}\b', ''),
     ]
 
     for pattern, repl in subs:
         str_line = re.sub(pattern, repl, str_line)
     # str_line = re.sub(r'\b\d{1,3}\s*[-–—-]\s*\d{1,3}\b', '', str_line)
+    pattern = r'\b\d{1,3}\s*[-–—-]\s*\d{1,3}\b'
+
+    str_line, count = re.subn(pattern, '', str_line)
+    if count > 2 and is_translation(str_line):
+        is_translate = True
+    # print("Количество замен:", count)
 
     # str_line = re.sub(
     #     r'^\s*(?:[SK]\.|S\. K\.|v|\. v)\s*(?:\r?\n|$)',
@@ -683,7 +741,7 @@ def detect_translate(text: str, start_pos: int) -> str:
     #     str_line
     # )
 
-    return str_line
+    return is_translate, str_line
 
 
 #%%
@@ -946,46 +1004,53 @@ def extract_ankara(text: str, start_pos: int, pattern: str):
     # поиск начала транслитерации
     # следующая после якоря позиция строки
     while pos < len(text):
-        n_l = get_next_line_trl(text, pos)
+        n_l, next_first_pos = get_next_line_trl(text, pos)
         line_trl = []
         result = ""
         if n_l:
             line_trl = extract_transliteration(n_l)
         while line_trl:
             # сборная транслитерация
-            result += (" " + line_trl)
-            # последняя позиция в строке перед \n
-            pos = pos + len(line_trl)
+            result += (" ".join(line_trl))
+            # последняя позиция в строке \n
+            # pos = pos + len(line_trl) + 1
+            pos = text.find("\n", next_first_pos + 1)
             # строка
-            n_l = get_next_line_trl(text, pos)
+            n_l, next_first_pos = get_next_line_trl(text, pos)
             if n_l:
                 line_trl = extract_transliteration(n_l)
             else:
                 line_trl = ""
         if result:
-            return result, True, pos
-    return result, None, pos
+            return result, True, next_first_pos
+        pos = next_first_pos
+    return result, None, next_first_pos
 
 def extract_after_ankara(text: str, start_pos: int):
+    result = ""
+    is_trans: bool = False
+    n_l: str = ""
     if start_pos < 0 or start_pos >= len(text):
         return None, None, start_pos
-    result = ""
     # позиция начала строки
     pos = start_pos + 1
     while pos < len(text) and pos != -1:
         # строка
         n_l = get_next_line(text, pos)
-        result = ""
+
         if n_l:
             if extract_transliteration(n_l) == []:
                 # здесь проверка на окончание перевода
                 # и на то, что это перевод
                 # ---------------------------------
+                is_trans, n_l = detect_translate(n_l, pos)
                 # -----------------------------------
                 # не транслитерация
-                result += (" " + n_l)
+                if is_trans:
+                    result += (" " + n_l)
         # позиция начала следующей строки
-        pos = pos + len(n_l) + 1
+        # pos = pos + len(n_l) + 1
+        pos = text.find("\n", pos) + 1
     if result:
         return result, True, pos - 1
     return result, None, pos - 1
@@ -1123,7 +1188,7 @@ def process_text_and_build_csv_rows(text: str):
     # список функций поиска первого блока соответствует списку списков шаблонов
     extract_function_1 = [extract_quoted_substring, extract_letter_space_digit_colon_space, extract_ankara]
     # список функций поиска второго блока соответствует списку функций поиска первого блока
-    extract_function_2 = [extract_parenthesized_substring, extract_single_quotes]
+    extract_function_2 = [extract_parenthesized_substring, extract_single_quotes, extract_after_ankara]
     str_txt = [""] * len_arr
     str_txt_1 = [""] * len_arr
     # str_txt = ['', '']
@@ -1336,7 +1401,7 @@ for i in idx:
     print(f"index = {i}")
             # print("Назва файлу:", df_trnl.at[i, df_trnl.columns[0]])
             # print("Сторінка з текстом, що містить переклад:", df_trnl.at[i, df_trnl.columns[1]])
-    print("Текст всієї статті:\n", df_trnl.at[i, df_trnl.columns[2]])
+    # print("Текст всієї статті:\n", df_trnl.at[i, df_trnl.columns[2]])
             # print("-" * 50)
     list_row = process_text_and_build_csv_rows(df_trnl.at[i, df_trnl.columns[2]])
     # list_row = process_text_and_build_csv_rows(val)
