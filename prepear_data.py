@@ -6,8 +6,12 @@ import pandas as pd
 # import numpy as np
 import re
 import nltk
-nltk.download('punkt')
-nltk.download('punkt_tab')
+try:
+    nltk.data.find('tokenizers/punkt')
+except LookupError:
+    nltk.download('punkt')
+# nltk.download('punkt')
+# nltk.download('punkt_tab')
 from nltk.tokenize import sent_tokenize
 # import tensorflow as tf
 # from tensorflow import keras
@@ -591,6 +595,94 @@ def extract_transliteration_only(text) -> str:
 
     return blocks
 
+def get_next_line_trl(text: str, start_pos: int) -> str:
+    # начало строки поиска
+    pos = None if start_pos == len(text) else start_pos
+    if pos  is None:
+        return None
+    # конец строки поиска
+    end = text.find('\n', pos)
+    if end == -1:
+        return None
+    str_line = text[pos:end]
+    str_line = re.sub(
+        r'^\s*(?:[SK]\.|S\. K\.|v|\. v)\s*(?:\r?\n|$)',
+        '',
+        str_line,
+        flags=re.MULTILINE
+    )
+    str_line = re.sub(
+        r'(?m)^\s*\d{1,2}\.\s*',
+        '',
+        str_line
+    )
+
+    return str_line
+
+def get_next_line(text: str, start_pos: int) -> str:
+    # начало строки поиска
+    pos = None if start_pos == len(text) else start_pos
+    if pos  is None:
+        return None
+    # конец строки поиска
+    end = text.find('\n', pos)
+    if end == -1:
+        return None
+    str_line = text[pos:end]
+    # str_line = re.sub(
+    #     r'^\s*(?:[SK]\.|S\. K\.|v|\. v)\s*(?:\r?\n|$)',
+    #     '',
+    #     str_line,
+    #     flags=re.MULTILINE
+    # )
+    # str_line = re.sub(
+    #     r'(?m)^\s*\d{1,2}\.\s*',
+    #     '',
+    #     str_line
+    # )
+
+    return str_line
+
+def detect_translate(text: str, start_pos: int) -> str:
+    # начало строки поиска
+    pos = None if start_pos == len(text) else start_pos
+    if pos  is None:
+        return None
+    # конец строки поиска
+    end = text.find('\n', pos)
+    if end == -1:
+        return None
+    str_line = text[pos:end]
+    subs = [
+        (r'ı\s+ı', '11'),
+        (r'ı\s+', '1'),
+        (r'ı', '1'),
+        (r'5([A-Za-zА-Яа-я])', r'S\1'),
+        (r'A1', 'Ai'),
+        (r'([A-Za-zА-Яа-я])1\b', r'\1i'),
+        (r'([A-Za-zА-Яа-я]),(\d)', r'\1 \2'),
+        (r'\s(\d)\s(\d)\s', r' \1-\2 '),
+        (r'(?<=\d)o', '0'),
+        (r'\b\d{1,3}\s*[-–—-]\s*\d{1,3}\b', ''),
+    ]
+
+    for pattern, repl in subs:
+        str_line = re.sub(pattern, repl, str_line)
+    # str_line = re.sub(r'\b\d{1,3}\s*[-–—-]\s*\d{1,3}\b', '', str_line)
+
+    # str_line = re.sub(
+    #     r'^\s*(?:[SK]\.|S\. K\.|v|\. v)\s*(?:\r?\n|$)',
+    #     '',
+    #     str_line,
+    #     flags=re.MULTILINE
+    # )
+    # str_line = re.sub(
+    #     r'(?m)^\s*\d{1,2}\.\s*',
+    #     '',
+    #     str_line
+    # )
+
+    return str_line
 
 
 #%%
@@ -816,29 +908,6 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
             else:
                 return None, None, end
     # -----------------------------------------------
-    # # 3. Поиск одинарной открывающей кавычки
-    # quote_pos = text.find("'", start_pos+1)
-    # if quote_pos == -1:
-    #     return None, None, start_pos
-    # # длина транслитерации
-    # diff = quote_pos - 1 - start_pos
-    # if diff >= 1000:
-    #     return None, None, start_pos
-    #
-    # # 4. Проверка подстроки
-    # substr = text[start_pos+1:quote_pos]
-    # blocks = extract_transliteration(substr)
-    # if blocks:
-    # # dash_count = substr.count('-')
-    # # aleph_count = substr.count('ℵ')
-    # #
-    # # dash_required = diff / 10.5
-    # #
-    # # if dash_count >= dash_required or aleph_count >= 2:
-    #     transliter_txt = substr
-    #     return transliter_txt, True, quote_pos
-    #
-    # return None, None, start_pos
 
 #%%
 def extract_single_quotes(text: str, start_pos: int):
@@ -860,6 +929,66 @@ def extract_single_quotes(text: str, start_pos: int):
     # 4. Возврат результата
     # print(f"Выбран перевод: {translate_txt}")
     return translate_txt, True, quote_pos
+
+def extract_ankara(text: str, start_pos: int, pattern: str):
+    if start_pos < 0 or start_pos >= len(text):
+        return None, None, start_pos
+    if start_pos != 0:
+        start_pos += 1
+    pattern = re.compile(pattern)
+
+    match = pattern.search(text, start_pos)
+    if not match:
+        return None, None, len(text)
+    # print(f"Найден поисковый якорь: {match.group()}")
+    pos = match.end() + 1
+    # поиск начала транслитерации
+    # следующая после якоря позиция строки
+    while pos < len(text):
+        n_l = get_next_line_trl(text, pos)
+        line_trl = []
+        result = ""
+        if n_l:
+            line_trl = extract_transliteration(n_l)
+        while line_trl:
+            # сборная транслитерация
+            result += (" " + line_trl)
+            # последняя позиция в строке перед \n
+            pos = pos + len(line_trl)
+            # строка
+            n_l = get_next_line_trl(text, pos)
+            if n_l:
+                line_trl = extract_transliteration(n_l)
+            else:
+                line_trl = ""
+        if result:
+            return result, True, pos
+    return result, None, pos
+
+def extract_after_ankara(text: str, start_pos: int):
+    if start_pos < 0 or start_pos >= len(text):
+        return None, None, start_pos
+    result = ""
+    # позиция начала строки
+    pos = start_pos + 1
+    while pos < len(text) and pos != -1:
+        # строка
+        n_l = get_next_line(text, pos)
+        result = ""
+        if n_l:
+            if extract_transliteration(n_l) == []:
+                # здесь проверка на окончание перевода
+                # и на то, что это перевод
+                # ---------------------------------
+                # -----------------------------------
+                # не транслитерация
+                result += (" " + n_l)
+        # позиция начала следующей строки
+        pos = pos + len(n_l) + 1
+    if result:
+        return result, True, pos - 1
+    return result, None, pos - 1
+
 
 #%%
 def normalize_akkadian_determinatives(text: str) -> str:
@@ -982,19 +1111,27 @@ def process_text_and_build_csv_rows(text: str):
     Обрабатывает текст ячейкеи и возвращает список строк CSV
     (без заголовка)
     """
-    extract_function_1 = [extract_quoted_substring, extract_letter_space_digit_colon_space]
-    extract_function_2 = [extract_parenthesized_substring, extract_single_quotes]
-    str_txt = ['', '']
-    str_txt_1 = ['', '']
-    len_arr = len(str_txt)
+    # списки шаблонов поиска для разных вариантов пар первого и второго блоков
+    patterns1 = [r'/k \d{2,}:', r'[A-Za-z]{3,5} \d,', r'[A-Za-z]{3,5} \(\d{4},']
+    patterns2 = [r'[A-Z][a-z]{3,} \d{4}[a-z]?: \d+(?:[–\-]\d+)?']
+    patterns3 = [r'ANKARA KÜLTEPE TABLETLERİ II']
+    # список списков шаблонов поиска первого блока
+    all_patterns = [patterns1, patterns2, patterns3]
+    len_arr = len(all_patterns)
     # len_arr = 1
+    # список функций поиска первого блока соответствует списку списков шаблонов
+    extract_function_1 = [extract_quoted_substring, extract_letter_space_digit_colon_space, extract_ankara]
+    # список функций поиска второго блока соответствует списку функций поиска первого блока
+    extract_function_2 = [extract_parenthesized_substring, extract_single_quotes]
+    str_txt = [""] * len_arr
+    str_txt_1 = [""] * len_arr
+    # str_txt = ['', '']
+    # str_txt_1 = ['', '']
+
     i = 0
     csv_rows = []
     start_pos = 0
-    patterns1 = [r'/k \d{2,}:', r'[A-Za-z]{3,5} \d,', r'[A-Za-z]{3,5} \(\d{4},']
-    patterns2 = [r'[A-Z][a-z]{3,} \d{4}[a-z]?: \d+(?:[–\-]\d+)?']
 
-    all_patterns = [patterns1, patterns2]
 
     while i < len_arr:
         patterns = all_patterns[i]
@@ -1005,9 +1142,11 @@ def process_text_and_build_csv_rows(text: str):
                 str_txt[i % len_arr], flag, next_pos = extract_function_1[i % len_arr](text, start_pos, pattern)
 
                 if flag:
+                    print("Найден 1 блок")
                     # поиск по круглым скобкам потом по одинарным кавычкам
                     str_txt_1[i % len_arr], flag2, close_pos = extract_function_2[i % len_arr](text, next_pos)
                     if flag2:
+                        print("Найден 2 блок")
                         double_txt, double_flag, double_next_pos = extract_function_1[i % len_arr](text, next_pos, pattern)
                         if double_flag and double_next_pos < (close_pos - len(str_txt_1[i % len_arr])):
                             str_txt[i % len_arr] = double_txt
@@ -1038,31 +1177,42 @@ def process_text_and_build_csv_rows(text: str):
                         # 6. CSV-экранирование (ОДИН РАЗ!)
                         a = a.replace('"', '""')
                         t = t.replace('"', '""')
-                        print(f"\nТранслитерация{i + 1}\n {a}")
-                        print(f"\nПеревод{i + 1}\n {t}")
-                        print("-" * 50)
+                        # print(f"\nТранслитерация{i + 1}\n {a}")
+                        # print(f"\nПеревод{i + 1}\n {t}")
+                        # print("-" * 50)
                         csv_rows.append(f'"{a}","{t}"\n')
                         # найден 2 блок, ищем следующие первые
                         start_pos = close_pos + 1
+                        print("Ищем следующий 1 блок")
                     else:
+                        print("Не найден 2 блок")
+                        # не найден 2 блок,
                         if close_pos < len(text):
-                            # не найден 2 блок, ищем следующие первые
-                            start_pos = close_pos + 1
+                            # ищем следующие первые
+                            # start_pos = close_pos + 1
+                            print("Меняем шаблон")
+                            # меняем шаблон
+                            work = False
+                            start_pos = 0
                         else:
-                            # не найден 2 блок,
+                            print("Прошли текст, меняем шаблон")
                             # прошли текст, меняем шаблон
                             work = False
                             start_pos = 0
                 else:
+                    print("Не найден 1 блок")
                     # не найден первый блок
                     if next_pos < len(text):
+                        print("Продолжаем по тексту поиск 1 блока")
                         # продолжаем идти по тексту
                         start_pos = next_pos + 1
                     else:
+                        print("Прошли текст, меняем шаблон")
                         # прошли текст, меняем шаблон
                         work = False
                         start_pos = 0
             # меняем шаблон
+        print("Меняем очерёдность групп шаблонов")
         # меняем очерёдность поиска блоков
         i += 1
     return csv_rows
@@ -1133,15 +1283,15 @@ df_trnl = df_trnl.drop_duplicates()
 
 # df_trnl.to_csv("publications_new.csv", index=False)
 # # -------------------------------------------
-# # print(df_trnl[df_trnl['has_akkadian']].head(20))  # Перші 5 строк даних
+# # print(df_trnl[df_trnl['has_akkadian']].head(10))  # Перші 5 строк даних
 # # print(df_trnl.shape)  # Dataset Shape
 # # print(df_trnl.info())  # Dataset Information
 # # print(df_trnl.describe())   # Statistics
 # # print(df_trnl.isnull().sum())  # Missing Values
 print('\n')
 
-# idx = df_trnl[df_trnl['has_akkadian']].head(5).index
-idx = df_trnl[df_trnl['has_akkadian']].index
+idx = df_trnl[df_trnl['has_akkadian']].head(10).index
+# idx = df_trnl[df_trnl['has_akkadian']].index
 df_trnl.loc[idx, df_trnl.columns[2]] = (
     df_trnl.loc[idx, df_trnl.columns[2]]
     .str.replace("\\n", "\n", regex=False)
@@ -1174,23 +1324,30 @@ df_trnl.loc[idx, df_trnl.columns[2]] = (
 #
 # # print(i)
 # # ----------------------------------------------------------------------
-# num = 0
-
+num = 0
+num_i = 0
 all_rows = []
 # for val in values:
 
 for i in idx:
-            # print(f"index = {i}")
+    print(f"{num_i + 1} текст начинаем искать")
+    print(f"{num + 1} пару блоков начинаем искать.\n")
+    print(f"index = {i}")
             # print("Назва файлу:", df_trnl.at[i, df_trnl.columns[0]])
             # print("Сторінка з текстом, що містить переклад:", df_trnl.at[i, df_trnl.columns[1]])
-            # print("Текст всієї статті:\n", df_trnl.at[i, df_trnl.columns[2]])
+    print("Текст всієї статті:\n", df_trnl.at[i, df_trnl.columns[2]])
             # print("-" * 50)
     list_row = process_text_and_build_csv_rows(df_trnl.at[i, df_trnl.columns[2]])
     # list_row = process_text_and_build_csv_rows(val)
     for row in list_row:
         if row not in all_rows:
             all_rows.append(row)
-    # num += 1
+            print(f"{num + 1} пара блоков найдена.\n")
+            print(row)
+            num += 1
+    print(f"{num_i + 1} текст прошли")
+    num_i += 1
+
 
 # for i in idx[:10]:  # первые 10 для проверки
 #     text = df_trnl.iat[i, 2]
@@ -1206,6 +1363,7 @@ print(new_df)
 print(f"Кількість статей з перекладом: {len(idx)}\n")
 # print(f"Кількість статей з перекладом: {len(values)}\n")
 # print(num)
+sys.exit()
 print('\n')
 
 #%%
