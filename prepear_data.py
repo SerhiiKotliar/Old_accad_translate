@@ -653,6 +653,7 @@ def detect_translate(text: str, start_pos: int) -> str:
     if end == -1:
         return None
     str_line = text[pos:end]
+    # уборка мусора
     subs = [
         (r'ı\s+ı', '11'),
         (r'ı\s+', '1'),
