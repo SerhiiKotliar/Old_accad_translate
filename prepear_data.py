@@ -783,23 +783,32 @@ def extract_quoted_substring(text: str, start_pos: int, pattern: str):
     open_seq = ' "'
     # поиск открывающей кавычки начинается С start_pos
     open_pos = text.find(open_seq, start_pos) + 1
-    if open_pos - start_pos > 10:
-        arr_mach = []
-        match_prov = pattern.search(text, start_pos)
-        while match_prov:
+    distance_to_open = open_pos - start_pos
+    arr_mach = []
+    start_pos_prov = start_pos
+    distance_to_open_prov = distance_to_open
+    while distance_to_open_prov > 10:
+        match_prov = pattern.search(text, start_pos_prov)
+        if match_prov:
             arr_mach.append(match_prov.end())
-            start_pos = match_prov.end()
-            match_prov = pattern.search(text, start_pos)
-        max_match_prov = max(arr_mach)
-        max_end = max(match.end(), max_match_prov)
-        start_pos = max_end
+            start_pos_prov = match_prov.end()
+            distance_to_open_prov = open_pos - start_pos_prov
+            if distance_to_open_prov < 0:
+                open_pos = text.find(open_seq, open_pos) + 1
+                distance_to_open_prov = open_pos - start_pos_prov
+                while distance_to_open_prov < 0:
+                    open_pos = text.find(open_seq, open_pos) + 1
+                    distance_to_open_prov = open_pos - start_pos_prov
+    # max_match_prov = max(arr_mach)
+    # max_end = max(match.end(), max_match_prov)
+    start_pos = start_pos_prov
     # if open_pos - start_pos > 80:
     #     return None, None, start_pos + 8
     if open_pos == -1:
         return None, None, start_pos
-    print(f"Найдено якорь по шаблону кавычек {match.group()}")
-    if match.group() == "1742: 26-29:":
-        print("SLEDIM")
+    print(f"Найдено якорь по шаблону кавычек {start_pos}")
+    # if match.group() == "1742: 26-29:":
+    #     print("SLEDIM")
     # позиция начала текста после открывающей кавычки "
     quote_start = open_pos + 1
 
