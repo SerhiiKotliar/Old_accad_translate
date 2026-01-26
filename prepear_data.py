@@ -776,18 +776,30 @@ def extract_quoted_substring(text: str, start_pos: int, pattern: str):
     match = pattern.search(text, start_pos)
     if not match:
         return None, None, len(text)
-    print(f"Найдено по шаблону {match.group()}")
+    # print(f"Найдено якорь по шаблону кавычек {match.group()}")
     # start_pos = match.end() + 1
     start_pos = match.end()
     translate = False
     open_seq = ' "'
     # поиск открывающей кавычки начинается С start_pos
     open_pos = text.find(open_seq, start_pos) + 1
-    if open_pos - start_pos > 80:
-        return None, None, start_pos + 8
+    if open_pos - start_pos > 10:
+        arr_mach = []
+        match_prov = pattern.search(text, start_pos)
+        while match_prov:
+            arr_mach.append(match_prov.end())
+            start_pos = match_prov.end()
+            match_prov = pattern.search(text, start_pos)
+        max_match_prov = max(arr_mach)
+        max_end = max(match.end(), max_match_prov)
+        start_pos = max_end
+    # if open_pos - start_pos > 80:
+    #     return None, None, start_pos + 8
     if open_pos == -1:
         return None, None, start_pos
-
+    print(f"Найдено якорь по шаблону кавычек {match.group()}")
+    if match.group() == "1742: 26-29:":
+        print("SLEDIM")
     # позиция начала текста после открывающей кавычки "
     quote_start = open_pos + 1
 
@@ -1228,10 +1240,9 @@ def process_text_and_build_csv_rows(text: str):
     i = 0
     csv_rows = []
     start_pos = 0
-    patterns = all_patterns[i]
 
     while i < len_arr:
-        # patterns = all_patterns[i]
+        patterns = all_patterns[i]
         print(f"Работаем с {i + 1} группой шаблонов")
         for pattern in patterns:
             work = True
@@ -1245,10 +1256,11 @@ def process_text_and_build_csv_rows(text: str):
                     str_txt_1[i % len_arr], flag2, close_pos = extract_function_2[i % len_arr](text, next_pos)
                     if flag2:
                         print("Найден 2 блок")
-                        double_txt, double_flag, double_next_pos = extract_function_1[i % len_arr](text, next_pos, pattern)
-                        if double_flag and double_next_pos < (close_pos - len(str_txt_1[i % len_arr])):
-                            str_txt[i % len_arr] = double_txt
-                            next_pos = double_next_pos
+                        # double_txt, double_flag, double_next_pos = extract_function_1[i % len_arr](text, next_pos, pattern)
+                        # if double_flag and double_next_pos < (close_pos - len(str_txt_1[i % len_arr])):
+                        #     print(f"Найден уточняющий текст {double_txt}")
+                        #     str_txt[i % len_arr] = double_txt
+                        #     next_pos = double_next_pos
                         match i:
                             case 0:
                                 translate_str = str_txt[i % len_arr]
