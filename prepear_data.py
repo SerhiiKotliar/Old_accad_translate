@@ -1018,7 +1018,7 @@ def extract_ankara(text: str, start_pos: int, pattern: str):
     match = pattern.search(text, start_pos)
     if not match:
         return None, None, len(text)
-    # print(f"Найден поисковый якорь: {match.group()}")
+    print(f"Найден поисковый якорь Ankara: {match.group()}")
     # if match.end() >= len(text):
     #     return None, None, len(text)
     result = ""
