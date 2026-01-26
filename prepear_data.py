@@ -474,11 +474,13 @@ def extract_transliteration(text) -> list:
         # Проверка 2: Содержит ли иностранные слова?
         has_foreign_words = FOREIGN_WORD_RE.search(line_trimmed)
 
-        # Проверка 3: Содержит ли явные признаки НЕ транслитерации?
-        is_not_translit = NOT_TRANSLIT_RE.search(line_trimmed)
-
         # Проверка 4: Содержит ли признаки аккадской транслитерации?
         has_akkadian_indicators = AKKADIAN_INDICATOR_RE.search(line_trimmed)
+        if not has_foreign_words and has_basic_format and has_akkadian_indicators:
+            if ':' in line_trimmed:
+                line_trimmed = line_trimmed.replace(":", "")
+        # Проверка 3: Содержит ли явные признаки НЕ транслитерации?
+        is_not_translit = NOT_TRANSLIT_RE.search(line_trimmed)
 
         # Логика принятия решения:
         # 1. Должен быть базовый формат
@@ -610,7 +612,7 @@ def extract_transliteration_only(text) -> str:
     return blocks
 
 
-def is_translation(text: str) -> bool:
+def is_translation(text: str, one_word: bool=False) -> bool:
     if not text or len(text) < 10:
         return False
 
@@ -622,15 +624,15 @@ def is_translation(text: str) -> bool:
 
     # Слова длиной ≥ 2
     words = WORD_RE.findall(text)
-    if len(words) < 2:
+    if len(words)< 2 and not one_word:
         return False
 
-    # Короткие токены (ša, ina, a-na и т.п.)
+    # # Короткие токены (ša, ina, a-na и т.п.)
     tokens = re.findall(r"[A-Za-zšṣṭḫʾʿ]+", text.lower())
-    if tokens:
-        short_tokens = [t for t in tokens if len(t) <= 3]
-        if len(short_tokens) / len(tokens) > 0.6:
-            return False
+    # if tokens:
+    #     short_tokens = [t for t in tokens if len(t) <= 3]
+    #     if len(short_tokens) / len(tokens) > 0.6:
+    #         return False
 
     # Частотные служебные слова аккадского
     if sum(1 for t in tokens if t in AKKADIAN_FUNCTION_WORDS) >= 2:
@@ -640,18 +642,21 @@ def is_translation(text: str) -> bool:
 
 
 
-def get_next_line_trl(text: str, start_pos: int) -> str:
+def get_next_line_trl(text: str, start_pos: int):
     # начало строки поиска
     pos = None if start_pos == len(text) else start_pos
     if pos  is None:
-        return None
+        return None, len(text)
     # конец строки поиска
     end = text.find('\n', pos)
+    if end == -1 and pos < len(text):
+        end = len(text)
+    if end == -1:
+        return None, pos
     if end == pos:
         pos = end + 1
         end = text.find('\n', pos)
-    if end == -1:
-        return None
+
     str_line = text[pos:end]
     str_line = re.sub(
         r'^\s*(?:[SK]\.|S\. K\.|v|\. v)\s*(?:\r?\n|$)',
@@ -674,11 +679,14 @@ def get_next_line(text: str, start_pos: int) -> str:
         return None
     # конец строки поиска
     end = text.find('\n', pos)
+    if end == -1 and pos < len(text):
+        end = len(text)
+    if end == -1:
+        return None
     if end == pos:
         pos = end + 1
         end = text.find('\n', pos)
-    if end == -1:
-        return None
+
     str_line = text[pos:end]
     # str_line = re.sub(
     #     r'^\s*(?:[SK]\.|S\. K\.|v|\. v)\s*(?:\r?\n|$)',
@@ -694,16 +702,22 @@ def get_next_line(text: str, start_pos: int) -> str:
 
     return str_line
 
+def count_words(text):
+    return len(re.findall(r"[A-Za-zÀ-ÖØ-öø-ÿА-Яа-яЁё]+", text))
+
 def detect_translate(text: str, start_pos: int) -> str:
     is_translate = False
+    one_word = False
     # начало строки поиска
     pos = None if start_pos == len(text) else start_pos
     if pos  is None:
-        return is_translate, None
+        return is_translate, len(text)
     # конец строки поиска
     end = text.find('\n', pos)
+    if end == -1 and pos < len(text):
+        end = len(text)
     if end == -1:
-        return is_translate, None
+        return is_translate, len(text)
     str_line = text[pos:end]
     # уборка мусора
     subs = [
@@ -725,7 +739,9 @@ def detect_translate(text: str, start_pos: int) -> str:
     pattern = r'\b\d{1,3}\s*[-–—-]\s*\d{1,3}\b'
 
     str_line, count = re.subn(pattern, '', str_line)
-    if count > 2 and is_translation(str_line):
+    if count_words(str_line) == 1:
+        one_word = True
+    if count > 2 or is_translation(str_line, one_word):
         is_translate = True
     # print("Количество замен:", count)
 
@@ -760,12 +776,15 @@ def extract_quoted_substring(text: str, start_pos: int, pattern: str):
     match = pattern.search(text, start_pos)
     if not match:
         return None, None, len(text)
-    start_pos = match.end() + 1
+    print(f"Найдено по шаблону {match.group()}")
+    # start_pos = match.end() + 1
+    start_pos = match.end()
     translate = False
     open_seq = ' "'
     # поиск открывающей кавычки начинается С start_pos
     open_pos = text.find(open_seq, start_pos) + 1
-
+    if open_pos - start_pos > 80:
+        return None, None, start_pos + 8
     if open_pos == -1:
         return None, None, start_pos
 
@@ -834,7 +853,7 @@ def extract_parenthesized_substring(text: str, start_pos: int):
         flag = is_long
 
         return substring, flag, close_pos
-    return None, None, start_pos
+    return None, None, start_pos + 4
 
 def find_single_quote(text: str, start_pos: int):
     # 3. Поиск одинарной открывающей кавычки
@@ -864,7 +883,7 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
     # поиск начала транслитерации
     start_pos = pos
     for i in range(start_pos, limit):
-        if text[i].isdigit() or text[i] == '-' or text[i] == 'ℵ' or text[i] == "–":
+        if text[i].isdigit() or text[i] == '-' or text[i] == 'ℵ' or text[i] == "–" or text[i] == ":":
             start_pos = i + 1
         else:
             start_pos = i
@@ -1000,13 +1019,17 @@ def extract_ankara(text: str, start_pos: int, pattern: str):
     if not match:
         return None, None, len(text)
     # print(f"Найден поисковый якорь: {match.group()}")
+    # if match.end() >= len(text):
+    #     return None, None, len(text)
+    result = ""
     pos = match.end() + 1
     # поиск начала транслитерации
     # следующая после якоря позиция строки
     while pos < len(text):
         n_l, next_first_pos = get_next_line_trl(text, pos)
+        if next_first_pos >= len(text):
+            return result, True, pos
         line_trl = []
-        result = ""
         if n_l:
             line_trl = extract_transliteration(n_l)
         while line_trl:
@@ -1014,9 +1037,14 @@ def extract_ankara(text: str, start_pos: int, pattern: str):
             result += (" ".join(line_trl))
             # последняя позиция в строке \n
             # pos = pos + len(line_trl) + 1
+            # первая позиция в следующей строке
             pos = text.find("\n", next_first_pos + 1)
+            if pos >= len(text):
+                return result, True, next_first_pos
             # строка
             n_l, next_first_pos = get_next_line_trl(text, pos)
+            if next_first_pos >= len(text):
+                return result, True, pos
             if n_l:
                 line_trl = extract_transliteration(n_l)
             else:
@@ -1040,10 +1068,12 @@ def extract_after_ankara(text: str, start_pos: int):
 
         if n_l:
             if extract_transliteration(n_l) == []:
+                if re.match(r'^\d+:\s*', n_l):
+                    break
                 # здесь проверка на окончание перевода
                 # и на то, что это перевод
                 # ---------------------------------
-                is_trans, n_l = detect_translate(n_l, pos)
+                is_trans, n_l = detect_translate(n_l, 0)
                 # -----------------------------------
                 # не транслитерация
                 if is_trans:
@@ -1178,7 +1208,8 @@ def process_text_and_build_csv_rows(text: str):
     (без заголовка)
     """
     # списки шаблонов поиска для разных вариантов пар первого и второго блоков
-    patterns1 = [r'/k \d{2,}:', r'[A-Za-z]{3,5} \d,', r'[A-Za-z]{3,5} \(\d{4},']
+    # patterns1 = [r'/k \d{2,}:', r'[A-Za-z]{3,5} \d,', r'[A-Za-z]{3,5} \(\d{4},']
+    patterns1 = [r'\d{2,}:\s(?:\d{1,2}-\d{1,2})?[:),]']
     patterns2 = [r'[A-Z][a-z]{3,} \d{4}[a-z]?: \d+(?:[–\-]\d+)?']
     patterns3 = [r'ANKARA KÜLTEPE TABLETLERİ II']
     # список списков шаблонов поиска первого блока
@@ -1197,10 +1228,11 @@ def process_text_and_build_csv_rows(text: str):
     i = 0
     csv_rows = []
     start_pos = 0
-
+    patterns = all_patterns[i]
 
     while i < len_arr:
-        patterns = all_patterns[i]
+        # patterns = all_patterns[i]
+        print(f"Работаем с {i + 1} группой шаблонов")
         for pattern in patterns:
             work = True
             while work:
@@ -1243,9 +1275,9 @@ def process_text_and_build_csv_rows(text: str):
                         # 6. CSV-экранирование (ОДИН РАЗ!)
                         a = a.replace('"', '""')
                         t = t.replace('"', '""')
-                        # print(f"\nТранслитерация{i + 1}\n {a}")
-                        # print(f"\nПеревод{i + 1}\n {t}")
-                        # print("-" * 50)
+                        print(f"\nТранслитерация{i + 1}\n {a}")
+                        print(f"\nПеревод{i + 1}\n {t}")
+                        print("-" * 50)
                         csv_rows.append(f'"{a}","{t}"\n')
                         # найден 2 блок, ищем следующие первые
                         start_pos = close_pos + 1
@@ -1256,10 +1288,12 @@ def process_text_and_build_csv_rows(text: str):
                         if close_pos < len(text):
                             # ищем следующие первые
                             # start_pos = close_pos + 1
-                            print("Меняем шаблон")
+                            # print("Меняем шаблон")
+                            print("Ищем следующий 1 блок")
                             # меняем шаблон
-                            work = False
-                            start_pos = 0
+                            # work = False
+                            # start_pos = 0
+                            start_pos = close_pos + 1
                         else:
                             print("Прошли текст, меняем шаблон")
                             # прошли текст, меняем шаблон
@@ -1278,7 +1312,7 @@ def process_text_and_build_csv_rows(text: str):
                         work = False
                         start_pos = 0
             # меняем шаблон
-        print("Меняем очерёдность групп шаблонов")
+        print(f"Переходим на {i+2} группу шаблонов")
         # меняем очерёдность поиска блоков
         i += 1
     return csv_rows
@@ -1340,8 +1374,8 @@ def print_file_head(path, n=5, encoding="utf-8"):
 
 #%%
 # Завантаження даних з CSV-файлу
-thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
-# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
+thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
 # ----------------------------------------
