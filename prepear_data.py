@@ -816,7 +816,7 @@ def extract_quoted_substring(text: str, start_pos: int, pattern: str):
     quote_end = text.find('"', quote_start)
 
     if quote_end == -1:
-        return None, None, start_pos
+        return None, None, len(text)
 
     # подстрока между кавычками
     substring = text[quote_start : quote_end]
@@ -845,7 +845,7 @@ def extract_parenthesized_substring(text: str, start_pos: int):
         (substring, flag, close_pos)
     """
     # 1. найти открывающую скобку
-    open_pos = text.find("(", start_pos+1)
+    open_pos = text.find("(", start_pos)
     if open_pos == -1:
         return None, None, start_pos
 
