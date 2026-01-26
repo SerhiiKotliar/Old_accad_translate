@@ -876,7 +876,7 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
     match = pattern.search(text, start_search_pos)
     if not match:
         return None, None, len(text)
-    # print(f"Найден поисковый якорь: {match.group()}")
+    print(f"Найден поисковый якорь: {match.group()}")
     pos = match.end() + 1
 
     limit = min(pos + 6, len(text))
@@ -1209,8 +1209,8 @@ def process_text_and_build_csv_rows(text: str):
     """
     # списки шаблонов поиска для разных вариантов пар первого и второго блоков
     # patterns1 = [r'/k \d{2,}:', r'[A-Za-z]{3,5} \d,', r'[A-Za-z]{3,5} \(\d{4},']
-    patterns1 = [r'\d{2,}:\s(?:\d{1,2}-\d{1,2})?[:),]']
-    patterns2 = [r'[A-Z][a-z]{3,} \d{4}[a-z]?: \d+(?:[–\-]\d+)?']
+    patterns1 = [r'\d{2,}:\s(?:\d{1,3}-\d{1,3})?[:),]']
+    patterns2 = [r'[A-Z][a-z]{2,} \d{4}[a-z]?: \d+(?:[–\-]\d+)?']
     patterns3 = [r'ANKARA KÜLTEPE TABLETLERİ II']
     # список списков шаблонов поиска первого блока
     all_patterns = [patterns1, patterns2, patterns3]
@@ -1374,8 +1374,8 @@ def print_file_head(path, n=5, encoding="utf-8"):
 
 #%%
 # Завантаження даних з CSV-файлу
-# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
-thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
+# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
 # ----------------------------------------
