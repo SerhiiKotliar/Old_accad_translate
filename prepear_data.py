@@ -769,9 +769,9 @@ def extract_quoted_substring(text: str, start_pos: int, pattern: str):
         (substring, is_longer_than_30, closing_quote_pos)
     """
     # pattern1 = r'(?:\d{1,3}-\d{1,3})?[:),]'
-    pattern1 = r'(?:(?:\d{1,3}-\d{1,3})?[:),])?'
+    # pattern1 = r'(?:(?:\d{1,3}-\d{1,3})?[:),])?'
 
-    pattern1 = re.compile(pattern1)
+    # pattern1 = re.compile(pattern1)
     if start_pos != 0:
         start_pos += 1
     # 1. Основной шаблон
@@ -780,7 +780,7 @@ def extract_quoted_substring(text: str, start_pos: int, pattern: str):
     match = pattern.search(text, start_pos)
     if not match:
         return None, None, len(text)
-    match = pattern1.search(text, match.end())
+    # match = pattern1.search(text, match.end())
     # print(f"Найдено якорь по шаблону кавычек {match.group()}")
     # start_pos = match.end() + 1
     start_pos = match.end() - 2
@@ -790,88 +790,88 @@ def extract_quoted_substring(text: str, start_pos: int, pattern: str):
     open_pos = text.find(open_seq, start_pos) + 1
     if open_pos == -1:
         return None, None, len(text)
-    # позиция начала текста после открывающей кавычки "
-    quote_start = open_pos + 1
-    # ищем закрывающую кавычку "
-    quote_end = text.find('"', quote_start)
-    if quote_end == -1:
-        return None, None, len(text)
-    # открывающая скобка
-    open_scob = text.find('(', quote_end)
-    if open_scob == -1:
-        return None, None, len(text)
-    # открывающая скобка дальше закрывающей кавычки более чем на 3 символа
-    while open_scob - quote_end > 3:
-        # ищем кавычки ниже
-        open_pos = text.find(open_seq, quote_end) + 1
-        if open_pos == -1:
-            return None, None, len(text)
-        quote_end = text.find('"', open_pos + 1)
-        if quote_end == -1:
-            return None, None, len(text)
-        if open_scob - quote_end < 0:
-            # опускаем скобки ниже кавычек
-            while open_scob - quote_end < 0:
-                open_scob = text.find('(', quote_end)
-                if open_scob == -1:
-                    return None, None, len(text)
-
-    close_scob = text.find(')', open_scob)
-    maybe_translit = text[open_scob:close_scob]
-
-    while not extract_transliteration(maybe_translit):
-        start_pos = close_scob + 1
-        # ищем кавычки после скобок
-        open_pos = text.find(open_seq, start_pos) + 1
-        if open_pos == -1:
-            return None, None, len(text)
-        quote_start = open_pos + 1
-        quote_end = text.find('"', quote_start)
-        if quote_end == -1:
-            return None, None, len(text)
-        open_scob = text.find('(', quote_end)
-        if open_scob == -1:
-            return None, None, len(text)
-        close_scob = text.find(')', open_scob)
-        maybe_translit = text[open_scob:close_scob]
-
-
-    distance_to_open = open_pos - start_pos
-    arr_mach = []
-    start_pos_prov = start_pos
-    match_prov = match
-    distance_to_open_prov = distance_to_open
-    # дистанция от конца якоря до открытой кавычки
-    while distance_to_open_prov > 10:
-        match_prov = pattern.search(text, start_pos_prov)
-        if not match_prov:
-            return None, None, len(text)
-        match_prov = pattern1.search(text, match_prov.end())
-        if match_prov:
-            arr_mach.append(match_prov.end())
-            start_pos_prov = match_prov.end()
-            distance_to_open_prov = open_pos - start_pos_prov
-            # якорь проскочил за открытую кавычку
-            if distance_to_open_prov < 0:
-                open_pos = text.find(open_seq, open_pos) + 1
-                if open_pos == -1:
-                    return None, None, len(text)
-                distance_to_open_prov = open_pos - start_pos_prov
-                while distance_to_open_prov < 0:
-                    open_pos = text.find(open_seq, open_pos) + 1
-                    if open_pos == -1:
-                        return None, None, len(text)
-                    distance_to_open_prov = open_pos - start_pos_prov
-        else:
-            return None, None, len(text)
-    # max_match_prov = max(arr_mach)
-    # max_end = max(match.end(), max_match_prov)
-    start_pos = start_pos_prov
+    # # позиция начала текста после открывающей кавычки "
+    # quote_start = open_pos + 1
+    # # ищем закрывающую кавычку "
+    # quote_end = text.find('"', quote_start)
+    # if quote_end == -1:
+    #     return None, None, len(text)
+    # # открывающая скобка
+    # open_scob = text.find('(', quote_end)
+    # if open_scob == -1:
+    #     return None, None, len(text)
+    # # открывающая скобка дальше закрывающей кавычки более чем на 3 символа
+    # while open_scob - quote_end > 3:
+    #     # ищем кавычки ниже
+    #     open_pos = text.find(open_seq, quote_end) + 1
+    #     if open_pos == -1:
+    #         return None, None, len(text)
+    #     quote_end = text.find('"', open_pos + 1)
+    #     if quote_end == -1:
+    #         return None, None, len(text)
+    #     if open_scob - quote_end < 0:
+    #         # опускаем скобки ниже кавычек
+    #         while open_scob - quote_end < 0:
+    #             open_scob = text.find('(', quote_end)
+    #             if open_scob == -1:
+    #                 return None, None, len(text)
+    #
+    # close_scob = text.find(')', open_scob)
+    # maybe_translit = text[open_scob:close_scob]
+    #
+    # while not extract_transliteration(maybe_translit):
+    #     start_pos = close_scob + 1
+    #     # ищем кавычки после скобок
+    #     open_pos = text.find(open_seq, start_pos) + 1
+    #     if open_pos == -1:
+    #         return None, None, len(text)
+    #     quote_start = open_pos + 1
+    #     quote_end = text.find('"', quote_start)
+    #     if quote_end == -1:
+    #         return None, None, len(text)
+    #     open_scob = text.find('(', quote_end)
+    #     if open_scob == -1:
+    #         return None, None, len(text)
+    #     close_scob = text.find(')', open_scob)
+    #     maybe_translit = text[open_scob:close_scob]
+    #
+    #
+    # distance_to_open = open_pos - start_pos
+    # arr_mach = []
+    # start_pos_prov = start_pos
+    # match_prov = match
+    # distance_to_open_prov = distance_to_open
+    # # дистанция от конца якоря до открытой кавычки
+    # while distance_to_open_prov > 10:
+    #     match_prov = pattern.search(text, start_pos_prov)
+    #     if not match_prov:
+    #         return None, None, len(text)
+    #     match_prov = pattern1.search(text, match_prov.end())
+    #     if match_prov:
+    #         arr_mach.append(match_prov.end())
+    #         start_pos_prov = match_prov.end()
+    #         distance_to_open_prov = open_pos - start_pos_prov
+    #         # якорь проскочил за открытую кавычку
+    #         if distance_to_open_prov < 0:
+    #             open_pos = text.find(open_seq, open_pos) + 1
+    #             if open_pos == -1:
+    #                 return None, None, len(text)
+    #             distance_to_open_prov = open_pos - start_pos_prov
+    #             while distance_to_open_prov < 0:
+    #                 open_pos = text.find(open_seq, open_pos) + 1
+    #                 if open_pos == -1:
+    #                     return None, None, len(text)
+    #                 distance_to_open_prov = open_pos - start_pos_prov
+    #     else:
+    #         return None, None, len(text)
+    # # max_match_prov = max(arr_mach)
+    # # max_end = max(match.end(), max_match_prov)
+    # start_pos = start_pos_prov
     # if open_pos - start_pos > 80:
     #     return None, None, start_pos + 8
     # if open_pos == -1:
     #     return None, None, start_pos
-    print(f"Найдено якорь по шаблону кавычек {match_prov.group()}")
+    print(f"Найдено якорь по шаблону кавычек {match.group()}")
     # if match.group() == "1742: 26-29:":
     #     print("SLEDIM")
     # позиция начала текста после открывающей кавычки "
@@ -1297,7 +1297,13 @@ def process_text_and_build_csv_rows(text: str):
     # patterns1 = [r'/k \d{2,}:', r'[A-Za-z]{3,5} \d,', r'[A-Za-z]{3,5} \(\d{4},']
     # patterns1 = [r'\d{2,}:\s(?:\d{1,3}-\d{1,3})?[:),]']
     # patterns1 = [r'\d{2,}:\s']
-    patterns1 = [r'\d{2,}:\s(?:(?:\d{1,3}-\d{1,3})?[:),])?(?:.{1,30})? "']
+    # patterns1 = [r'\d{2,}:\s(?:(?:\d{1,3}-\d{1,3})?[:),])?(?:.{1,30})? "']
+    # patterns1 = [r'\d{2,}:\s(?:(?:\d{1,3}-\d{1,3})?[:),])?(?:.{1,80})?\s*"']
+    # patterns1 = [r'\d{2,}:\s(?:\d{1,3}-\d{1,3}[:),])?.*?\s*"']
+    # patterns1 = ['r\d{2,}:\s(?:\d{1,3}-\d{1,3}[,:)]\s*)?[^"]*"']
+    # patterns1 = [r'\d{2,}:\s(?:\d{1,3}-\d{1,3}[,:)]\s*)?[\s\S]*?"']
+    # patterns1 = [r'\d{2,}:\s(?:\d{1,3}-\d{1,3}[:),]\s*)?[\s\S]*?\s"']
+    patterns1 = [r'\d{2,}:\s+(?:\d+-\d+[:,)]\s*[^"]{0,80}?\s)?"']
     patterns2 = [r'[A-Z][a-z]{2,} \d{4}[a-z]?: \d+(?:[–\-]\d+)?']
     patterns3 = [r'ANKARA KÜLTEPE TABLETLERİ II']
     # список списков шаблонов поиска первого блока
@@ -1344,6 +1350,9 @@ def process_text_and_build_csv_rows(text: str):
                             case 1:
                                 translate_str = str_txt_1[i % len_arr]
                                 accad_str = str_txt[i % len_arr]
+                            case 2:
+                                translate_str = str_txt[i % len_arr]
+                                accad_str = str_txt_1[i % len_arr]
                         # 1. Очистка перевода
                         t = translate_str.replace("\n", " ")
 
@@ -1462,8 +1471,8 @@ def print_file_head(path, n=5, encoding="utf-8"):
 
 #%%
 # Завантаження даних з CSV-файлу
-# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
-thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
+# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
 # ----------------------------------------
@@ -1531,7 +1540,7 @@ for i in idx:
         if row not in all_rows:
             all_rows.append(row)
             print(f"{num + 1} пара блоков найдена.\n")
-            print(row)
+            # print(row)
             num += 1
     print(f"{num_i + 1} текст прошли")
     num_i += 1
