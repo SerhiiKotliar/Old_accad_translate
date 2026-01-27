@@ -783,18 +783,69 @@ def extract_quoted_substring(text: str, start_pos: int, pattern: str):
     match = pattern1.search(text, match.end())
     # print(f"Найдено якорь по шаблону кавычек {match.group()}")
     # start_pos = match.end() + 1
-    start_pos = match.end()
+    start_pos = match.end() - 2
     translate = False
     open_seq = ' "'
     # поиск открывающей кавычки начинается С start_pos
     open_pos = text.find(open_seq, start_pos) + 1
+    if open_pos == -1:
+        return None, None, len(text)
+    # позиция начала текста после открывающей кавычки "
+    quote_start = open_pos + 1
+    # ищем закрывающую кавычку "
+    quote_end = text.find('"', quote_start)
+    if quote_end == -1:
+        return None, None, len(text)
+    # открывающая скобка
+    open_scob = text.find('(', quote_end)
+    if open_scob == -1:
+        return None, None, len(text)
+    # открывающая скобка дальше закрывающей кавычки более чем на 3 символа
+    while open_scob - quote_end > 3:
+        # ищем кавычки ниже
+        open_pos = text.find(open_seq, quote_end) + 1
+        if open_pos == -1:
+            return None, None, len(text)
+        quote_end = text.find('"', open_pos + 1)
+        if quote_end == -1:
+            return None, None, len(text)
+        if open_scob - quote_end < 0:
+            # опускаем скобки ниже кавычек
+            while open_scob - quote_end < 0:
+                open_scob = text.find('(', quote_end)
+                if open_scob == -1:
+                    return None, None, len(text)
+
+    close_scob = text.find(')', open_scob)
+    maybe_translit = text[open_scob:close_scob]
+
+    while not extract_transliteration(maybe_translit):
+        start_pos = close_scob + 1
+        # ищем кавычки после скобок
+        open_pos = text.find(open_seq, start_pos) + 1
+        if open_pos == -1:
+            return None, None, len(text)
+        quote_start = open_pos + 1
+        quote_end = text.find('"', quote_start)
+        if quote_end == -1:
+            return None, None, len(text)
+        open_scob = text.find('(', quote_end)
+        if open_scob == -1:
+            return None, None, len(text)
+        close_scob = text.find(')', open_scob)
+        maybe_translit = text[open_scob:close_scob]
+
+
     distance_to_open = open_pos - start_pos
     arr_mach = []
     start_pos_prov = start_pos
+    match_prov = match
     distance_to_open_prov = distance_to_open
     # дистанция от конца якоря до открытой кавычки
     while distance_to_open_prov > 10:
         match_prov = pattern.search(text, start_pos_prov)
+        if not match_prov:
+            return None, None, len(text)
         match_prov = pattern1.search(text, match_prov.end())
         if match_prov:
             arr_mach.append(match_prov.end())
@@ -1245,7 +1296,8 @@ def process_text_and_build_csv_rows(text: str):
     # списки шаблонов поиска для разных вариантов пар первого и второго блоков
     # patterns1 = [r'/k \d{2,}:', r'[A-Za-z]{3,5} \d,', r'[A-Za-z]{3,5} \(\d{4},']
     # patterns1 = [r'\d{2,}:\s(?:\d{1,3}-\d{1,3})?[:),]']
-    patterns1 = [r'\d{2,}:\s']
+    # patterns1 = [r'\d{2,}:\s']
+    patterns1 = [r'\d{2,}:\s(?:(?:\d{1,3}-\d{1,3})?[:),])?(?:.{1,30})? "']
     patterns2 = [r'[A-Z][a-z]{2,} \d{4}[a-z]?: \d+(?:[–\-]\d+)?']
     patterns3 = [r'ANKARA KÜLTEPE TABLETLERİ II']
     # список списков шаблонов поиска первого блока
