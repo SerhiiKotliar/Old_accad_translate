@@ -465,11 +465,11 @@ def extract_transliteration(text) -> list:
                 MORPHEME_SEP_RE.search(line_trimmed)
         )
 
-        if not has_basic_format:
-            if current:
-                blocks.append("\n".join(current).strip())
-                current = []
-            continue
+        # if not has_basic_format:
+        #     if current:
+        #         blocks.append("\n".join(current).strip())
+        #         current = []
+        #     continue
 
         # Проверка 2: Содержит ли иностранные слова?
         has_foreign_words = FOREIGN_WORD_RE.search(line_trimmed)
@@ -491,6 +491,9 @@ def extract_transliteration(text) -> list:
                 (not has_foreign_words or has_akkadian_indicators) and
                 not is_not_translit
         )
+        num_defis = text.count('-')
+        if (num_defis > 0 and len(text)/num_defis - 1 > 12) or num_defis == 0:
+            is_transliteration = False
 
         # Особый случай: если есть аккадские индикаторы, принимаем даже с некоторыми иностранными словами
         if has_akkadian_indicators and has_basic_format and not is_not_translit:
@@ -871,7 +874,7 @@ def extract_quoted_substring(text: str, start_pos: int, pattern: str):
     #     return None, None, start_pos + 8
     # if open_pos == -1:
     #     return None, None, start_pos
-    print(f"Найдено якорь по шаблону кавычек {match.group()}")
+    # print(f"Найдено якорь по шаблону кавычек {match.group()}")
     # if match.group() == "1742: 26-29:":
     #     print("SLEDIM")
     # позиция начала текста после открывающей кавычки "
@@ -957,12 +960,55 @@ def find_single_quote(text: str, start_pos: int):
 def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pattern: str):
     if start_search_pos != 0:
         start_search_pos += 1
-    pattern = re.compile(pattern)
+    pattern = re.compile(pattern, re.MULTILINE)
 
     match = pattern.search(text, start_search_pos)
     if not match:
         return None, None, len(text)
     print(f"Найден поисковый якорь: {match.group()}")
+    # ---------------------------------------------------
+    pos = match.end()
+    # pos = pos - 3
+    pos_middle = text.find("\n", pos)
+    pos = text.find("\n", pos_middle + 1)
+    result = ""
+    # pos = match.end() + 1
+    # поиск начала транслитерации
+    # следующая после якоря позиция строки
+    num_row = 0
+    while pos < len(text):
+        n_l, next_first_pos = get_next_line_trl(text, pos)
+        if next_first_pos >= len(text):
+            return result, True, pos
+        if num_row > 2:
+            return None, None, match.end()
+        num_row += 1
+        line_trl = []
+        if n_l:
+            line_trl = extract_transliteration(n_l)
+        while line_trl:
+            # сборная транслитерация
+            result += (" ".join(line_trl))
+            # последняя позиция в строке \n
+            # pos = pos + len(line_trl) + 1
+            # первая позиция в следующей строке
+            pos = text.find("\n", next_first_pos + 1)
+            if pos >= len(text):
+                return result, True, next_first_pos
+            # строка
+            n_l, next_first_pos = get_next_line_trl(text, pos)
+            if next_first_pos >= len(text):
+                return result, True, pos
+            if n_l:
+                line_trl = extract_transliteration(n_l)
+            else:
+                line_trl = ""
+        if result:
+            return result, True, next_first_pos
+        pos = next_first_pos
+    return result, None, next_first_pos
+
+    # ----------------------------------------------------
     pos = match.end() + 1
 
     limit = min(pos + 6, len(text))
@@ -1303,11 +1349,11 @@ def process_text_and_build_csv_rows(text: str):
     # patterns1 = ['r\d{2,}:\s(?:\d{1,3}-\d{1,3}[,:)]\s*)?[^"]*"']
     # patterns1 = [r'\d{2,}:\s(?:\d{1,3}-\d{1,3}[,:)]\s*)?[\s\S]*?"']
     # patterns1 = [r'\d{2,}:\s(?:\d{1,3}-\d{1,3}[:),]\s*)?[\s\S]*?\s"']
-    patterns1 = [r'\d{2,}:\s+(?:\d+-\d+[:,)]\s*[^"]{0,80}?\s)?"']
-    patterns2 = [r'[A-Z][a-z]{2,} \d{4}[a-z]?: \d+(?:[–\-]\d+)?']
-    patterns3 = [r'ANKARA KÜLTEPE TABLETLERİ II']
+    patterns1 = r'\d{2,}:\s+(?:\d+-\d+[:,)]\s*[^"]{0,80}?\s)?"'
+    patterns2 = r'[A-Z][a-z]{3,} \d{4}[a-z]?: \d+(?:[–\-]\d+)?'
+    # patterns3 = [r'ANKARA KÜLTEPE TABLETLERİ II']
     # список списков шаблонов поиска первого блока
-    all_patterns = [patterns1, patterns2, patterns3]
+    all_patterns = [patterns1, patterns2]
     len_arr = len(all_patterns)
     # len_arr = 1
     # список функций поиска первого блока соответствует списку списков шаблонов
@@ -1324,9 +1370,9 @@ def process_text_and_build_csv_rows(text: str):
     start_pos = 0
 
     while i < len_arr:
-        patterns = all_patterns[i]
+        # patterns = all_patterns[i]
         print(f"Работаем с {i + 1} группой шаблонов")
-        for pattern in patterns:
+        for pattern in all_patterns:
             work = True
             while work:
                 # поиск по двойным кавычкам потом по буквам пробелам цифрам
@@ -1471,8 +1517,8 @@ def print_file_head(path, n=5, encoding="utf-8"):
 
 #%%
 # Завантаження даних з CSV-файлу
-thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
-# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
+thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
 # ----------------------------------------
@@ -1487,8 +1533,8 @@ df_trnl = df_trnl.drop_duplicates()
 # # print(df_trnl.isnull().sum())  # Missing Values
 print('\n')
 
-idx = df_trnl[df_trnl['has_akkadian']].head(10).index
-# idx = df_trnl[df_trnl['has_akkadian']].index
+# idx = df_trnl[df_trnl['has_akkadian']].head(10).index
+idx = df_trnl[df_trnl['has_akkadian']].index
 df_trnl.loc[idx, df_trnl.columns[2]] = (
     df_trnl.loc[idx, df_trnl.columns[2]]
     .str.replace("\\n", "\n", regex=False)
