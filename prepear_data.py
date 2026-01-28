@@ -491,13 +491,14 @@ def extract_transliteration(text) -> list:
                 (not has_foreign_words or has_akkadian_indicators) and
                 not is_not_translit
         )
-        num_defis = text.count('-')
-        if (num_defis > 0 and len(text)/num_defis - 1 > 12) or num_defis == 0:
-            is_transliteration = False
 
         # Особый случай: если есть аккадские индикаторы, принимаем даже с некоторыми иностранными словами
         if has_akkadian_indicators and has_basic_format and not is_not_translit:
             is_transliteration = True
+
+        num_defis = text.count('-')
+        if (num_defis > 0 and len(text) / num_defis - 1 > 12) or num_defis == 0:
+            is_transliteration = False
 
         if is_transliteration:
             current.append(line_trimmed)
@@ -652,14 +653,17 @@ def get_next_line_trl(text: str, start_pos: int):
         return None, len(text)
     # конец строки поиска
     end = text.find('\n', pos)
-    if end == -1 and pos < len(text):
+    if end == -1 and len(text) < pos <= len(text):
         end = len(text)
-    if end == -1:
-        return None, pos
-    if end == pos:
+    # if end == -1:
+        return None, end
+    if end == pos and pos < len(text):
         pos = end + 1
         end = text.find('\n', pos)
-
+        if end == -1 and pos <= len(text):
+            end = len(text)
+    if end == pos and pos >= len(text):
+        return None, end
     str_line = text[pos:end]
     str_line = re.sub(
         r'^\s*(?:[SK]\.|S\. K\.|v|\. v)\s*(?:\r?\n|$)',
@@ -673,7 +677,7 @@ def get_next_line_trl(text: str, start_pos: int):
         str_line
     )
 
-    return str_line, end
+    return str_line, end + 1
 
 def get_next_line(text: str, start_pos: int) -> str:
     # начало строки поиска
@@ -970,16 +974,29 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
     pos = match.end()
     # pos = pos - 3
     pos_middle = text.find("\n", pos)
-    pos = text.find("\n", pos_middle + 1)
+    if pos_middle == -1:
+        return None, None, pos
+    if pos_middle - pos > 3:
+        return None, None, pos
+    # начало строки поиска
+    pos = text.find("\n", pos_middle + 1) + 1
+    if pos == 0:
+        return None, None, len(text)
+    if pos == -1:
+        return None, None, pos_middle
+    if pos - pos_middle > 3:
+        return None, None, pos_middle
     result = ""
     # pos = match.end() + 1
-    # поиск начала транслитерации
+    # поиск начала транслитерации по строкам
     # следующая после якоря позиция строки
     num_row = 0
     while pos < len(text):
+        # строка и её первая позиция
         n_l, next_first_pos = get_next_line_trl(text, pos)
-        if next_first_pos >= len(text):
-            return result, True, pos
+        # if next_first_pos >= len(text):
+        #     return result, True, pos
+
         if num_row > 2:
             return None, None, match.end()
         num_row += 1
@@ -988,17 +1005,17 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
             line_trl = extract_transliteration(n_l)
         while line_trl:
             # сборная транслитерация
-            result += (" ".join(line_trl))
+            result += ("\n".join(line_trl))
             # последняя позиция в строке \n
             # pos = pos + len(line_trl) + 1
             # первая позиция в следующей строке
-            pos = text.find("\n", next_first_pos + 1)
-            if pos >= len(text):
-                return result, True, next_first_pos
+            # pos = text.find("\n", next_first_pos) + 1
+            # if pos >= len(text):
+            #     return result, True, next_first_pos
             # строка
-            n_l, next_first_pos = get_next_line_trl(text, pos)
-            if next_first_pos >= len(text):
-                return result, True, pos
+            n_l, next_first_pos = get_next_line_trl(text, next_first_pos)
+            # if next_first_pos >= len(text):
+            #     return result, True, pos
             if n_l:
                 line_trl = extract_transliteration(n_l)
             else:
@@ -1349,17 +1366,19 @@ def process_text_and_build_csv_rows(text: str):
     # patterns1 = ['r\d{2,}:\s(?:\d{1,3}-\d{1,3}[,:)]\s*)?[^"]*"']
     # patterns1 = [r'\d{2,}:\s(?:\d{1,3}-\d{1,3}[,:)]\s*)?[\s\S]*?"']
     # patterns1 = [r'\d{2,}:\s(?:\d{1,3}-\d{1,3}[:),]\s*)?[\s\S]*?\s"']
-    patterns1 = r'\d{2,}:\s+(?:\d+-\d+[:,)]\s*[^"]{0,80}?\s)?"'
-    patterns2 = r'[A-Z][a-z]{3,} \d{4}[a-z]?: \d+(?:[–\-]\d+)?'
+    pattern1 = r'\d{2,}:\s+(?:\d+-\d+[:,)]\s*[^"]{0,80}?\s)?"'
+    pattern2 = r'[A-Z][a-z]{3,} \d{4}[a-z]?: \d+(?:[–\-]\d+)?'
     # patterns3 = [r'ANKARA KÜLTEPE TABLETLERİ II']
     # список списков шаблонов поиска первого блока
-    all_patterns = [patterns1, patterns2]
+    all_patterns = [pattern2]
     len_arr = len(all_patterns)
     # len_arr = 1
     # список функций поиска первого блока соответствует списку списков шаблонов
-    extract_function_1 = [extract_quoted_substring, extract_letter_space_digit_colon_space, extract_ankara]
+    # extract_function_1 = [extract_quoted_substring, extract_letter_space_digit_colon_space, extract_ankara]
+    extract_function_1 = [extract_letter_space_digit_colon_space]
     # список функций поиска второго блока соответствует списку функций поиска первого блока
-    extract_function_2 = [extract_parenthesized_substring, extract_single_quotes, extract_after_ankara]
+    # extract_function_2 = [extract_parenthesized_substring, extract_single_quotes, extract_after_ankara]
+    extract_function_2 = [extract_single_quotes]
     str_txt = [""] * len_arr
     str_txt_1 = [""] * len_arr
     # str_txt = ['', '']
@@ -1517,8 +1536,8 @@ def print_file_head(path, n=5, encoding="utf-8"):
 
 #%%
 # Завантаження даних з CSV-файлу
-# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
-thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
+# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
 # ----------------------------------------
@@ -1575,6 +1594,9 @@ all_rows = []
 for i in idx:
     print(f"{num_i + 1} текст начинаем искать")
     print(f"{num + 1} пару блоков начинаем искать.\n")
+    if i == 202410:
+        print("PROVERKA")
+        print("Текст всієї статті:\n", df_trnl.at[i, df_trnl.columns[2]])
     print(f"index = {i}")
             # print("Назва файлу:", df_trnl.at[i, df_trnl.columns[0]])
             # print("Сторінка з текстом, що містить переклад:", df_trnl.at[i, df_trnl.columns[1]])
