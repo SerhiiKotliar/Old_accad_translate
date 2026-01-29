@@ -779,8 +779,8 @@ def extract_quoted_substring(text: str, start_pos: int, pattern: str):
     # pattern1 = r'(?:(?:\d{1,3}-\d{1,3})?[:),])?'
 
     # pattern1 = re.compile(pattern1)
-    if start_pos != 0:
-        start_pos += 1
+    # if start_pos != 0:
+    #     start_pos += 1
     # 1. Основной шаблон
     pattern = re.compile(pattern)
 
@@ -792,9 +792,10 @@ def extract_quoted_substring(text: str, start_pos: int, pattern: str):
     # start_pos = match.end() + 1
     start_pos = match.end() - 2
     translate = False
-    open_seq = ' "'
-    # поиск открывающей кавычки начинается С start_pos
-    open_pos = text.find(open_seq, start_pos) + 1
+    # open_seq = ' "'
+    # # поиск открывающей кавычки начинается С start_pos
+    # open_pos = text.find(open_seq, start_pos) + 1
+    open_pos = find_double_quote(text, start_pos)
     if open_pos == -1:
         return None, None, len(text)
     # # позиция начала текста после открывающей кавычки "
@@ -885,7 +886,8 @@ def extract_quoted_substring(text: str, start_pos: int, pattern: str):
     quote_start = open_pos + 1
 
     # ищем закрывающую кавычку "
-    quote_end = text.find('"', quote_start)
+    # quote_end = text.find('"', quote_start)
+    quote_end = find_double_quote(text, quote_start, False)
 
     if quote_end == -1:
         return None, None, len(text)
@@ -893,15 +895,16 @@ def extract_quoted_substring(text: str, start_pos: int, pattern: str):
     # подстрока между кавычками
     substring = text[quote_start : quote_end]
 
-    dash_count = substring.count('-')
-    aleph_count = substring.count('ℵ')
-    if dash_count > 0 or aleph_count > 0:
-        if dash_count > 0:
-            dash_required = len(substring) / dash_count
-        else:
-            dash_required = 34
-        # много символов транслитерации
-        if dash_required < 25 or aleph_count > 0:
+    # dash_count = substring.count('-')
+    # aleph_count = substring.count('ℵ')
+    # if dash_count > 0 or aleph_count > 0:
+    #     if dash_count > 0:
+    #         dash_required = len(substring) / dash_count
+    #     else:
+    #         dash_required = 34
+    #     # много символов транслитерации
+    #     if dash_required < 25 or aleph_count > 0:
+    if extract_transliteration(substring):
             return None, None, quote_end
 
     if len(substring) > 30:
@@ -948,22 +951,74 @@ def extract_parenthesized_substring(text: str, start_pos: int):
         return substring, flag, close_pos
     return None, None, start_pos + 4
 
-def find_single_quote(text: str, start_pos: int):
+def find_single_quote(text: str, start_pos: int, first: bool=True):
     # 3. Поиск одинарной открывающей кавычки
-    quote_pos = text.find(" '", start_pos) + 1
+    text = (
+        text.replace("’", "'")
+        .replace("‘", "'")
+        .replace("ʼ", "'")
+        .replace("ʾ", "'")
+    )
+    if first:
+        # quote_pos_prob = text.find(" '", start_pos)
+        # quote_pos_prob = quote_pos_prob + 1 if quote_pos_prob != -1 else -1
+        quote_pos_abz = text.find("\n'", start_pos)
+        quote_pos_abz = quote_pos_abz + 1 if quote_pos_abz != -1 else -1
+        # if quote_pos_prob > 0 and quote_pos_abz > 0:
+        #     quote_pos = min(quote_pos_prob, quote_pos_abz)
+        # elif quote_pos_abz < 0 or quote_pos_prob < 0:
+        #     quote_pos = max(quote_pos_prob, quote_pos_abz)
+        # else:
+        #     quote_pos = -1
+        quote_pos = quote_pos_abz
+    else:
+        quote_pos = text.find("'", start_pos)
     if quote_pos == -1:
-        return None
+        return quote_pos
     # дистанция от транслитерации
-    diff = quote_pos - 1 - start_pos
+    # кавычки после текста
+    diff = quote_pos - start_pos
     if diff >= 100:
-        return None
+        return -1
     else:
         return quote_pos
 
+def find_double_quote(text: str, start_pos: int, first: bool=True):
+    text = (
+        text.replace("“", '"')
+        .replace("”", '"')
+        .replace("„", '"')
+        .replace("‟", '"')
+        .replace("«", '"')
+        .replace("»", '"')
+    )
+    if first:
+        quote_pos_prob = text.find(" \"", start_pos)
+        quote_pos_prob = quote_pos_prob + 1 if quote_pos_prob != -1 else -1
+        quote_pos_abz = text.find("\n\"", start_pos)
+        quote_pos_abz = quote_pos_abz + 1 if quote_pos_abz != -1 else -1
+        if quote_pos_prob > 0 and quote_pos_abz > 0:
+            quote_pos = min(quote_pos_prob, quote_pos_abz)
+        elif quote_pos_abz < 0 or quote_pos_prob < 0:
+            quote_pos = max(quote_pos_prob, quote_pos_abz)
+        else:
+            quote_pos = -1
+    else:
+        quote_pos = text.find("\"", start_pos)
+    if quote_pos == -1:
+        return quote_pos
+    # дистанция от транслитерации или от перевода
+    # кавычки после текста
+    # diff = quote_pos - start_pos
+    # if diff >= 100:
+    #     return -1
+    # else:
+    return quote_pos
+
 #%%
 def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pattern: str):
-    if start_search_pos != 0:
-        start_search_pos += 1
+    # if start_search_pos != 0:
+    #     start_search_pos += 1
     pattern = re.compile(pattern, re.MULTILINE)
 
     match = pattern.search(text, start_search_pos)
@@ -976,7 +1031,7 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
     pos_middle = text.find("\n", pos)
     if pos_middle == -1:
         return None, None, pos
-    if pos_middle - pos > 3:
+    if pos_middle - pos > 2:
         return None, None, pos
     # начало строки поиска
     pos = text.find("\n", pos_middle + 1) + 1
@@ -984,7 +1039,7 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
         return None, None, len(text)
     if pos == -1:
         return None, None, pos_middle
-    if pos - pos_middle > 3:
+    if pos - pos_middle > 2:
         return None, None, pos_middle
     result = ""
     # pos = match.end() + 1
@@ -997,15 +1052,17 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
         # if next_first_pos >= len(text):
         #     return result, True, pos
 
-        if num_row > 2:
+        if num_row > 1:
             return None, None, match.end()
-        num_row += 1
+        # num_row += 1
         line_trl = []
         if n_l:
             line_trl = extract_transliteration(n_l)
+        end_translit = 0
         while line_trl:
             # сборная транслитерация
             result += ("\n".join(line_trl))
+            end_translit = next_first_pos - 1
             # последняя позиция в строке \n
             # pos = pos + len(line_trl) + 1
             # первая позиция в следующей строке
@@ -1020,10 +1077,11 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
                 line_trl = extract_transliteration(n_l)
             else:
                 line_trl = ""
+        num_row += 1
         if result:
-            return result, True, next_first_pos
+            return result, True, end_translit
         pos = next_first_pos
-    return result, None, next_first_pos
+    return result, None, next_first_pos - 1
 
     # ----------------------------------------------------
     pos = match.end() + 1
@@ -1140,9 +1198,14 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
 def extract_single_quotes(text: str, start_pos: int):
     if start_pos < 0 or start_pos >= len(text):
         return None, None, start_pos
+    # 1. Поиск открывающей одинарной кавычки
+    qu_pos = find_single_quote(text, start_pos, True)
+    if qu_pos == -1:
+        return None, None, start_pos
 
     # 1. Поиск закрывающей одинарной кавычки
-    quote_pos = text.find("'", start_pos+1)
+    # quote_pos = text.find("'", qu_pos+1)
+    quote_pos = find_single_quote(text, qu_pos+1, False)
     if quote_pos == -1:
         return None, None, start_pos
 
@@ -1151,7 +1214,7 @@ def extract_single_quotes(text: str, start_pos: int):
         return None, None, start_pos
 
     # 3. Извлечение подстроки
-    translate_txt = text[start_pos+1:quote_pos]
+    translate_txt = text[qu_pos+1:quote_pos]
 
     # 4. Возврат результата
     # print(f"Выбран перевод: {translate_txt}")
@@ -1160,8 +1223,8 @@ def extract_single_quotes(text: str, start_pos: int):
 def extract_ankara(text: str, start_pos: int, pattern: str):
     if start_pos < 0 or start_pos >= len(text):
         return None, None, start_pos
-    if start_pos != 0:
-        start_pos += 1
+    # if start_pos != 0:
+    #     start_pos += 1
     pattern = re.compile(pattern)
 
     match = pattern.search(text, start_pos)
@@ -1370,15 +1433,15 @@ def process_text_and_build_csv_rows(text: str):
     pattern2 = r'[A-Z][a-z]{3,} \d{4}[a-z]?: \d+(?:[–\-]\d+)?'
     # patterns3 = [r'ANKARA KÜLTEPE TABLETLERİ II']
     # список списков шаблонов поиска первого блока
-    all_patterns = [pattern2]
+    all_patterns = [pattern1, pattern2]
     len_arr = len(all_patterns)
     # len_arr = 1
     # список функций поиска первого блока соответствует списку списков шаблонов
     # extract_function_1 = [extract_quoted_substring, extract_letter_space_digit_colon_space, extract_ankara]
-    extract_function_1 = [extract_letter_space_digit_colon_space]
+    extract_function_1 = [extract_quoted_substring, extract_letter_space_digit_colon_space]
     # список функций поиска второго блока соответствует списку функций поиска первого блока
     # extract_function_2 = [extract_parenthesized_substring, extract_single_quotes, extract_after_ankara]
-    extract_function_2 = [extract_single_quotes]
+    extract_function_2 = [extract_parenthesized_substring, extract_single_quotes]
     str_txt = [""] * len_arr
     str_txt_1 = [""] * len_arr
     # str_txt = ['', '']
@@ -1389,91 +1452,91 @@ def process_text_and_build_csv_rows(text: str):
     start_pos = 0
 
     while i < len_arr:
-        # patterns = all_patterns[i]
+        pattern = all_patterns[i]
         print(f"Работаем с {i + 1} группой шаблонов")
-        for pattern in all_patterns:
-            work = True
-            while work:
-                # поиск по двойным кавычкам потом по буквам пробелам цифрам
-                str_txt[i % len_arr], flag, next_pos = extract_function_1[i % len_arr](text, start_pos, pattern)
+        # for pattern in all_patterns:
+        work = True
+        while work:
+            # поиск по двойным кавычкам потом по буквам пробелам цифрам
+            str_txt[i % len_arr], flag, next_pos = extract_function_1[i % len_arr](text, start_pos, pattern)
 
-                if flag:
-                    print("Найден 1 блок")
-                    # поиск по круглым скобкам потом по одинарным кавычкам
-                    str_txt_1[i % len_arr], flag2, close_pos = extract_function_2[i % len_arr](text, next_pos)
-                    if flag2:
-                        print("Найден 2 блок")
-                        # double_txt, double_flag, double_next_pos = extract_function_1[i % len_arr](text, next_pos, pattern)
-                        # if double_flag and double_next_pos < (close_pos - len(str_txt_1[i % len_arr])):
-                        #     print(f"Найден уточняющий текст {double_txt}")
-                        #     str_txt[i % len_arr] = double_txt
-                        #     next_pos = double_next_pos
-                        match i:
-                            case 0:
-                                translate_str = str_txt[i % len_arr]
-                                accad_str = str_txt_1[i % len_arr]
-                            case 1:
-                                translate_str = str_txt_1[i % len_arr]
-                                accad_str = str_txt[i % len_arr]
-                            case 2:
-                                translate_str = str_txt[i % len_arr]
-                                accad_str = str_txt_1[i % len_arr]
-                        # 1. Очистка перевода
-                        t = translate_str.replace("\n", " ")
+            if flag:
+                print("Найден 1 блок")
+                # поиск по круглым скобкам потом по одинарным кавычкам
+                str_txt_1[i % len_arr], flag2, close_pos = extract_function_2[i % len_arr](text, next_pos)
+                if flag2:
+                    print("Найден 2 блок")
+                    # double_txt, double_flag, double_next_pos = extract_function_1[i % len_arr](text, next_pos, pattern)
+                    # if double_flag and double_next_pos < (close_pos - len(str_txt_1[i % len_arr])):
+                    #     print(f"Найден уточняющий текст {double_txt}")
+                    #     str_txt[i % len_arr] = double_txt
+                    #     next_pos = double_next_pos
+                    match i:
+                        case 0:
+                            translate_str = str_txt[i % len_arr]
+                            accad_str = str_txt_1[i % len_arr]
+                        case 1:
+                            translate_str = str_txt_1[i % len_arr]
+                            accad_str = str_txt[i % len_arr]
+                        case 2:
+                            translate_str = str_txt[i % len_arr]
+                            accad_str = str_txt_1[i % len_arr]
+                    # 1. Очистка перевода
+                    t = translate_str.replace("\n", " ")
 
-                        # 2. Очистка аккадского
-                        a = accad_str.replace("\n", " ")
-                        a = normalize_for_mt(a)
+                    # 2. Очистка аккадского
+                    a = accad_str.replace("\n", " ")
+                    a = normalize_for_mt(a)
 
-                        # 3. Токенизация перевода
-                        t_sentences = sent_tokenize(t)
+                    # 3. Токенизация перевода
+                    t_sentences = sent_tokenize(t)
 
-                        # 4. Выравнивание + маркеры
-                        a = align_and_mark_sentences(a, t_sentences, marker="<sent>")
+                    # 4. Выравнивание + маркеры
+                    a = align_and_mark_sentences(a, t_sentences, marker="<sent>")
 
-                        # 5. Склеиваем перевод обратно
-                        t = " ".join(t_sentences)
+                    # 5. Склеиваем перевод обратно
+                    t = " ".join(t_sentences)
 
-                        # 6. CSV-экранирование (ОДИН РАЗ!)
-                        a = a.replace('"', '""')
-                        t = t.replace('"', '""')
-                        print(f"\nТранслитерация{i + 1}\n {a}")
-                        print(f"\nПеревод{i + 1}\n {t}")
-                        print("-" * 50)
-                        csv_rows.append(f'"{a}","{t}"\n')
-                        # найден 2 блок, ищем следующие первые
-                        start_pos = close_pos + 1
-                        print("Ищем следующий 1 блок")
-                    else:
-                        print("Не найден 2 блок")
-                        # не найден 2 блок,
-                        if close_pos < len(text):
-                            # ищем следующие первые
-                            # start_pos = close_pos + 1
-                            # print("Меняем шаблон")
-                            print("Ищем следующий 1 блок")
-                            # меняем шаблон
-                            # work = False
-                            # start_pos = 0
-                            start_pos = close_pos + 1
-                        else:
-                            print("Прошли текст, меняем шаблон")
-                            # прошли текст, меняем шаблон
-                            work = False
-                            start_pos = 0
+                    # 6. CSV-экранирование (ОДИН РАЗ!)
+                    a = a.replace('"', '""')
+                    t = t.replace('"', '""')
+                    print(f"\nТранслитерация{i + 1}\n {a}")
+                    print(f"\nПеревод{i + 1}\n {t}")
+                    print("-" * 50)
+                    csv_rows.append(f'"{a}","{t}"\n')
+                    # найден 2 блок, ищем следующие первые
+                    start_pos = close_pos + 1
+                    print("Ищем следующий 1 блок")
                 else:
-                    print("Не найден 1 блок")
-                    # не найден первый блок
-                    if next_pos < len(text):
-                        print("Продолжаем по тексту поиск 1 блока")
-                        # продолжаем идти по тексту
-                        start_pos = next_pos + 1
+                    print("Не найден 2 блок")
+                    # не найден 2 блок,
+                    if close_pos < len(text):
+                        # ищем следующие первые
+                        # start_pos = close_pos + 1
+                        # print("Меняем шаблон")
+                        print("Ищем следующий 1 блок")
+                        # меняем шаблон
+                        # work = False
+                        # start_pos = 0
+                        start_pos = close_pos + 1
                     else:
                         print("Прошли текст, меняем шаблон")
                         # прошли текст, меняем шаблон
                         work = False
                         start_pos = 0
-            # меняем шаблон
+            else:
+                print("Не найден 1 блок")
+                # не найден первый блок
+                if next_pos < len(text):
+                    print("Продолжаем по тексту поиск 1 блока")
+                    # продолжаем идти по тексту
+                    start_pos = next_pos + 1
+                else:
+                    print("Прошли текст, меняем шаблон")
+                    # прошли текст, меняем шаблон
+                    work = False
+                    start_pos = 0
+        # меняем шаблон
         print(f"Переходим на {i+2} группу шаблонов")
         # меняем очерёдность поиска блоков
         i += 1
@@ -1536,8 +1599,8 @@ def print_file_head(path, n=5, encoding="utf-8"):
 
 #%%
 # Завантаження даних з CSV-файлу
-thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
-# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
+thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
 # ----------------------------------------
@@ -1552,7 +1615,7 @@ df_trnl = df_trnl.drop_duplicates()
 # # print(df_trnl.isnull().sum())  # Missing Values
 print('\n')
 
-# idx = df_trnl[df_trnl['has_akkadian']].head(10).index
+# idx = df_trnl[df_trnl['has_akkadian']].head(40).index
 idx = df_trnl[df_trnl['has_akkadian']].index
 df_trnl.loc[idx, df_trnl.columns[2]] = (
     df_trnl.loc[idx, df_trnl.columns[2]]
@@ -1595,8 +1658,13 @@ for i in idx:
     print(f"{num_i + 1} текст начинаем искать")
     print(f"{num + 1} пару блоков начинаем искать.\n")
     if i == 202410:
+    # if i == 201336:
+    # if i == 25:
+    # if i == 130319:
         print("PROVERKA")
+    # if i > 28:
         print("Текст всієї статті:\n", df_trnl.at[i, df_trnl.columns[2]])
+    #     print("Текст всієї статті всі символи:\n", repr(df_trnl.at[i, df_trnl.columns[2]]))
     print(f"index = {i}")
             # print("Назва файлу:", df_trnl.at[i, df_trnl.columns[0]])
             # print("Сторінка з текстом, що містить переклад:", df_trnl.at[i, df_trnl.columns[1]])
