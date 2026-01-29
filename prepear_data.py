@@ -677,7 +677,7 @@ def get_next_line_trl(text: str, start_pos: int):
         str_line
     )
 
-    return str_line, end + 1
+    return str_line, end
 
 def get_next_line(text: str, start_pos: int) -> str:
     # начало строки поиска
@@ -1071,8 +1071,8 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
             #     return result, True, next_first_pos
             # строка
             n_l, next_first_pos = get_next_line_trl(text, next_first_pos)
-            # if next_first_pos >= len(text):
-            #     return result, True, pos
+            if next_first_pos == -1:
+                return result, True, end_translit
             if n_l:
                 line_trl = extract_transliteration(n_l)
             else:
@@ -1599,8 +1599,8 @@ def print_file_head(path, n=5, encoding="utf-8"):
 
 #%%
 # Завантаження даних з CSV-файлу
-# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
-thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
+# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
 # ----------------------------------------
