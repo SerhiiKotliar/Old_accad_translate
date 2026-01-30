@@ -1234,37 +1234,74 @@ def extract_ankara(text: str, start_pos: int, pattern: str):
     # if match.end() >= len(text):
     #     return None, None, len(text)
     result = ""
-    pos = match.end() + 1
+    pos = match.end()
     # поиск начала транслитерации
     # следующая после якоря позиция строки
+    # while pos < len(text):
+    #     n_l, next_first_pos = get_next_line_trl(text, pos)
+    #     if next_first_pos >= len(text):
+    #         return result, True, pos
+    #     line_trl = []
+    #     if n_l:
+    #         line_trl = extract_transliteration(n_l)
+    #     while line_trl:
+    #         # сборная транслитерация
+    #         result += (" ".join(line_trl))
+    #         # последняя позиция в строке \n
+    #         # pos = pos + len(line_trl) + 1
+    #         # первая позиция в следующей строке
+    #         pos = text.find("\n", next_first_pos + 1)
+    #         if pos >= len(text):
+    #             return result, True, next_first_pos
+    #         # строка
+    #         n_l, next_first_pos = get_next_line_trl(text, pos)
+    #         if next_first_pos >= len(text):
+    #             return result, True, pos
+    #         if n_l:
+    #             line_trl = extract_transliteration(n_l)
+    #         else:
+    #             line_trl = ""
+    #     if result:
+    #         return result, True, next_first_pos
+    #     pos = next_first_pos
+    # return result, None, next_first_pos
+    num_row = 0
     while pos < len(text):
+        # строка и её первая позиция
         n_l, next_first_pos = get_next_line_trl(text, pos)
-        if next_first_pos >= len(text):
-            return result, True, pos
+        # if next_first_pos >= len(text):
+        #     return result, True, pos
+
+        if num_row > 1:
+            return None, None, match.end()
+        # num_row += 1
         line_trl = []
         if n_l:
             line_trl = extract_transliteration(n_l)
+        end_translit = 0
         while line_trl:
             # сборная транслитерация
-            result += (" ".join(line_trl))
+            result += ("\n".join(line_trl))
+            end_translit = next_first_pos - 1
             # последняя позиция в строке \n
             # pos = pos + len(line_trl) + 1
             # первая позиция в следующей строке
-            pos = text.find("\n", next_first_pos + 1)
-            if pos >= len(text):
-                return result, True, next_first_pos
+            # pos = text.find("\n", next_first_pos) + 1
+            # if pos >= len(text):
+            #     return result, True, next_first_pos
             # строка
-            n_l, next_first_pos = get_next_line_trl(text, pos)
-            if next_first_pos >= len(text):
-                return result, True, pos
+            n_l, next_first_pos = get_next_line_trl(text, next_first_pos)
+            if next_first_pos == -1:
+                return result, True, end_translit
             if n_l:
                 line_trl = extract_transliteration(n_l)
             else:
                 line_trl = ""
+        num_row += 1
         if result:
-            return result, True, next_first_pos
+            return result, True, end_translit
         pos = next_first_pos
-    return result, None, next_first_pos
+    return result, None, next_first_pos - 1
 
 def extract_after_ankara(text: str, start_pos: int):
     result = ""
@@ -1431,17 +1468,17 @@ def process_text_and_build_csv_rows(text: str):
     # patterns1 = [r'\d{2,}:\s(?:\d{1,3}-\d{1,3}[:),]\s*)?[\s\S]*?\s"']
     pattern1 = r'\d{2,}:\s+(?:\d+-\d+[:,)]\s*[^"]{0,80}?\s)?"'
     pattern2 = r'[A-Z][a-z]{3,} \d{4}[a-z]?: \d+(?:[–\-]\d+)?'
-    # patterns3 = [r'ANKARA KÜLTEPE TABLETLERİ II']
+    pattern3 = r'ANKARA KÜLTEPE TABLETLERİ II'
     # список списков шаблонов поиска первого блока
-    all_patterns = [pattern1, pattern2]
+    all_patterns = [pattern1, pattern2, pattern3]
     len_arr = len(all_patterns)
     # len_arr = 1
     # список функций поиска первого блока соответствует списку списков шаблонов
-    # extract_function_1 = [extract_quoted_substring, extract_letter_space_digit_colon_space, extract_ankara]
-    extract_function_1 = [extract_quoted_substring, extract_letter_space_digit_colon_space]
+    extract_function_1 = [extract_quoted_substring, extract_letter_space_digit_colon_space, extract_ankara]
+    # extract_function_1 = [extract_quoted_substring, extract_letter_space_digit_colon_space]
     # список функций поиска второго блока соответствует списку функций поиска первого блока
-    # extract_function_2 = [extract_parenthesized_substring, extract_single_quotes, extract_after_ankara]
-    extract_function_2 = [extract_parenthesized_substring, extract_single_quotes]
+    extract_function_2 = [extract_parenthesized_substring, extract_single_quotes, extract_after_ankara]
+    # extract_function_2 = [extract_parenthesized_substring, extract_single_quotes]
     str_txt = [""] * len_arr
     str_txt_1 = [""] * len_arr
     # str_txt = ['', '']
@@ -1479,8 +1516,8 @@ def process_text_and_build_csv_rows(text: str):
                             translate_str = str_txt_1[i % len_arr]
                             accad_str = str_txt[i % len_arr]
                         case 2:
-                            translate_str = str_txt[i % len_arr]
-                            accad_str = str_txt_1[i % len_arr]
+                            translate_str = str_txt_1[i % len_arr]
+                            accad_str = str_txt[i % len_arr]
                     # 1. Очистка перевода
                     t = translate_str.replace("\n", " ")
 
@@ -1599,8 +1636,8 @@ def print_file_head(path, n=5, encoding="utf-8"):
 
 #%%
 # Завантаження даних з CSV-файлу
-thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
-# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
+thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
 # ----------------------------------------
