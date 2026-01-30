@@ -496,8 +496,11 @@ def extract_transliteration(text) -> list:
         if has_akkadian_indicators and has_basic_format and not is_not_translit:
             is_transliteration = True
 
+        num_morf = text.count("ℵ")
         num_defis = text.count('-')
-        if (num_defis > 0 and len(text) / num_defis - 1 > 12) or num_defis == 0:
+        num_div = max(num_morf, num_defis)
+        # мало дефисов в строке
+        if (num_div > 0 and len(text) / num_div - 1 > 12) or num_div == 0:
             is_transliteration = False
 
         if is_transliteration:
@@ -668,17 +671,17 @@ def get_next_line_trl(text: str, start_pos: int):
     if end == pos and pos >= len(text):
         return "", end
     str_line = text[pos:end]
-    str_line = re.sub(
-        r'^\s*(?:[SK]\.|S\. K\.|v|\. v)\s*(?:\r?\n|$)',
-        '',
-        str_line,
-        flags=re.MULTILINE
-    )
-    str_line = re.sub(
-        r'(?m)^\s*\d{1,2}\.\s*',
-        '',
-        str_line
-    )
+    # str_line = re.sub(
+    #     r'^\s*(?:[SK]\.|S\. K\.|v|\. v)\s*(?:\r?\n|$)',
+    #     '',
+    #     str_line,
+    #     flags=re.MULTILINE
+    # )
+    # str_line = re.sub(
+    #     r'(?m)^\s*\d{1,2}\.\s*',
+    #     '',
+    #     str_line
+    # )
 
     return str_line, end
 
@@ -1437,20 +1440,20 @@ def process_text_and_build_csv_rows(text: str):
     # patterns1 = ['r\d{2,}:\s(?:\d{1,3}-\d{1,3}[,:)]\s*)?[^"]*"']
     # patterns1 = [r'\d{2,}:\s(?:\d{1,3}-\d{1,3}[,:)]\s*)?[\s\S]*?"']
     # patterns1 = [r'\d{2,}:\s(?:\d{1,3}-\d{1,3}[:),]\s*)?[\s\S]*?\s"']
-    pattern1 = r'\d{2,}:\s+(?:\d+-\d+[:,)]\s*[^"]{0,80}?\s)?"'
-    pattern2 = r'[A-Z][a-z]{3,} \d{4}[a-z]?: \d+(?:[–\-]\d+)?'
-    pattern3 = r'ANKARA KÜLTEPE TABLETLERİ II'
-    pattern4 = r'ANKARA KÜLTEPE TABLETLERİ'
+    # pattern1 = r'\d{2,}:\s+(?:\d+-\d+[:,)]\s*[^"]{0,80}?\s)?"'
+    # pattern2 = r'[A-Z][a-z]{3,} \d{4}[a-z]?: \d+(?:[–\-]\d+)?'
+    pattern3 = r'ANKARA KÜLTEPE TABLETLERİ II\n'
+    pattern4 = r'^ANKARA KÜLTEPE TABLETLERİ\n$'
     # список списков шаблонов поиска первого блока
-    all_patterns = [pattern1, pattern2]
+    all_patterns = [pattern3]
     len_arr = len(all_patterns)
     # len_arr = 1
     # список функций поиска первого блока соответствует списку списков шаблонов
     # extract_function_1 = [extract_quoted_substring, extract_letter_space_digit_colon_space, extract_ankara]
-    extract_function_1 = [extract_quoted_substring, extract_letter_space_digit_colon_space]
+    extract_function_1 = [extract_ankara]
     # список функций поиска второго блока соответствует списку функций поиска первого блока
     # extract_function_2 = [extract_parenthesized_substring, extract_single_quotes, extract_after_ankara]
-    extract_function_2 = [extract_parenthesized_substring, extract_single_quotes]
+    extract_function_2 = [extract_after_ankara]
     str_txt = [""] * len_arr
     str_txt_1 = [""] * len_arr
     # str_txt = ['', '']
@@ -1481,10 +1484,10 @@ def process_text_and_build_csv_rows(text: str):
                     #     str_txt[i % len_arr] = double_txt
                     #     next_pos = double_next_pos
                     match i:
+                        # case 0:
+                        #     translate_str = str_txt[i % len_arr]
+                        #     accad_str = str_txt_1[i % len_arr]
                         case 0:
-                            translate_str = str_txt[i % len_arr]
-                            accad_str = str_txt_1[i % len_arr]
-                        case 1:
                             translate_str = str_txt_1[i % len_arr]
                             accad_str = str_txt[i % len_arr]
                         case 2:
@@ -1608,8 +1611,8 @@ def print_file_head(path, n=5, encoding="utf-8"):
 
 #%%
 # Завантаження даних з CSV-файлу
-# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
-thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
+# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
 # ----------------------------------------
@@ -1622,7 +1625,7 @@ df_trnl = df_trnl.drop_duplicates()
 # # print(df_trnl.info())  # Dataset Information
 # # print(df_trnl.describe())   # Statistics
 # # print(df_trnl.isnull().sum())  # Missing Values
-print('\n')
+# print('\n')
 
 # idx = df_trnl[df_trnl['has_akkadian']].head(40).index
 idx = df_trnl[df_trnl['has_akkadian']].index
@@ -1663,39 +1666,43 @@ num_i = 0
 all_rows = []
 # for val in values:
 # texts = ''
-with open("output.txt", "a", encoding="utf-8", errors="replace") as f:
-    for i in idx:
-        print(f"{num_i + 1} текст начинаем искать")
-        print(f"{num + 1} пару блоков начинаем искать.\n")
-        # print(f"Index = {i}\n")
-        # if i == 5141:
-        # if i == 201336:
-        # if i == 25:
-        # if i == 130319:
-        #     print("PROVERKA")
-        # if i > 28:
-        # print("Текст всієї статті:\n", df_trnl.at[i, df_trnl.columns[2]])
-        # texts = '\n'.join(f"Index = {i}\nТекст всієї статті:\n{df_trnl.at[i, df_trnl.columns[2]]}")
-        # with open("output.txt", "w", encoding="utf-8", errors="replace") as f:
-        #     f.write(f"Index = {i}\nТекст всієї статті:\n{df_trnl.at[i, df_trnl.columns[2]]}")
-        f.write(f"Index = {i}\nТекст всієї статті:\n{df_trnl.at[i, df_trnl.columns[2]]}")
-        f.write("\n")
-        #     print("Текст всієї статті всі символи:\n", repr(df_trnl.at[i, df_trnl.columns[2]]))
+# with open("output4.txt", "a", encoding="utf-8", errors="replace") as f:
+for i in idx:
+    print(f"{num_i + 1} текст начинаем искать")
+    print(f"{num + 1} пару блоков начинаем искать.\n")
+    print(f"Index = {i}\n")
+    # if i == 5141:
+    if i == 5141:
+    # if i == 25:
+    # if i == 130319:
+        print("PROVERKA")
+    # if i > 28:
+    # print("Текст всієї статті:\n", df_trnl.at[i, df_trnl.columns[2]])
+    # texts = '\n'.join(f"Index = {i}\nТекст всієї статті:\n{df_trnl.at[i, df_trnl.columns[2]]}")
+    # with open("output.txt", "w", encoding="utf-8", errors="replace") as f:
+    #     f.write(f"Index = {i}\nТекст всієї статті:\n{df_trnl.at[i, df_trnl.columns[2]]}")
+    # if num_i > 12000:
+    #     f.write(f"\n\nIndex = {i}\nТекст всієї статті:\n{df_trnl.at[i, df_trnl.columns[2]]}")
+    #     f.write("\n")
+    # else:
+    #     f1.write(f"Index = {i}\nТекст всієї статті:\n{df_trnl.at[i, df_trnl.columns[2]]}")
+    #     f.write("\n")
+    #     print("Текст всієї статті всі символи:\n", repr(df_trnl.at[i, df_trnl.columns[2]]))
 
-                # print("Назва файлу:", df_trnl.at[i, df_trnl.columns[0]])
-                # print("Сторінка з текстом, що містить переклад:", df_trnl.at[i, df_trnl.columns[1]])
-        # print("Текст всієї статті:\n", df_trnl.at[i, df_trnl.columns[2]])
-                # print("-" * 50)
-        list_row = process_text_and_build_csv_rows(df_trnl.at[i, df_trnl.columns[2]])
-        # list_row = process_text_and_build_csv_rows(val)
-        for row in list_row:
-            if row not in all_rows:
-                all_rows.append(row)
-                print(f"{num + 1} пара блоков найдена.\n")
-                # print(row)
-                num += 1
-        print(f"{num_i + 1} текст прошли")
-        num_i += 1
+            # print("Назва файлу:", df_trnl.at[i, df_trnl.columns[0]])
+            # print("Сторінка з текстом, що містить переклад:", df_trnl.at[i, df_trnl.columns[1]])
+    # print("Текст всієї статті:\n", df_trnl.at[i, df_trnl.columns[2]])
+            # print("-" * 50)
+    list_row = process_text_and_build_csv_rows(df_trnl.at[i, df_trnl.columns[2]])
+    # list_row = process_text_and_build_csv_rows(val)
+    for row in list_row:
+        if row not in all_rows:
+            all_rows.append(row)
+            print(f"{num + 1} пара блоков найдена.\n")
+            # print(row)
+            num += 1
+    print(f"{num_i + 1} текст прошли")
+    num_i += 1
 
 
     # for i in idx[:10]:  # первые 10 для проверки
@@ -1705,15 +1712,15 @@ with open("output.txt", "a", encoding="utf-8", errors="replace") as f:
 
 
 
-    new_df = split_accad_and_translate(all_rows)
-    # new_df.to_csv('translate_from_publication.csv', index=False, quoting=csv.QUOTE_ALL)
-    print("Примеры строк:")
-    print(new_df)
-    print(f"Кількість статей з перекладом: {len(idx)}\n")
-    # print(f"Кількість статей з перекладом: {len(values)}\n")
-    # print(num)
-    sys.exit()
-    print('\n')
+new_df = split_accad_and_translate(all_rows)
+# new_df.to_csv('translate_from_publication.csv', index=False, quoting=csv.QUOTE_ALL)
+print("Примеры строк:")
+print(new_df)
+print(f"Кількість статей з перекладом: {len(idx)}\n")
+# print(f"Кількість статей з перекладом: {len(values)}\n")
+# print(num)
+sys.exit()
+print('\n')
 
 #%%
 # Завантаження даних з CSV-файлу
