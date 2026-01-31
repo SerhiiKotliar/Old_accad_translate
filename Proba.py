@@ -290,6 +290,66 @@ NOT_TRANSLIT_RE = re.compile(
 )
 
 
+def get_next_line_trl(text: str, start_pos: int):
+    """возвращает строку транслитерации, следующую за назначенной позицией
+     очищенную от мусора и позицию конца строки"""
+    # начало строки поиска
+    pos = None if start_pos == len(text) else start_pos
+    if pos  is None:
+        return "", len(text)
+    # конец строки поиска
+    end = text.find('\n', pos)
+    if end == -1:
+        end = len(text)
+        return text[pos:end], end
+    # позиция старта совпадает с переводом строки
+    if end == pos and pos < len(text):
+        pos = end + 1
+        end = text.find('\n', pos)
+        if end == -1 and pos <= len(text):
+            end = len(text)
+    # достигнут конец текста
+    if end == pos and pos >= len(text):
+        return "", end
+    str_line = text[pos:end]
+    # str_line = re.sub(
+    #     r'^\s*(?:[SK]\.|S\. K\.|v|\. v)\s*(?:\r?\n|$)',
+    #     '',
+    #     str_line,
+    #     flags=re.MULTILINE
+    # )
+    # str_line = re.sub(
+    #     r'(?m)^\s*\d{1,2}\.\s*',
+    #     '',
+    #     str_line
+    # )
+
+    return str_line, end
+
+def get_next_line(text: str, start_pos: int):
+    """возвращает строку следующую за назначенной позицией"""
+    # начало строки поиска
+    pos = None if start_pos == len(text) else start_pos
+    if pos is None:
+        return "", len(text)
+    # конец строки поиска
+    end = text.find('\n', pos)
+    if end == -1:
+        end = len(text)
+        return text[pos:end], end
+    # позиция старта совпадает с переводом строки
+    if end == pos and pos < len(text):
+        pos = end + 1
+        end = text.find('\n', pos)
+        if end == -1 and pos <= len(text):
+            end = len(text)
+    # достигнут конец текста
+    if end == pos and pos >= len(text):
+        return "", end
+    str_line = text[pos:end]
+
+    return str_line, end
+
 def extract_transliteration(text) -> list:
     """
     Извлекает блоки транслитерации из текста.
@@ -352,14 +412,14 @@ def extract_transliteration(text) -> list:
 
         # Проверка 2: Содержит ли иностранные слова?
         has_foreign_words = FOREIGN_WORD_RE.search(line_trimmed)
-        # if has_foreign_words:
-        #     print("Найдено слово:", match.group())
-
-        # Проверка 3: Содержит ли явные признаки НЕ транслитерации?
-        is_not_translit = NOT_TRANSLIT_RE.search(line_trimmed)
 
         # Проверка 4: Содержит ли признаки аккадской транслитерации?
         has_akkadian_indicators = AKKADIAN_INDICATOR_RE.search(line_trimmed)
+        if not has_foreign_words and has_basic_format and has_akkadian_indicators:
+            if ':' in line_trimmed:
+                line_trimmed = line_trimmed.replace(":", "")
+        # Проверка 3: Содержит ли явные признаки НЕ транслитерации?
+        is_not_translit = NOT_TRANSLIT_RE.search(line_trimmed)
 
         # Логика принятия решения:
         # 1. Должен быть базовый формат
@@ -375,6 +435,13 @@ def extract_transliteration(text) -> list:
         if has_akkadian_indicators and has_basic_format and not is_not_translit:
             is_transliteration = True
 
+        num_morf = text.count("ℵ")
+        num_defis = text.count('-')
+        num_div = max(num_morf, num_defis)
+        # мало дефисов в строке
+        if (num_div > 0 and len(text) / num_div - 1 > 12) or num_div == 0:
+            is_transliteration = False
+
         if is_transliteration:
             current.append(line_trimmed)
         else:
@@ -386,191 +453,6 @@ def extract_transliteration(text) -> list:
         blocks.append("\n".join(current).strip())
 
     return blocks
-
-
-
-# def extract_transliteration_only(text, start_pos: int) -> list:
-#     """
-#     Извлекает блоки транслитерации из текста.
-#     Склеивает строки, оканчивающиеся на - или ℵ с последующей.
-#     Возвращает список блоков.
-#     """
-#     start_line_index = 0
-#     result = []
-#     # if isinstance(text, list):
-#     #     text = "\n".join(text)
-#
-#     raw_lines = text.splitlines()
-#     # 1. Подстрока от позиции до конца строки
-#     result.append(raw_lines[start_line_index][start_pos:])
-#
-#     # lines = []
-#     buffer = ""
-#
-#     for line in raw_lines:
-#         line = line.rstrip()
-#         if not line:
-#             if buffer:
-#                 result.append(buffer)
-#                 buffer = ""
-#             continue
-#
-#         if not buffer:
-#             buffer = line
-#         else:
-#             buffer += " " + line
-#
-#         if not line.endswith(("-", "ℵ")):
-#             result.append(buffer)
-#             buffer = ""
-#
-#     if buffer:
-#         # lines.append(buffer)
-#         result.append(buffer)
-#
-#     # Формируем блоки транслитерации
-#     blocks = []
-#     current = []
-#
-#     for line in result:
-#         # Пропускаем разделители
-#         if SEPARATOR_RE.match(line):
-#             continue
-#
-#         line_trimmed = line.strip()
-#
-#         # Пропускаем пустые строки
-#         if not line_trimmed:
-#             continue
-#
-#         # Проверка 1: Соответствует ли базовому формату транслитерации?
-#         has_basic_format = (
-#                 TRANSLIT_LINE_RE.match(line_trimmed) and
-#                 MORPHEME_SEP_RE.search(line_trimmed)
-#         )
-#
-#         if not has_basic_format:
-#             if current:
-#                 blocks.append("\n".join(current).strip())
-#                 current = []
-#             continue
-#
-#         # Проверка 2: Содержит ли иностранные слова?
-#         has_foreign_words = FOREIGN_WORD_RE.search(line_trimmed)
-#         if has_foreign_words:
-#             print("Найдено слово:", has_foreign_words.group())
-#         # Проверка 3: Содержит ли явные признаки НЕ транслитерации?
-#         is_not_translit = NOT_TRANSLIT_RE.search(line_trimmed)
-#
-#         # Проверка 4: Содержит ли признаки аккадской транслитерации?
-#         has_akkadian_indicators = AKKADIAN_INDICATOR_RE.search(line_trimmed)
-#
-#         # Логика принятия решения:
-#         # 1. Должен быть базовый формат
-#         # 2. Не должен содержать иностранных слов ИЛИ должен иметь аккадские индикаторы
-#         # 3. Не должен быть явно НЕ транслитерацией
-#         is_transliteration = (
-#                 has_basic_format and
-#                 (not has_foreign_words and has_akkadian_indicators) and
-#                 not is_not_translit
-#         )
-#
-#         # # Особый случай: если есть аккадские индикаторы, принимаем даже с некоторыми иностранными словами
-#         # if has_akkadian_indicators and has_basic_format and not is_not_translit:
-#         #     is_transliteration = True
-#
-#         if is_transliteration:
-#             current.append(line_trimmed)
-#         # else:
-#         #     if current:
-#         #         blocks.append("\n".join(current).strip())
-#         #         current = []
-#
-#     if current:
-#         blocks.append("\n".join(current).strip())
-#
-#     return blocks
-def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pattern: str):
-    if start_search_pos != 0:
-        start_search_pos += 1
-    pattern = re.compile(pattern)
-
-    match = pattern.search(text, start_search_pos)
-    if not match:
-        return None, None, len(text)
-    print(f"Найден поисковый якорь: {match.group()}")
-    # ---------------------------------------------------
-    pos = match.end()
-    # pos = pos - 3
-    pos_middle = text.find("\n", pos)
-    pos = text.find("\n", pos_middle+1)
-    result = ""
-    # pos = match.end() + 1
-    # поиск начала транслитерации
-    # следующая после якоря позиция строки
-    num_row = 0
-    while pos < len(text):
-        n_l, next_first_pos = get_next_line_trl(text, pos)
-        if next_first_pos >= len(text):
-            return result, True, pos
-        if num_row > 2:
-            return None, None, match.end()
-        num_row += 1
-        line_trl = []
-        if n_l:
-            line_trl = extract_transliteration(n_l)
-        while line_trl:
-            # сборная транслитерация
-            result += (" ".join(line_trl))
-            # последняя позиция в строке \n
-            # pos = pos + len(line_trl) + 1
-            # первая позиция в следующей строке
-            pos = text.find("\n", next_first_pos + 1)
-            if pos >= len(text):
-                return result, True, next_first_pos
-            # строка
-            n_l, next_first_pos = get_next_line_trl(text, pos)
-            if next_first_pos >= len(text):
-                return result, True, pos
-            if n_l:
-                line_trl = extract_transliteration(n_l)
-            else:
-                line_trl = ""
-        if result:
-            return result, True, next_first_pos
-        pos = next_first_pos
-    return result, None, next_first_pos
-
-
-def get_next_line_trl(text: str, start_pos: int):
-    # начало строки поиска
-    pos = None if start_pos == len(text) else start_pos
-    if pos  is None:
-        return None, len(text)
-    # конец строки поиска
-    end = text.find('\n', pos)
-    if end == -1 and pos < len(text):
-        end = len(text)
-    if end == -1:
-        return None, pos
-    if end == pos:
-        pos = end + 1
-        end = text.find('\n', pos)
-
-    str_line = text[pos:end]
-    str_line = re.sub(
-        r'^\s*(?:[SK]\.|S\. K\.|v|\. v)\s*(?:\r?\n|$)',
-        '',
-        str_line,
-        flags=re.MULTILINE
-    )
-    str_line = re.sub(
-        r'(?m)^\s*\d{1,2}\.\s*',
-        '',
-        str_line
-    )
-
-    return str_line, end
 
 # # Завантаженние и обработка данных
 # # thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate/"
@@ -597,69 +479,114 @@ def get_next_line_trl(text: str, start_pos: int):
 # if all_blocks:
 #     separator = "\n" + "-" * 40 + "\n"
 #     result_text = separator.join(all_blocks)
-# text = "(1) i-na 13 GIN a-mu-tim (2) sa E-là-li Na-àb-Sı'ı-en6 (3) 3 GIN a-mu-tàm (4) qà-tàm sa E-la-li (5 sa a-şé-er Ku-ra (6) 1146-bi-la-ni (7) 2 1/3 ma-na. {TA} (8) a KU.BABBAR ki-ma Ku-ra (9) Su A-nu-um a Là-qi-pi-im (K. 10) i-di-si (Ay. 11) IGI A-sur-i-nıi-ti (12) DUMU A-mur-DINGIR (13) IGI A-sur-na-da (14) DUMU A-sur-i-di (15) a-na a-wa-tim a-ni-a-tim (16) kà-ru-um Kà-ni-is (17) i-di-ni-a-ti-ma (18) ICI pà-at-ri-im (19) sa A-sur si-bu-ti-ni (K. 20) ni-di-in" # (1-2) Elâ-ili ve Nab-Su'en'in 13 segel amûtum'u içinden, (3-10) Elâ-ili'nin Kura vasıta- sıyla bana gönderdiği 3 segel serbest amûtum'u 2 1/3 mina gümüşe karşılık Kura'nın vekili Sû-Anum, Lâ-gipum'a onu satti. (11-12) Amur-ili'nin oğlu Assur-imittti'nin huzûrunda, (13-14) Assur-idi'nin oğlu Assur-nâdâ'nın huzûrunda. (15-17) Bu meseleler hakkinda Kani kârum'u bizim için hükmünü verdi ve (18-20) biz tanri Assur'un hançeri önünde şâhitlerimizi gösterdik."
-# text ="""(1) i-na 13 GIN a-mu-tim (2) sa E-là-li Na-àb-Sı'ı-en6 (3) 3 GIN a-mu-tàm (4) qà-tàm sa
-# E-la-li (5 sa a-şé-er Ku-ra (6) 1146-bi-la-ni (7) 2 1/3 ma-na. {TA} (8) a KU.BABBAR ki-ma
-# Ku-ra (9) Su A-nu-um a Là-qi-pi-im (K. 10) i-di-si (Ay. 11) IGI A-sur-i-nıi-ti (12) DUMU A-
-# mur-DINGIR (13) IGI A-sur-na-da (14) DUMU A-sur-i-di (15) a-na a-wa-tim a-ni-a-tim (16)
-# kà-ru-um Kà-ni-is (17) i-di-ni-a-ti-ma (18) ICI pà-at-ri-im (19) sa A-sur si-bu-ti-ni (K. 20)
-# ni-di-in
-# (1-2) Elâ-ili ve Nab-Su'en'in 13 segel amûtum'u içinden, (3-10) Elâ-ili'nin Kura vasıta-
-# sıyla bana gönderdiği 3 segel serbest amûtum'u 2 1/3 mina gümüşe karşılık Kura'nın vekili
-# Sû-Anum, Lâ-gipum'a onu satti. (11-12) Amur-ili'nin oğlu Assur-imittti'nin huzûrunda, (13-14)
-# Assur-idi'nin oğlu Assur-nâdâ'nın huzûrunda. (15-17) Bu meseleler hakkinda Kani kârum'u
-# bizim için hükmünü verdi ve (18-20) biz tanri Assur'un hançeri önünde şâhitlerimizi gösterdik.
-# """
+text = """ANKARA KÜLTEPE TABLETLERİ II
+65
+Éti tù-up-ta-na-ra-ad
+10. İGI A-ld-bi-im is-tù
+7 ha-am-sa-tim UR UD U
+ii-sé-bi-lâ-kum-ma
+ki-ma ha-ra-na-tum
+K.
+şa-âb-ta-ni URUDU pi-ha-ru
+A.y. 15. is-tù mi-sa-al 4a-ra-nim
+û-ta-e-ru-nim
+a-na 1 1/2 GO UR UD U 1 ma-na
+KÙ. BABBAR ku-nu-ki-a A-ld-bu-um
+na-âs-a-kum A-sur
+20. ù i-lu-ku-nu li-tù-ld
+a-na li-bi-led
+ici lù-ma-nim a-na KU.BABBAR
+su-a-ti 2 GU URUDU lu d -giıl
+a-hu-a a-tù-nu a-na
+v
+25. ma-1ci T ÙG. HI. A a-na É hà-ri-im
+v
+ta-di-a-ni té-er-tâh-nu
+li-li-kam-ma si-im-su-nu KU.BABBAR
+K.
+lu-sé-bi-lci-ku-nu-ti
+a-na (J-şur-t-itar qi-bi-ma
+30. i-nu-mi KÙ.BABBAR
+S. K.
+ta-du-nu-su-ni si-bé-e
+sa ki-ma URUDU sa 4a-bu-lâ-ak-u-ni
+sa-bu-û su-ku-su-ma
+ù KÙ.BABBAR di-su-um
+ı -4Mannum-k -Assur ve Uşur-si-Istar'a (özellikle) Mannum-Iyi-Assur'a Puzur-Adad şöyle
+söylüyor:S-9Bendeki 1 1/2 talent bakir için adresime yazma! Evime devamli yazıyorsun ve
+ailemi korkutup duruyorsun! ıo-12A1(i)-abum'un huzurunda 7 4amutum önce bakırı sana
+gönderdim ve13- ı6 sanki yollar benim için tutulmuş (kapatfimiş) gibi, uşaklar bakın yolun
+yarisindan bana geri getirdiler.17-191 1/2 talent bakıra karşılık 1 mina gümüşü benim müh-
+rümle Äl(i)-abum sana taşimaktadir.19-23 anri Asur ve sizin tanrılarınız şâhit olsunlar, se-
+nin kalbini kırmamak için o paraya karşılık 2 talent bakiri tartmış oldum.24-27Kardeşlik
+ediniz, senin karum dâiresine benim için depo ettiğin kumaşlar hakkındaki haberiniz bana
+gelsin de 27-28onların bedeli olan paraya size göndereyim.29-34Usur-si-ßtar'a söyle: Parayi ona
+vereceğiniz zaman, benim ona borçlu olduğum bakiri ödediğime dair şâhitleri göster ve pa-
+rayı ona ver.
+9: satırda geçen parädum'un G ve D kalıplarında "korkutmak" mânâsına; Dtn formun-
+da ise bunun devamlılık bildiren fonksiyonu olduğu görüşünü benimsiyoruz: AHw s. 827.;
+K. Hecker, GKT 77d ve 78d'de bu fil kökü için "titremek, ürpermek" karşiliğini vermiştir."""
 
-text ="""consulted for the full list of their occurrences.
-(31) KUB 32.9 rev. 8–11, CTH 761.2 (MS), Starke 1985: 90
+def cleaning_from_ocr(text: str) -> str:
+    # уборка мусора
+    subs = [
+        (r'ı\s+ı', '11'),
+        (r'ı\s+', '1'),
+        (r'ı', '1'),
+        (r'5([A-Za-zА-Яа-я])', r'S\1'),
+        (r'A1', 'Ai'),
+        (r'([A-Za-zА-Яа-я])1\b', r'\1i'),
+        (r'([A-Za-zА-Яа-я]),(\d)', r'\1 \2'),
+        (r'\s(\d)\s(\d)\s', r' \1-\2 '),
+        (r'(?<=\d)o', '0'),
+        (r'S-9', '5-9'),
+        # (r'\b\d{1,3}\s*[-–—-]\s*\d{1,3}\b', ''),
+    ]
+    for pattern, repl in subs:
+        text = re.sub(pattern, repl, text)
 
-pa [ha-la-a-l]i-iš a-aš-du ma-a[l-ha-aš-ša-aš-ši-iš EN-aš] ma-a-aš-
-ša-na-an-za pár-ra-a[n a]d-du-wa-la-ti EM[E-ti ad-]du-wa-la-ti
-i-iš-š[a-ra-ti] ta-pa-ru-wa-aš-ša-an-za-t[i d]a-a-ta-ri-ya-am-n[a-
-aš-ša-a]n-za-ti hi-ru-ta-aš-ša-a[n-za-ti] ma-a-⅀ya⅁-aš-ša-an-za-ti
-⅀EME-ti⅁
+    text = re.sub(
+        r'^\s*(?:[SK]\.|S\. K\.|A\.y\.\s*|v|\. v)\s*$',
+        '',
+        text,
+        flags=re.MULTILINE
+    )
+    text = re.sub(r'^.\.y\.\s*', '', text, flags=re.MULTILINE)
+    return text
 
-‘Let then the ritual patron be purified in front of the gods from
-the evil tongue, from the evil hand, from the tongue of taparu-s,
-incantations, curses, from the slander of the adults’.
-(32) KUB 9.6 iii 12–14, CTH 759.2 (LNS), Starke 1985: 115
+def process_text(text, cleaning_from_ocr):
+    lines = text.splitlines(keepends=True)  # сохраняем \n
+    processed_lines = [cleaning_from_ocr(line) for line in lines]
+    return ''.join(processed_lines)
 
-ku-iš-tar ma-al-ha-aš-ša-aš-ša-an-za-an EN-ya a-ad-du-wa-la
-a-an-ni-ti a-an DINGIR.MEŠ-in-zi a-ah-ha na-a-ta-at-ta ta-ta-
-ar-ha-an-du
+def is_tablet(text: str):
+    pos_tablet = text.find("tablet")
+    pos_start_tr_after_tablet = re.search(r'^.\.y\.\s*', text)
+    if pos_start_tr_after_tablet is not None:
+        pos_start_tr_after_tablet = pos_start_tr_after_tablet.start()
+        if pos_start_tr_after_tablet > pos_tablet:
+            return True, pos_tablet + 1, pos_start_tr_after_tablet - 1
+    return False, len(text), 0
 
-‘Whoever causes evil to the patron of the ritual (pl. tantum), let
-the gods break him like reeds’.
-38 By contrast, the form á-pa-sa-ti in CEKKE § 6b does not necessarily need to be
-interpreted as ‘their’, as Hawkins (2000, I: 145) has suggested. The translation “They
-bought the city Kamana from the Kanapuweans together with its X”, where ‘its’ has
-‘city’ as its antecedent, is likewise acceptable. Therefore this example cannot be used
-as a probative argument in the present section.
-yakubovich_f3_15-74.indd 47
-yakubovich_f3_15-74.indd 47
-10/9/2009 9:25:26 AM
-10/9/2009 9:25:26 AM
---------------------------------------------------
-Текст всієї статті:
- 48
-chapter one
-(33) KUB 35.78 i 7–8, CTH 767.1 (NS), Starke 1985: 134
+def str_to_first_diapazon(text: str):
+    pos_first_diapazon = re.search(r'\b\d{1,3}\s*[-–—-]\s*\d{1,3}\b', text)
+    if pos_first_diapazon is not None:
+        pos_first_diapazon = pos_first_diapazon.start()
+    if pos_first_diapazon:
+        return text[:pos_first_diapazon] if pos_first_diapazon else ""
+    return ""
 
-[x?-x? ma-al-]ha-aš-ša-aš-ša-an-za-an-za EN-an-z[a īkkun]attas 1!
-UDU sipanti
+result = process_text(text, cleaning_from_ocr)
+print(result)
+res_is_tablet = is_tablet(result)
+if res_is_tablet[0]:
+    print(f"Перевод - Транслитерация {res_is_tablet[1]} - {res_is_tablet[2]}")
+else:
+    print("Транслитерация - Перевод")
+print(str_to_first_diapazon(text))
 
-‘[?] sacrifices one anointed? sheep on behalf of the patrons of the
-rituals’.
-Melchert’s analysis can perhaps be carried one step further. The same
-variety of Luvian that disambiguated possessive adjectives in oblique
-"""
-pattern = r'[A-Z][a-z]{3,} \d{4}[a-z]?: \d+(?:[–\-]\d+)?'
-
-text, tr_lit, pos_end = extract_letter_space_digit_colon_space(text, 0, pattern)
-print(text)
-print(tr_lit)
-print(pos_end)
+# print(tr_lit)
+# print(pos_end)
 # block = extract_transliteration_only(text)
 # if block:
 #     print(f"Найден блок транслитерации: {block}")  # , len(all_blocks))
