@@ -1427,20 +1427,20 @@ def align_and_mark_sentences(translit_text: str, translation_sentences: list, ma
     return " ".join(marked_tokens)
 
 # ----------------------------------------------------------------------------------
- def looks_like_real_translation(text, min_len=10):
-        """Проверка: текст реально перевод, а не транслитерация/номер/каталог"""
-        # if not text or not isinstance(text, str):
-        #     return False
-        text = text.strip()
-        if len(text) < min_len:
-            return False
-        if "." not in text:
-            return False
-        digit_ratio = sum(c.isdigit() for c in text) / len(text)
-        # if digit_ratio > 0.15:
-        if digit_ratio > 0.3:
-            return False
-        return True
+def looks_like_real_translation(text, min_len=10):
+    """Проверка: текст реально перевод, а не транслитерация/номер/каталог"""
+    # if not text or not isinstance(text, str):
+    #     return False
+    text = text.strip()
+    if len(text) < min_len:
+        return False
+    if "." not in text:
+        return False
+    digit_ratio = sum(c.isdigit() for c in text) / len(text)
+    # if digit_ratio > 0.15:
+    if digit_ratio > 0.3:
+        return False
+    return True
 # Чтобы langdetect всегда возвращал один и тот же результат для одного текста
 DetectorFactory.seed = 0
 
