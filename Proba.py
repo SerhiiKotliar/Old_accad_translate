@@ -526,10 +526,52 @@ rayı ona ver.
 9: satırda geçen parädum'un G ve D kalıplarında "korkutmak" mânâsına; Dtn formun-
 da ise bunun devamlılık bildiren fonksiyonu olduğu görüşünü benimsiyoruz: AHw s. 827.;
 K. Hecker, GKT 77d ve 78d'de bu fil kökü için "titremek, ürpermek" karşiliğini vermiştir."""
+# text = """ANKARA KÜLTEPE TABLETLERİ II
+# K.R. Veenhof ise AOATT s. 391-2'de CCT 4 10a, 18'de geçen pa-ru-ud yazılışındaki fiili
+# "karıştırmak" mânâsında almiştir.
+# 13-14: satırlarında geçen 4arränam Şabätum'un AHw s. 327a lb'de verilen "yola çak-
+# mak, yola koyulmak, yolu takip etmek" mânâsından ziyâde bizim, AKT 178, 19-20. satır-
+# lardaki 4arränam ka'ulum "yolu tutmak, kapamak" anlamina geldiğini benimsediğimizi
+# belirtmek isteriz . Ancak, adıgeçen yerde de belirtildiği gibi, 4arränum'un gerek ka'ulum,
+# gerek şabätum v.s. gibi fiillerle beraber geniş ve zengin bir mânâ çevresi meydana getirdiği
+# de şüphesizdir.
+# 19-20: satırlarda geçen Aiiur u ilukunû liitulct ibâresi hakkinda en son bkz. K.R. Veenhof-
+# V. Donbaz, Anatolica XII s. 137,7,18; AHw s. 766b 1 d; CAD N II s. 122b c.
+# 21-22: satırlardaki libbum leménum "kızmak, hiddetlenmek; gücenmek" ile ilgili ola-
+# rak bkz. AHw s. 542b 5 b; CAD L s. 117a b.
+# 33: satırdaki iu-ku-iu-ma'nın, surun-ium-ma şeklinde tahlil edilmesi gereklidir ve bu
+# fiil formu 31. satırdaki iibé ile ilgilidir.
+# No. 34, Gallâbum'un mektubu
+# Kt nik 586;165-586-64; 5,5 X 4, 4 x 1,7 cm.; kahverenkli tablet.
+# ,
+# Gdllâbum'un Uşur-ii-htar'a, onun talimatı gereğince kumaşları seçtiklerini belirterek
+# başladığı mektubudur. Daha sonra kumaşlarin âit olduğu kimselerden Mamma şehrinde
+# kailum memuriyeti ile iştigal eden Abâ'nın evinde veyâ iş yerinde hesap yaptıklarından bah-
+# setmekte ve üç şâhidin adını kaydetmektedir. Ayrıca İkûppia'nın sağlik haberini iletmekte
+# ve kendilerinin İdi-Agur'un kumaşlarını seçmediklerini, bunun için endişelenmemesini ifâde
+# etmektedir.
+# Ö. y.
+# a-na (J-şâ-ur-t-htar
+# qi-bi4-ma um-ma
+# Ga-lâ-bu-ma
+# ma-id té-i-ir-ti-kà
+# 5. TZIG ni-be-er-ma
+# 30 TUG ku-a-û-tum
+# 20 h 2 Tu G ia I-ku-pi-a
+# 12 TtI G ia tâm-kit-ri-im
+# U.BA 5 A-bar-ni-û
+# 10. 23 TUG ia Lu-lu
+# 2 TUG ia kà-sa-ri
+# K.
+# S U. NİGiN 91 Tt1G
+# A.y.
+# i-na Ma-ma
+# """
 
 def cleaning_from_ocr(text: str) -> str:
     # уборка мусора
     subs = [
+        (r'([a-z])ı\s+', r'\1i '),
         (r'ı\s+ı', '11'),
         (r'ı\s+', '1'),
         (r'ı', '1'),
@@ -540,6 +582,10 @@ def cleaning_from_ocr(text: str) -> str:
         (r'\s(\d)\s(\d)\s', r' \1-\2 '),
         (r'(?<=\d)o', '0'),
         (r'S-9', '5-9'),
+        (r'^.\d{1,}\n', ''),
+        (r'^.\.\s*y\.\n', ''),
+        (r'(?<=[A-Za-z0-9]):(?=[A-Za-z0-9])', ' '),
+        #(r'(?<=[^\W_]):(?=[^\W_])', ' '),
         # (r'\b\d{1,3}\s*[-–—-]\s*\d{1,3}\b', ''),
     ]
     for pattern, repl in subs:
@@ -551,39 +597,159 @@ def cleaning_from_ocr(text: str) -> str:
         text,
         flags=re.MULTILINE
     )
-    text = re.sub(r'^.\.y\.\s*', '', text, flags=re.MULTILINE)
+    # text = re.sub(r'^.\.y\.\s*', '', text, flags=re.MULTILINE)
     return text
 
 def process_text(text, cleaning_from_ocr):
+    """Возвращает текст без мусора ОСR"""
     lines = text.splitlines(keepends=True)  # сохраняем \n
     processed_lines = [cleaning_from_ocr(line) for line in lines]
     return ''.join(processed_lines)
 
 def is_tablet(text: str):
-    pos_tablet = text.find("tablet")
-    pos_start_tr_after_tablet = re.search(r'^.\.y\.\s*', text)
-    if pos_start_tr_after_tablet is not None:
-        pos_start_tr_after_tablet = pos_start_tr_after_tablet.start()
-        if pos_start_tr_after_tablet > pos_tablet:
-            return True, pos_tablet + 1, pos_start_tr_after_tablet - 1
+    """Ищет позицию предшествующую транслитерации с таблички
+    и возвращает флаг находки и позиции начала перевода и начала транслитерации"""
+    # pos_tablet = text.find("tablet")
+    pos_tablet = re.search(r'\s*tablet\.\n', text, flags=re.MULTILINE)
+    if pos_tablet is not None:
+        pos_tablet = pos_tablet.end()
+        pos_start_tr_after_tablet = re.search(r'^.\.\s*y\.\n', text, flags=re.MULTILINE)
+        if pos_start_tr_after_tablet is not None:
+            pos_start_tr_after_tablet = pos_start_tr_after_tablet.end() + 1
+            if pos_start_tr_after_tablet > pos_tablet:
+                # начало перевода и транслитерации
+                return True, pos_tablet + 1, pos_start_tr_after_tablet
     return False, len(text), 0
 
-def str_to_first_diapazon(text: str):
-    pos_first_diapazon = re.search(r'\b\d{1,3}\s*[-–—-]\s*\d{1,3}\b', text)
+def translate_after_translite(text: str, start_pos: int = 0):
+    """Ищет позицию первого диапазона предложений в переводе
+    после транслитерации и возвращает транслитерацию, если найдёт диапазон"""
+    pos_first_diapazon = re.search(r'\d{1,3}\s*[-–—-]\s*\d{1,3}', text[start_pos:], flags=re.MULTILINE)
     if pos_first_diapazon is not None:
         pos_first_diapazon = pos_first_diapazon.start()
-    if pos_first_diapazon:
-        return text[:pos_first_diapazon] if pos_first_diapazon else ""
-    return ""
+    return text[:pos_first_diapazon] if pos_first_diapazon else "", pos_first_diapazon
+    # return ""
 
-result = process_text(text, cleaning_from_ocr)
-print(result)
-res_is_tablet = is_tablet(result)
+def translate_after_translite_after_table(text: str, start_pos: int = 0):
+    """Ищет позицию начала перевода, позицию начала транслитерации
+    и возвращает транслитерацию"""
+    pos_first_trl = re.search(r'^.\.\s*y\.\n', text, flags=re.MULTILINE)
+    # pos_first_trl_p = ""
+    # if pos_first_trl is not None:
+    #     pos_first_trl_p = pos_first_trl.start()
+    #     text = text[:pos_first_trl_p] + text[pos_first_trl.end():]
+    # return text[pos_first_trl_p:] if pos_first_trl else ""
+    return pos_first_trl.start()
+
+
+def renumber_trust_source(text: str) -> dict:
+    lines = text.splitlines()
+    n = len(lines)
+    dic_trlits = {}
+    anchors = []  # (index, source_number)
+
+    for i, line in enumerate(lines):
+        m = re.match(r'\s*(\d+)\s*[.:]\s*(.*)', line)
+        if m:
+            num = int(m.group(1))
+            if num % 5 == 0:
+                anchors.append((i, num))
+
+    if not anchors:
+        raise ValueError("Нет ни одного источникового номера")
+
+    result_numbers = [None] * n
+
+    # --- сегмент ДО первого якоря (назад)
+    first_idx, first_num = anchors[0]
+    for i in range(first_idx, -1, -1):
+        result_numbers[i] = first_num - (first_idx - i)
+
+    # --- сегменты МЕЖДУ якорями
+    for (i1, n1), (i2, n2) in zip(anchors, anchors[1:]):
+        result_numbers[i1] = n1
+        for i in range(i1 + 1, i2):
+            result_numbers[i] = n1 + (i - i1)
+        result_numbers[i2] = n2  # источник всегда побеждает
+
+    # --- сегмент ПОСЛЕ последнего якоря
+    last_idx, last_num = anchors[-1]
+    for i in range(last_idx, n):
+        result_numbers[i] = last_num + (i - last_idx)
+
+    # --- сборка результата
+    out = []
+    for num, line in zip(result_numbers, lines):
+        content = re.sub(r'^\s*\d+\s*[.:]?\s*', '', line)
+        out.append(f"{num}. {content}")
+        dic_trlits[num] = content
+
+    # return "\n".join(out)
+    return dic_trlits
+
+
+
+
+
+# ----------------------------------------------------------------
+text = text.replace('TABLETLERİ u', 'TABLETLERİ II')
+pattern = r'ANKARA KÜLTEPE TABLETLERİ II\n'
+match = re.search(pattern, text, flags=re.MULTILINE)
+if match:
+    text = text[match.end():]
+res_is_tablet = is_tablet(text)
 if res_is_tablet[0]:
-    print(f"Перевод - Транслитерация {res_is_tablet[1]} - {res_is_tablet[2]}")
+    print(f"\nПеревод - Транслитерация {res_is_tablet[1]} - {res_is_tablet[2]}\n")
+    # print(translate_after_translite_after_tablet(text)[0], res_is_tablet[2])
+    # flag = translate_after_translite_after_table(text)[0]
+    # st = translate_after_translite(text)[1]
+    # end = translate_after_translite(text)[2]
+    # if flag:
+    text_translate = text[res_is_tablet[1]:res_is_tablet[2]-1]
+    # очистка от мусора
+    text_translate = process_text(text_translate, cleaning_from_ocr)
+    print(text_translate)
+    text_trlit = text[translate_after_translite_after_table(text, res_is_tablet[2]):]
+    # print(text_trlit)
+    # очистка от мусора
+    text_trlit = process_text(text_trlit, cleaning_from_ocr)
+    result1 = renumber_trust_source(text_trlit)
+    for key, value in result1.items():
+        print(f"{key}: {value}")
 else:
-    print("Транслитерация - Перевод")
-print(str_to_first_diapazon(text))
+    print("\nТранслитерация - Перевод\n")
+
+
+# очистка от мусора
+    result = process_text(text, cleaning_from_ocr)
+# вівод транслитерации после якоря
+    text_trlit = translate_after_translite(result)[0]
+    # print(result)
+    # первая позиция диапазона в переводе
+    pos_start_perevod = translate_after_translite(result)[1]
+    # последняя позиция перевода
+    pos_end_perevod = re.search(r'^\d+:', result, flags=re.MULTILINE)
+    text_translate = result[pos_start_perevod:pos_end_perevod.start()]
+    print(text_translate)
+# очистка от мусора
+# result = process_text(text_trlit, cleaning_from_ocr)
+# print(result)
+# result1 = count_lines_trlits(result)
+# # print(result1)
+# for key, value in result1.items():
+#     print(f"{key}: {value}")
+# словарь с ключами номерами и строками транслитерации
+# print(renumber_trust_source(result))
+    result1 = renumber_trust_source(text_trlit)
+    for key, value in result1.items():
+        print(f"{key}: {value}")
+
+# print(result)
+# print(translate_after_translite_after_tablet(result))
+# blocks = extract_transliteration(translate_after_translite_after_tablet(result))
+# print(blocks)
+
+
 
 # print(tr_lit)
 # print(pos_end)

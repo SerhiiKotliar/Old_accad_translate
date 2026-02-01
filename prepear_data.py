@@ -1,11 +1,14 @@
 #%%
 import sys
-from unittest import case
+# from unittest import case
 
 import pandas as pd
 # import numpy as np
 import re
 import nltk
+from langdetect import detect
+from langdetect import DetectorFactory
+from deep_translator import GoogleTranslator
 try:
     nltk.data.find('tokenizers/punkt')
 except LookupError:
@@ -1423,7 +1426,70 @@ def align_and_mark_sentences(translit_text: str, translation_sentences: list, ma
 
     return " ".join(marked_tokens)
 
-#%%
+# ----------------------------------------------------------------------------------
+ def looks_like_real_translation(text, min_len=10):
+        """Проверка: текст реально перевод, а не транслитерация/номер/каталог"""
+        # if not text or not isinstance(text, str):
+        #     return False
+        text = text.strip()
+        if len(text) < min_len:
+            return False
+        if "." not in text:
+            return False
+        digit_ratio = sum(c.isdigit() for c in text) / len(text)
+        # if digit_ratio > 0.15:
+        if digit_ratio > 0.3:
+            return False
+        return True
+# Чтобы langdetect всегда возвращал один и тот же результат для одного текста
+DetectorFactory.seed = 0
+
+def detect_language(text):
+    """
+    Определяет язык текста.
+    Возвращает код языка, например: 'en', 'fr', 'de', 'ru'
+    """
+    try:
+        lang = detect(text)
+        return lang
+    except Exception as e:
+        print(f"Не удалось определить язык: {e}")
+        return None
+
+def translate_to_english(text):
+    """
+    Переводит текст на английский, если язык не английский.
+    """
+    lang = detect_language(text)
+
+    if not lang:
+        # Если язык не определён, возвращаем оригинальный текст
+        return text
+
+    if lang != 'en':
+        try:
+            translated_text = GoogleTranslator(source=lang, target='en').translate(text)
+            return translated_text
+        except Exception as e:
+            print(f"Ошибка перевода: {e}")
+            return text
+    else:
+        # Если текст уже на английском
+        return text
+
+ # texts = [
+ #        \"Bonjour, comment ça va?\",           # французский
+ #        \"Привет, как дела?\",                 # русский
+ #        \"This text is already English.\",     # английский
+ #        \"Hola, ¿cómo estás?\"                 # испанский
+ #    ]
+ #
+ #    for t in texts:
+ #        print(\"Оригинал:\", t)
+ #        translated = translate_to_english(t)
+ #        print(\"Перевод :\", translated)
+ #        print(\"-\" * 50)"
+# ----------------------------------------------------------------------------------
 
 def process_text_and_build_csv_rows(text: str):
     """
@@ -1502,7 +1568,13 @@ def process_text_and_build_csv_rows(text: str):
 
                     # 3. Токенизация перевода
                     t_sentences = sent_tokenize(t)
-
+                    # --------------------------------------------------------------
+                    # 3. Токенизация перевода
+                    t_sentences = sent_tokenize(t)
+                    t_sentences = [sent for sent in t_sentences if looks_like_real_translation(sent)]
+                    # определение языка и перевод на английский, если перевод не английский\n",
+                    t_sentences = [translate_to_english(sent) if detect_language(sent) != 'en' else sent for sent in t_sentences]
+                    # ---------------------------------------------------------------------------
                     # 4. Выравнивание + маркеры
                     a = align_and_mark_sentences(a, t_sentences, marker="<sent>")
 
