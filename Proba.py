@@ -629,17 +629,11 @@ def translate_after_translite(text: str, start_pos: int = 0):
     if pos_first_diapazon is not None:
         pos_first_diapazon = pos_first_diapazon.start()
     return text[:pos_first_diapazon] if pos_first_diapazon else "", pos_first_diapazon
-    # return ""
 
 def translate_after_translite_after_table(text: str, start_pos: int = 0):
     """Ищет позицию начала перевода, позицию начала транслитерации
     и возвращает транслитерацию"""
     pos_first_trl = re.search(r'^.\.\s*y\.\n', text, flags=re.MULTILINE)
-    # pos_first_trl_p = ""
-    # if pos_first_trl is not None:
-    #     pos_first_trl_p = pos_first_trl.start()
-    #     text = text[:pos_first_trl_p] + text[pos_first_trl.end():]
-    # return text[pos_first_trl_p:] if pos_first_trl else ""
     return pos_first_trl.start()
 
 

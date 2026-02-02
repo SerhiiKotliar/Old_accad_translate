@@ -769,6 +769,153 @@ def detect_translate(text: str, start_pos: int):
 
     return is_translate, str_line
 
+def cleaning_from_ocr(text: str) -> str:
+    # уборка мусора
+    subs = [
+        (r'([a-z])ı\s+', r'\1i '),
+        (r'ı\s+ı', '11'),
+        (r'ı\s+', '1'),
+        (r'ı', '1'),
+        (r'5([A-Za-zА-Яа-я])', r'S\1'),
+        (r'A1', 'Ai'),
+        (r'([A-Za-zА-Яа-я])1\b', r'\1i'),
+        (r'([A-Za-zА-Яа-я]),(\d)', r'\1 \2'),
+        (r'\s(\d)\s(\d)\s', r' \1-\2 '),
+        (r'(?<=\d)o', '0'),
+        (r'S-9', '5-9'),
+        (r'^.\d{1,}\n', ''),
+        (r'^.\.y\.\s*', ''),
+        (r'^.\.y\.\n', ''),
+        (r'(?<=[A-Za-z0-9]):(?=[A-Za-z0-9])', ' '),
+        #(r'(?<=[^\W_]):(?=[^\W_])', ' '),
+        # (r'\b\d{1,3}\s*[-–—-]\s*\d{1,3}\b', ''),
+    ]
+    for pattern, repl in subs:
+        text = re.sub(pattern, repl, text)
+
+    text = re.sub(
+        r'^\s*(?:[SK]\.|S\. K\.|.\.y\.\s*|v|\. v)\s*$',
+        '',
+        text,
+        flags=re.MULTILINE
+    )
+    # text = re.sub(r'^.\.y\.\s*', '', text, flags=re.MULTILINE)
+    return text
+
+def process_text(text, cleaning_from_ocr):
+    """Возвращает текст без мусора ОСR"""
+    lines = text.splitlines(keepends=True)  # сохраняем \n
+    processed_lines = [cleaning_from_ocr(line) for line in lines]
+    return ''.join(processed_lines)
+
+def is_tablet(text: str):
+    """Ищет позицию предшествующую транслитерации с таблички
+    и возвращает флаг находки и позиции начала перевода и начала транслитерации"""
+    # pos_tablet = text.find("tablet")
+    pos_tablet = re.search(r'\s*tablet\.\n', text, flags=re.MULTILINE)
+    if pos_tablet is not None:
+        pos_tablet = pos_tablet.end()
+        pos_start_tr_after_tablet = re.search(r'^.\.\s*y\.\n', text, flags=re.MULTILINE)
+        if pos_start_tr_after_tablet is not None:
+            pos_start_tr_after_tablet = pos_start_tr_after_tablet.end() + 1
+            if pos_start_tr_after_tablet > pos_tablet:
+                # начало перевода и транслитерации
+                return True, pos_tablet + 1, pos_start_tr_after_tablet
+    return False, len(text), 0
+
+def translate_after_translite(text: str, start_pos: int = 0):
+    """Ищет позицию первого диапазона предложений в переводе
+    после транслитерации и возвращает транслитерацию, если найдёт диапазон"""
+    pos_first_diapazon = re.search(r'\d{1,3}\s*[-–—-]\s*\d{1,3}', text[start_pos:], flags=re.MULTILINE)
+    if pos_first_diapazon is not None:
+        pos_first_diapazon = pos_first_diapazon.start()
+    return text[:pos_first_diapazon] if pos_first_diapazon else "", pos_first_diapazon
+
+def translate_after_translite_after_table(text: str, start_pos: int = 0):
+    """Ищет позицию начала перевода, позицию начала транслитерации
+    и возвращает транслитерацию"""
+    pos_first_trl = re.search(r'^.\.\s*y\.\n', text, flags=re.MULTILINE)
+    return pos_first_trl.start()
+
+
+def renumber_trust_source(text: str) -> dict:
+    lines = text.splitlines()
+    n = len(lines)
+    dic_trlits = {}
+    anchors = []  # (index, source_number)
+
+    for i, line in enumerate(lines):
+        m = re.match(r'\s*(\d+)\s*[.:]\s*(.*)', line)
+        if m:
+            num = int(m.group(1))
+            if num % 5 == 0:
+                anchors.append((i, num))
+
+    if not anchors:
+        raise ValueError("Нет ни одного источникового номера")
+
+    result_numbers = [None] * n
+
+    # --- сегмент ДО первого якоря (назад)
+    first_idx, first_num = anchors[0]
+    for i in range(first_idx, -1, -1):
+        result_numbers[i] = first_num - (first_idx - i)
+
+    # --- сегменты МЕЖДУ якорями
+    for (i1, n1), (i2, n2) in zip(anchors, anchors[1:]):
+        result_numbers[i1] = n1
+        for i in range(i1 + 1, i2):
+            result_numbers[i] = n1 + (i - i1)
+        result_numbers[i2] = n2  # источник всегда побеждает
+
+    # --- сегмент ПОСЛЕ последнего якоря
+    last_idx, last_num = anchors[-1]
+    for i in range(last_idx, n):
+        result_numbers[i] = last_num + (i - last_idx)
+
+    # --- сборка результата
+    out = []
+    for num, line in zip(result_numbers, lines):
+        content = re.sub(r'^\s*\d+\s*[.:]?\s*', '', line)
+        out.append(f"{num}. {content}")
+        dic_trlits[num] = content
+
+    # return "\n".join(out)
+    return dic_trlits
+
+
+# range_pattern = re.compile(r'(\d{1,2})\s*-\s*(\d{1,2})')
+
+def process_text_last(text, lines_dict):
+    dict_results = []
+    text_results = []
+    range_pattern = re.compile(r'(\d{1,2})\s*-\s*(\d{1,2})')
+
+    matches = list(range_pattern.finditer(text))
+
+    for i, match in enumerate(matches):
+        start_num, end_num = map(int, match.groups())
+
+        # границы текстового блока
+        text_start = match.end()
+        text_end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+
+        # строгая проверка диапазона
+        if not all(k in lines_dict for k in range(start_num, end_num + 1)):
+            continue
+
+        # собираем строку из словаря
+        dict_results.append(
+            " ".join(lines_dict[k] for k in range(start_num, end_num + 1))
+        )
+
+        # текст без диапазона
+        fragment = text[text_start:text_end].strip()
+        text_results.append(fragment)
+
+    return dict_results, text_results
+
+
 
 #%%
 def extract_quoted_substring(text: str, start_pos: int, pattern: str):
@@ -919,7 +1066,7 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
     # if start_search_pos != 0:
     #     start_search_pos += 1
     pattern = re.compile(pattern, re.MULTILINE)
-
+    next_first_pos = 0
     match = pattern.search(text, start_search_pos)
     if not match:
         return None, None, len(text)
@@ -1122,90 +1269,91 @@ def extract_single_quotes(text: str, start_pos: int):
 def extract_ankara(text: str, start_pos: int, pattern: str):
     if start_pos < 0 or start_pos >= len(text):
         return None, None, start_pos
+    text = text.replace('TABLETLERİ u', 'TABLETLERİ II')
     pattern = re.compile(pattern)
     match = pattern.search(text, start_pos)
     if not match:
         return None, None, len(text)
     print(f"Найден поисковый якорь Ankara: {match.group()}")
-    result = ""
-    # позиция конца якоря
-    pos = match.end()
-    # поиск начала транслитерации
-    # следующие после якоря строки
-    while pos < len(text):
-        # следующая строка и её последняя позиция
-        n_l, next_last_pos = get_next_line_trl(text, pos)
-        line_trl = []
-        if n_l:
-            # есть строка проверяем формат транслитерации
-            line_trl = extract_transliteration(n_l)
-        end_translit = next_last_pos
-        while line_trl:
-            # сборная транслитерация
-            result += ("\n".join(line_trl))
-            # последняя позиция в строке
-            end_translit = next_last_pos
-            # проверяем следующую строку
-            n_l, next_last_pos = get_next_line_trl(text, next_last_pos)
-            if next_last_pos == -1:
-                return result, True, end_translit
-            if n_l:
-                line_trl = extract_transliteration(n_l)
-            else:
-                line_trl = ""
-        # транслитерация закончилась
-        if result:
-            return result, True, end_translit
-        pos = next_last_pos
-    return result, None, match.end()
+    text = text[match.end():]
+    res_is_tablet = is_tablet(text)
+    result = []
+    if res_is_tablet[0]:
+        # # print(f"\nПеревод - Транслитерация {res_is_tablet[1]} - {res_is_tablet[2]}\n")
+        # text_translate = text[res_is_tablet[1]:res_is_tablet[2] - 1]
+        # # очистка от мусора
+        # text_translate = process_text(text_translate, cleaning_from_ocr)
+        text_trlit = text[translate_after_translite_after_table(text, res_is_tablet[2]):]
+        # очистка от мусора
+        text_trlit = process_text(text_trlit, cleaning_from_ocr)
+        result1 = renumber_trust_source(text_trlit)
+        return result1, True, (res_is_tablet[1], res_is_tablet[2] - 1)
+    else:
+        # print("\nТранслитерация - Перевод\n")
+        # очистка от мусора
+        result = process_text(text, cleaning_from_ocr)
+        # вівод транслитерации после якоря
+        text_trlit = translate_after_translite(result)[0]
+        # первая позиция диапазона в переводе
+        pos_start_perevod = translate_after_translite(result)[1]
+        # последняя позиция перевода
+        pos_end_perevod = re.search(r'^\d+:', result, flags=re.MULTILINE)
+        # text_translate = result[pos_start_perevod:pos_end_perevod.start()]
+        # словарь с ключами номерами и строками транслитерации
+        result1 = renumber_trust_source(text_trlit)
+    # dict_r, text_r = process_text_last(text_translate, result1)
+        return result1, True, (pos_start_perevod, pos_end_perevod.start())
 
-def extract_after_ankara(text: str, start_pos: int):
-    pattern = r'\((?:\d{1,2}|\d{1,2}-\d{1,2})\)\s+[A-Za-zÀ-ÖØ-öø-ÿĞğİıŞşÇç]+'
-    result = ""
-    is_trans: bool = False
-    n_l: str = ""
-    if start_pos < 0 or start_pos >= len(text):
-        return None, None, start_pos
-    # позиция после которой начинают искать
-    pos = start_pos
-    pattern = re.compile(pattern)
-    match = pattern.search(text, pos)
-    # нет шаблона поиска
-    if not match:
-        return None, None, len(text)
-    # позиция конца якоря
-    pos = match.end()
-
-    while pos < len(text) and pos != -1:
-        # строка и позиция её конца
-        n_l, last_pos = get_next_line(text, pos)
-        if n_l:
-            if not extract_transliteration(n_l):
-                # if re.match(r'^\d+:\s*', n_l):
-                #     break
-                # здесь проверка на окончание перевода
-                # и на то, что это перевод
-                # ---------------------------------
-                is_trans, n_l = detect_translate(n_l, 0)
-                # -----------------------------------
-                # не транслитерация
-                if is_trans:
-                    result += (" " + n_l)
-            else:
-                if result:
-                    return result, True, last_pos
-        else:
-            if result:
-                return result, True, last_pos
-
-        # позиция начала следующей строки
-        pos = last_pos + 1
-        # pos = pos + len(n_l) + 1
-        # pos = text.find("\n", last_pos)
-        # n_l, last_pos = get_next_line(text, pos)
-    if result:
-        return result, True, pos
-    return result, None, pos
+def extract_after_ankara(text: str, pos_s: tuple):
+    text_translate = text[pos_s[0]:pos_s[1] - 1]
+    text_translate = process_text(text_translate, cleaning_from_ocr)
+    return text_translate, True, pos_s[1] - 1
+    # pattern = r'\((?:\d{1,2}|\d{1,2}-\d{1,2})\)\s+[A-Za-zÀ-ÖØ-öø-ÿĞğİıŞşÇç]+'
+    # result = ""
+    # is_trans: bool = False
+    # n_l: str = ""
+    # if start_pos < 0 or start_pos >= len(text):
+    #     return None, None, start_pos
+    # # позиция после которой начинают искать
+    # pos = start_pos
+    # pattern = re.compile(pattern)
+    # match = pattern.search(text, pos)
+    # # нет шаблона поиска
+    # if not match:
+    #     return None, None, len(text)
+    # # позиция конца якоря
+    # pos = match.end()
+    #
+    # while pos < len(text) and pos != -1:
+    #     # строка и позиция её конца
+    #     n_l, last_pos = get_next_line(text, pos)
+    #     if n_l:
+    #         if not extract_transliteration(n_l):
+    #             # if re.match(r'^\d+:\s*', n_l):
+    #             #     break
+    #             # здесь проверка на окончание перевода
+    #             # и на то, что это перевод
+    #             # ---------------------------------
+    #             is_trans, n_l = detect_translate(n_l, 0)
+    #             # -----------------------------------
+    #             # не транслитерация
+    #             if is_trans:
+    #                 result += (" " + n_l)
+    #         else:
+    #             if result:
+    #                 return result, True, last_pos
+    #     else:
+    #         if result:
+    #             return result, True, last_pos
+    #
+    #     # позиция начала следующей строки
+    #     pos = last_pos + 1
+    #     # pos = pos + len(n_l) + 1
+    #     # pos = text.find("\n", last_pos)
+    #     # n_l, last_pos = get_next_line(text, pos)
+    # if result:
+    #     return result, True, pos
+    # return result, None, pos
 
 
 #%%
@@ -1485,7 +1633,8 @@ def process_text_and_build_csv_rows(text: str):
                             translate_str_arr = str_txt_1[i % len_arr]
                             accad_str_arr = str_txt[i % len_arr]
                     num_i = 1
-                    for translate_str, accad_str in zip(translate_str_arr, accad_str_arr):
+                    for translate_str_1, accad_str_1 in zip(translate_str_arr, accad_str_arr):
+                        accad_str, translate_str = process_text_last(translate_str_1, accad_str_1)
                         # 1. Очистка перевода
                         t = translate_str.replace("\n", " ")
 
