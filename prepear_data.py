@@ -1302,12 +1302,15 @@ def extract_ankara(text: str, start_pos: int, pattern: str):
         # словарь с ключами номерами и строками транслитерации
         result1 = renumber_trust_source(text_trlit)
     # dict_r, text_r = process_text_last(text_translate, result1)
-        return result1, True, (pos_start_perevod, pos_end_perevod.start())
+        # очищенный от мусора текст и словарь транслитерации,
+        # флаг выполнения, позиции начала конца перевода
+        return (result, result1), True, (pos_start_perevod, pos_end_perevod.start())
 
-def extract_after_ankara(text: str, pos_s: tuple):
-    text_translate = text[pos_s[0]:pos_s[1] - 1]
-    text_translate = process_text(text_translate, cleaning_from_ocr)
-    return text_translate, True, pos_s[1] - 1
+def extract_after_ankara(text_dict_tr: tuple, pos_s: tuple):
+    text_translate = text_dict_tr[0][pos_s[0]:pos_s[1] - 1]
+    list_trl_transl = process_text_last(text_translate, text_dict_tr[1])
+    # кортеж списков транслитерации и перевода
+    return list_trl_transl, True, pos_s[1] - 1
     # pattern = r'\((?:\d{1,2}|\d{1,2}-\d{1,2})\)\s+[A-Za-zÀ-ÖØ-öø-ÿĞğİıŞşÇç]+'
     # result = ""
     # is_trans: bool = False
@@ -1535,29 +1538,32 @@ def translate_to_english(text):
  #        print(\"-\" * 50)"
 # ----------------------------------------------------------------------------------
 
-def process_text_last(text, lines_dict):
+
+def process_text_last(text: str, lines_dict: dict):
     dict_results = []
     text_results = []
-    range_pattern = re.compile(r'^\s*(\d{1,2})\s*-\s*(\d{1,2})\s*')
-    for line in text.splitlines():
-        match = range_pattern.match(line)
-        if not match:
-            continue  # нет диапазона — пропускаем
+    range_pattern = re.compile(r'(\d{1,2})\s*-\s*(\d{1,2})')
+    matches = list(range_pattern.finditer(text))
 
-        start, end = map(int, match.groups())
+    for i, match in enumerate(matches):
+        start_num, end_num = map(int, match.groups())
 
-        # проверяем: ВСЕ ключи диапазона должны существовать
-        if not all(i in lines_dict for i in range(start, end + 1)):
-            continue  # диапазон неполный — отбрасываем целиком
+        # границы текстового блока
+        text_start = match.end()
+        text_end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+
+        # строгая проверка диапазона
+        if not all(k in lines_dict for k in range(start_num, end_num + 1)):
+            continue
 
         # собираем строку из словаря
         dict_results.append(
-            " ".join(lines_dict[i] for i in range(start, end + 1))
+            " ".join(lines_dict[k] for k in range(start_num, end_num + 1))
         )
 
-        # удаляем диапазон из текста
-        cleaned_text = range_pattern.sub('', line).strip()
-        text_results.append(cleaned_text)
+        # текст без диапазона
+        fragment = text[text_start:text_end].strip()
+        text_results.append(fragment)
 
     return dict_results, text_results
 
@@ -1582,15 +1588,15 @@ def process_text_and_build_csv_rows(text: str):
     pattern3 = r'ANKARA KÜLTEPE TABLETLERİ II\n'
     pattern4 = r'^ANKARA KÜLTEPE TABLETLERİ\n$'
     # список списков шаблонов поиска первого блока
-    all_patterns = [pattern1]
+    all_patterns = [pattern3]
     len_arr = len(all_patterns)
     # len_arr = 1
     # список функций поиска первого блока соответствует списку списков шаблонов
     # extract_function_1 = [extract_quoted_substring, extract_letter_space_digit_colon_space, extract_ankara]
-    extract_function_1 = [extract_quoted_substring]
+    extract_function_1 = [extract_ankara]
     # список функций поиска второго блока соответствует списку функций поиска первого блока
     # extract_function_2 = [extract_parenthesized_substring, extract_single_quotes, extract_after_ankara]
-    extract_function_2 = [extract_parenthesized_substring]
+    extract_function_2 = [extract_after_ankara]
     str_txt = [""] * len_arr
     str_txt_1 = [""] * len_arr
     # str_txt = ['', '']
@@ -1610,6 +1616,9 @@ def process_text_and_build_csv_rows(text: str):
             str_txt[i % len_arr], flag, next_pos = extract_function_1[i % len_arr](text, start_pos, pattern)
 
             if flag:
+                if isinstance(str_txt[i % len_arr], tuple):
+                    text = str_txt[i % len_arr]
+                    text_t = str_txt[i % len_arr]
                 print("Найден 1 блок")
                 # поиск по круглым скобкам потом по одинарным кавычкам
                 str_txt_1[i % len_arr], flag2, close_pos = extract_function_2[i % len_arr](text, next_pos)
@@ -1627,14 +1636,22 @@ def process_text_and_build_csv_rows(text: str):
                         #     translate_str_arr = str_txt[i % len_arr]
                         #     accad_str_arr = str_txt_1[i % len_arr]
                         case 0:
-                            translate_str_arr = str_txt_1[i % len_arr]
-                            accad_str_arr = str_txt[i % len_arr]
+                            if isinstance(str_txt_1[i % len_arr], tuple):
+                                accad_str_arr = str_txt_1[i % len_arr][0]
+                                translate_str_arr = str_txt_1[i % len_arr][1]
+                            else:
+                                translate_str_arr = str_txt_1[i % len_arr]
+                                accad_str_arr = str_txt[i % len_arr]
                         case 2:
-                            translate_str_arr = str_txt_1[i % len_arr]
-                            accad_str_arr = str_txt[i % len_arr]
+                            if isinstance(text, tuple):
+                                accad_str_arr = str_txt_1[i % len_arr][0]
+                                translate_str_arr = str_txt_1[i % len_arr][1]
+                            else:
+                                translate_str_arr = str_txt_1[i % len_arr]
+                                accad_str_arr = str_txt[i % len_arr]
                     num_i = 1
-                    for translate_str_1, accad_str_1 in zip(translate_str_arr, accad_str_arr):
-                        accad_str, translate_str = process_text_last(translate_str_1, accad_str_1)
+                    for translate_str, accad_str in zip(translate_str_arr, accad_str_arr):
+                        # accad_str, translate_str = process_text_last(translate_str_1, accad_str_1)
                         # 1. Очистка перевода
                         t = translate_str.replace("\n", " ")
 
@@ -1760,8 +1777,8 @@ def print_file_head(path, n=5, encoding="utf-8"):
 
 #%%
 # Завантаження даних з CSV-файлу
-# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
-thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
+# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
 # ----------------------------------------

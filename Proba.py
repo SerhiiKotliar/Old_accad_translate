@@ -711,7 +711,7 @@ def process_text_last(text, lines_dict):
         # текст без диапазона
         fragment = text[text_start:text_end].strip()
         text_results.append(fragment)
-
+    # списки транслитерации и перевода
     return dict_results, text_results
 
 
