@@ -583,7 +583,8 @@ def cleaning_from_ocr(text: str) -> str:
         (r'(?<=\d)o', '0'),
         (r'S-9', '5-9'),
         (r'^.\d{1,}\n', ''),
-        (r'^.\.\s*y\.\n', ''),
+        (r'^.\.y\.\s*', ''),
+        (r'^.\.y\.\n', ''),
         (r'(?<=[A-Za-z0-9]):(?=[A-Za-z0-9])', ' '),
         #(r'(?<=[^\W_]):(?=[^\W_])', ' '),
         # (r'\b\d{1,3}\s*[-–—-]\s*\d{1,3}\b', ''),
@@ -592,7 +593,7 @@ def cleaning_from_ocr(text: str) -> str:
         text = re.sub(pattern, repl, text)
 
     text = re.sub(
-        r'^\s*(?:[SK]\.|S\. K\.|A\.y\.\s*|v|\. v)\s*$',
+        r'^\s*(?:[SK]\.|S\. K\.|.\.y\.\s*|v|\. v)\s*$',
         '',
         text,
         flags=re.MULTILINE
@@ -688,6 +689,37 @@ def renumber_trust_source(text: str) -> dict:
     return dic_trlits
 
 
+# range_pattern = re.compile(r'(\d{1,2})\s*-\s*(\d{1,2})')
+
+def process_text_last(text, lines_dict):
+    dict_results = []
+    text_results = []
+    range_pattern = re.compile(r'(\d{1,2})\s*-\s*(\d{1,2})')
+
+    matches = list(range_pattern.finditer(text))
+
+    for i, match in enumerate(matches):
+        start_num, end_num = map(int, match.groups())
+
+        # границы текстового блока
+        text_start = match.end()
+        text_end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+
+        # строгая проверка диапазона
+        if not all(k in lines_dict for k in range(start_num, end_num + 1)):
+            continue
+
+        # собираем строку из словаря
+        dict_results.append(
+            " ".join(lines_dict[k] for k in range(start_num, end_num + 1))
+        )
+
+        # текст без диапазона
+        fragment = text[text_start:text_end].strip()
+        text_results.append(fragment)
+
+    return dict_results, text_results
+
 
 
 
@@ -708,14 +740,14 @@ if res_is_tablet[0]:
     text_translate = text[res_is_tablet[1]:res_is_tablet[2]-1]
     # очистка от мусора
     text_translate = process_text(text_translate, cleaning_from_ocr)
-    print(text_translate)
+    # print(text_translate)
     text_trlit = text[translate_after_translite_after_table(text, res_is_tablet[2]):]
     # print(text_trlit)
     # очистка от мусора
     text_trlit = process_text(text_trlit, cleaning_from_ocr)
     result1 = renumber_trust_source(text_trlit)
-    for key, value in result1.items():
-        print(f"{key}: {value}")
+    # for key, value in result1.items():
+    #     print(f"{key}: {value}")
 else:
     print("\nТранслитерация - Перевод\n")
 
@@ -730,7 +762,7 @@ else:
     # последняя позиция перевода
     pos_end_perevod = re.search(r'^\d+:', result, flags=re.MULTILINE)
     text_translate = result[pos_start_perevod:pos_end_perevod.start()]
-    print(text_translate)
+    # print(text_translate)
 # очистка от мусора
 # result = process_text(text_trlit, cleaning_from_ocr)
 # print(result)
@@ -741,16 +773,18 @@ else:
 # словарь с ключами номерами и строками транслитерации
 # print(renumber_trust_source(result))
     result1 = renumber_trust_source(text_trlit)
-    for key, value in result1.items():
-        print(f"{key}: {value}")
+    # for key, value in result1.items():
+        # print(f"{key}: {value}")
 
 # print(result)
 # print(translate_after_translite_after_tablet(result))
 # blocks = extract_transliteration(translate_after_translite_after_tablet(result))
 # print(blocks)
 
+dict_r, text_r = process_text_last(text_translate, result1)
 
-
+for d, t in zip(dict_r, text_r):
+    print(f"{d} - {t}")
 # print(tr_lit)
 # print(pos_end)
 # block = extract_transliteration_only(text)

@@ -1387,6 +1387,33 @@ def translate_to_english(text):
  #        print(\"-\" * 50)"
 # ----------------------------------------------------------------------------------
 
+def process_text_last(text, lines_dict):
+    dict_results = []
+    text_results = []
+    range_pattern = re.compile(r'^\s*(\d{1,2})\s*-\s*(\d{1,2})\s*')
+    for line in text.splitlines():
+        match = range_pattern.match(line)
+        if not match:
+            continue  # нет диапазона — пропускаем
+
+        start, end = map(int, match.groups())
+
+        # проверяем: ВСЕ ключи диапазона должны существовать
+        if not all(i in lines_dict for i in range(start, end + 1)):
+            continue  # диапазон неполный — отбрасываем целиком
+
+        # собираем строку из словаря
+        dict_results.append(
+            " ".join(lines_dict[i] for i in range(start, end + 1))
+        )
+
+        # удаляем диапазон из текста
+        cleaned_text = range_pattern.sub('', line).strip()
+        text_results.append(cleaned_text)
+
+    return dict_results, text_results
+
+
 def process_text_and_build_csv_rows(text: str):
     """
     Обрабатывает текст ячейкеи и возвращает список строк CSV
@@ -1440,6 +1467,8 @@ def process_text_and_build_csv_rows(text: str):
                 str_txt_1[i % len_arr], flag2, close_pos = extract_function_2[i % len_arr](text, next_pos)
                 if flag2:
                     print("Найден 2 блок")
+                    translate_str_arr = []
+                    accad_str_arr = []
                     # double_txt, double_flag, double_next_pos = extract_function_1[i % len_arr](text, next_pos, pattern)
                     # if double_flag and double_next_pos < (close_pos - len(str_txt_1[i % len_arr])):
                     #     print(f"Найден уточняющий текст {double_txt}")
