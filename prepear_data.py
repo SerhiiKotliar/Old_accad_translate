@@ -778,118 +778,21 @@ def extract_quoted_substring(text: str, start_pos: int, pattern: str):
     Возвращает:
         (substring, is_longer_than_30, closing_quote_pos)
     """
-    # pattern1 = r'(?:\d{1,3}-\d{1,3})?[:),]'
-    # pattern1 = r'(?:(?:\d{1,3}-\d{1,3})?[:),])?'
-
-    # pattern1 = re.compile(pattern1)
-    # if start_pos != 0:
-    #     start_pos += 1
     # 1. Основной шаблон
     pattern = re.compile(pattern)
 
     match = pattern.search(text, start_pos)
     if not match:
         return None, None, len(text)
-    # match = pattern1.search(text, match.end())
-    # print(f"Найдено якорь по шаблону кавычек {match.group()}")
-    # start_pos = match.end() + 1
     start_pos = match.end() - 2
     translate = False
-    # open_seq = ' "'
     # # поиск открывающей кавычки начинается С start_pos
-    # open_pos = text.find(open_seq, start_pos) + 1
     open_pos = find_double_quote(text, start_pos)
     if open_pos == -1:
         return None, None, len(text)
-    # # позиция начала текста после открывающей кавычки "
-    # quote_start = open_pos + 1
-    # # ищем закрывающую кавычку "
-    # quote_end = text.find('"', quote_start)
-    # if quote_end == -1:
-    #     return None, None, len(text)
-    # # открывающая скобка
-    # open_scob = text.find('(', quote_end)
-    # if open_scob == -1:
-    #     return None, None, len(text)
-    # # открывающая скобка дальше закрывающей кавычки более чем на 3 символа
-    # while open_scob - quote_end > 3:
-    #     # ищем кавычки ниже
-    #     open_pos = text.find(open_seq, quote_end) + 1
-    #     if open_pos == -1:
-    #         return None, None, len(text)
-    #     quote_end = text.find('"', open_pos + 1)
-    #     if quote_end == -1:
-    #         return None, None, len(text)
-    #     if open_scob - quote_end < 0:
-    #         # опускаем скобки ниже кавычек
-    #         while open_scob - quote_end < 0:
-    #             open_scob = text.find('(', quote_end)
-    #             if open_scob == -1:
-    #                 return None, None, len(text)
-    #
-    # close_scob = text.find(')', open_scob)
-    # maybe_translit = text[open_scob:close_scob]
-    #
-    # while not extract_transliteration(maybe_translit):
-    #     start_pos = close_scob + 1
-    #     # ищем кавычки после скобок
-    #     open_pos = text.find(open_seq, start_pos) + 1
-    #     if open_pos == -1:
-    #         return None, None, len(text)
-    #     quote_start = open_pos + 1
-    #     quote_end = text.find('"', quote_start)
-    #     if quote_end == -1:
-    #         return None, None, len(text)
-    #     open_scob = text.find('(', quote_end)
-    #     if open_scob == -1:
-    #         return None, None, len(text)
-    #     close_scob = text.find(')', open_scob)
-    #     maybe_translit = text[open_scob:close_scob]
-    #
-    #
-    # distance_to_open = open_pos - start_pos
-    # arr_mach = []
-    # start_pos_prov = start_pos
-    # match_prov = match
-    # distance_to_open_prov = distance_to_open
-    # # дистанция от конца якоря до открытой кавычки
-    # while distance_to_open_prov > 10:
-    #     match_prov = pattern.search(text, start_pos_prov)
-    #     if not match_prov:
-    #         return None, None, len(text)
-    #     match_prov = pattern1.search(text, match_prov.end())
-    #     if match_prov:
-    #         arr_mach.append(match_prov.end())
-    #         start_pos_prov = match_prov.end()
-    #         distance_to_open_prov = open_pos - start_pos_prov
-    #         # якорь проскочил за открытую кавычку
-    #         if distance_to_open_prov < 0:
-    #             open_pos = text.find(open_seq, open_pos) + 1
-    #             if open_pos == -1:
-    #                 return None, None, len(text)
-    #             distance_to_open_prov = open_pos - start_pos_prov
-    #             while distance_to_open_prov < 0:
-    #                 open_pos = text.find(open_seq, open_pos) + 1
-    #                 if open_pos == -1:
-    #                     return None, None, len(text)
-    #                 distance_to_open_prov = open_pos - start_pos_prov
-    #     else:
-    #         return None, None, len(text)
-    # # max_match_prov = max(arr_mach)
-    # # max_end = max(match.end(), max_match_prov)
-    # start_pos = start_pos_prov
-    # if open_pos - start_pos > 80:
-    #     return None, None, start_pos + 8
-    # if open_pos == -1:
-    #     return None, None, start_pos
-    # print(f"Найдено якорь по шаблону кавычек {match.group()}")
-    # if match.group() == "1742: 26-29:":
-    #     print("SLEDIM")
     # позиция начала текста после открывающей кавычки "
     quote_start = open_pos + 1
-
     # ищем закрывающую кавычку "
-    # quote_end = text.find('"', quote_start)
     quote_end = find_double_quote(text, quote_start, False)
 
     if quote_end == -1:
@@ -898,22 +801,14 @@ def extract_quoted_substring(text: str, start_pos: int, pattern: str):
     # подстрока между кавычками
     substring = text[quote_start : quote_end]
 
-    # dash_count = substring.count('-')
-    # aleph_count = substring.count('ℵ')
-    # if dash_count > 0 or aleph_count > 0:
-    #     if dash_count > 0:
-    #         dash_required = len(substring) / dash_count
-    #     else:
-    #         dash_required = 34
-    #     # много символов транслитерации
-    #     if dash_required < 25 or aleph_count > 0:
     if extract_transliteration(substring):
             return None, None, quote_end
 
     if len(substring) > 30:
         translate = True
-
-    return substring, translate, quote_end
+    result = []
+    result.append(substring)
+    return result, translate, quote_end
 
 #%%
 def extract_parenthesized_substring(text: str, start_pos: int):
@@ -950,8 +845,9 @@ def extract_parenthesized_substring(text: str, start_pos: int):
         is_long = len(substring) > 30
 
         flag = is_long
-
-        return substring, flag, close_pos
+        result = []
+        result.append(substring)
+        return result, flag, close_pos
     return None, None, start_pos + 4
 
 def find_single_quote(text: str, start_pos: int, first: bool=True):
@@ -1506,20 +1402,20 @@ def process_text_and_build_csv_rows(text: str):
     # patterns1 = ['r\d{2,}:\s(?:\d{1,3}-\d{1,3}[,:)]\s*)?[^"]*"']
     # patterns1 = [r'\d{2,}:\s(?:\d{1,3}-\d{1,3}[,:)]\s*)?[\s\S]*?"']
     # patterns1 = [r'\d{2,}:\s(?:\d{1,3}-\d{1,3}[:),]\s*)?[\s\S]*?\s"']
-    # pattern1 = r'\d{2,}:\s+(?:\d+-\d+[:,)]\s*[^"]{0,80}?\s)?"'
-    # pattern2 = r'[A-Z][a-z]{3,} \d{4}[a-z]?: \d+(?:[–\-]\d+)?'
+    pattern1 = r'\d{2,}:\s+(?:\d+-\d+[:,)]\s*[^"]{0,80}?\s)?"'
+    pattern2 = r'[A-Z][a-z]{3,} \d{4}[a-z]?: \d+(?:[–\-]\d+)?'
     pattern3 = r'ANKARA KÜLTEPE TABLETLERİ II\n'
     pattern4 = r'^ANKARA KÜLTEPE TABLETLERİ\n$'
     # список списков шаблонов поиска первого блока
-    all_patterns = [pattern3]
+    all_patterns = [pattern1]
     len_arr = len(all_patterns)
     # len_arr = 1
     # список функций поиска первого блока соответствует списку списков шаблонов
     # extract_function_1 = [extract_quoted_substring, extract_letter_space_digit_colon_space, extract_ankara]
-    extract_function_1 = [extract_ankara]
+    extract_function_1 = [extract_quoted_substring]
     # список функций поиска второго блока соответствует списку функций поиска первого блока
     # extract_function_2 = [extract_parenthesized_substring, extract_single_quotes, extract_after_ankara]
-    extract_function_2 = [extract_after_ankara]
+    extract_function_2 = [extract_parenthesized_substring]
     str_txt = [""] * len_arr
     str_txt_1 = [""] * len_arr
     # str_txt = ['', '']
@@ -1551,43 +1447,46 @@ def process_text_and_build_csv_rows(text: str):
                     #     next_pos = double_next_pos
                     match i:
                         # case 0:
-                        #     translate_str = str_txt[i % len_arr]
-                        #     accad_str = str_txt_1[i % len_arr]
+                        #     translate_str_arr = str_txt[i % len_arr]
+                        #     accad_str_arr = str_txt_1[i % len_arr]
                         case 0:
-                            translate_str = str_txt_1[i % len_arr]
-                            accad_str = str_txt[i % len_arr]
+                            translate_str_arr = str_txt_1[i % len_arr]
+                            accad_str_arr = str_txt[i % len_arr]
                         case 2:
-                            translate_str = str_txt_1[i % len_arr]
-                            accad_str = str_txt[i % len_arr]
-                    # 1. Очистка перевода
-                    t = translate_str.replace("\n", " ")
+                            translate_str_arr = str_txt_1[i % len_arr]
+                            accad_str_arr = str_txt[i % len_arr]
+                    num_i = 1
+                    for translate_str, accad_str in zip(translate_str_arr, accad_str_arr):
+                        # 1. Очистка перевода
+                        t = translate_str.replace("\n", " ")
 
-                    # 2. Очистка аккадского
-                    a = accad_str.replace("\n", " ")
-                    a = normalize_for_mt(a)
+                        # 2. Очистка аккадского
+                        a = accad_str.replace("\n", " ")
+                        a = normalize_for_mt(a)
 
-                    # 3. Токенизация перевода
-                    t_sentences = sent_tokenize(t)
-                    # --------------------------------------------------------------
-                    # 3. Токенизация перевода
-                    t_sentences = sent_tokenize(t)
-                    t_sentences = [sent for sent in t_sentences if looks_like_real_translation(sent)]
-                    # определение языка и перевод на английский, если перевод не английский\n",
-                    t_sentences = [translate_to_english(sent) if detect_language(sent) != 'en' else sent for sent in t_sentences]
-                    # ---------------------------------------------------------------------------
-                    # 4. Выравнивание + маркеры
-                    a = align_and_mark_sentences(a, t_sentences, marker="<sent>")
+                        # 3. Токенизация перевода
+                        t_sentences = sent_tokenize(t)
+                        # --------------------------------------------------------------
+                        # # 3. Токенизация перевода
+                        # t_sentences = sent_tokenize(t)
+                        # t_sentences = [sent for sent in t_sentences if looks_like_real_translation(sent)]
+                        # # определение языка и перевод на английский, если перевод не английский\n",
+                        # t_sentences = [translate_to_english(sent) if detect_language(sent) != 'en' else sent for sent in t_sentences]
+                        # ---------------------------------------------------------------------------
+                        # 4. Выравнивание + маркеры
+                        a = align_and_mark_sentences(a, t_sentences, marker="<sent>")
 
-                    # 5. Склеиваем перевод обратно
-                    t = " ".join(t_sentences)
+                        # 5. Склеиваем перевод обратно
+                        t = " ".join(t_sentences)
 
-                    # 6. CSV-экранирование (ОДИН РАЗ!)
-                    a = a.replace('"', '""')
-                    t = t.replace('"', '""')
-                    print(f"\nТранслитерация{i + 1}\n {a}")
-                    print(f"\nПеревод{i + 1}\n {t}")
-                    print("-" * 50)
-                    csv_rows.append(f'"{a}","{t}"\n')
+                        # 6. CSV-экранирование (ОДИН РАЗ!)
+                        a = a.replace('"', '""')
+                        t = t.replace('"', '""')
+                        print(f"\nТранслитерация{i + 1}-{num_i}\n {a}")
+                        print(f"\nПеревод{i + 1}-{num_i}\n {t}")
+                        print("-" * 50)
+                        csv_rows.append(f'"{a}","{t}"\n')
+                        num_i += 1
                     # найден 2 блок, ищем следующие первые
                     start_pos = close_pos + 1
                     print("Ищем следующий 1 блок")
@@ -1683,8 +1582,8 @@ def print_file_head(path, n=5, encoding="utf-8"):
 
 #%%
 # Завантаження даних з CSV-файлу
-thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
-# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
+thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
 # ----------------------------------------
@@ -1744,7 +1643,7 @@ for i in idx:
     print(f"{num + 1} пару блоков начинаем искать.\n")
     print(f"Index = {i}\n")
     # if i == 5141:
-    if i == 5141:
+    if i == 5140:
     # if i == 25:
     # if i == 130319:
         print("PROVERKA")
