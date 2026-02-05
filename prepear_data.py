@@ -1182,34 +1182,34 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
         return result, True, pos_end
     else:
         return result, False, pos_end
-
-    result = ""
-    num_row = 0
-    while pos < len(text):
-        # строка и её первая позиция
-        n_l, next_first_pos = get_next_line_trl(text, pos)
-        if num_row > 1:
-            return None, None, match.end()
-        line_trl = []
-        if n_l:
-            line_trl = extract_transliteration(n_l)
-        end_translit = 0
-        while line_trl:
-            # сборная транслитерация
-            result += ("\n".join(line_trl))
-            end_translit = next_first_pos - 1
-            n_l, next_first_pos = get_next_line_trl(text, next_first_pos)
-            if next_first_pos == -1:
-                return result, True, end_translit
-            if n_l:
-                line_trl = extract_transliteration(n_l)
-            else:
-                line_trl = ""
-        num_row += 1
-        if result:
-            return result, True, end_translit
-        pos = next_first_pos
-    return result, None, next_first_pos - 1
+    #
+    # result = ""
+    # num_row = 0
+    # while pos < len(text):
+    #     # строка и её первая позиция
+    #     n_l, next_first_pos = get_next_line_trl(text, pos)
+    #     if num_row > 1:
+    #         return None, None, match.end()
+    #     line_trl = []
+    #     if n_l:
+    #         line_trl = extract_transliteration(n_l)
+    #     end_translit = 0
+    #     while line_trl:
+    #         # сборная транслитерация
+    #         result += ("\n".join(line_trl))
+    #         end_translit = next_first_pos - 1
+    #         n_l, next_first_pos = get_next_line_trl(text, next_first_pos)
+    #         if next_first_pos == -1:
+    #             return result, True, end_translit
+    #         if n_l:
+    #             line_trl = extract_transliteration(n_l)
+    #         else:
+    #             line_trl = ""
+    #     num_row += 1
+    #     if result:
+    #         return result, True, end_translit
+    #     pos = next_first_pos
+    # return result, None, next_first_pos - 1
     # -----------------------------------------------
 
 #%%
