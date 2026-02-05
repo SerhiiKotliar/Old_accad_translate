@@ -718,109 +718,109 @@ def process_text_last(text, lines_dict):
 
 
 # ----------------------------------------------------------------
-text = text.replace('TABLETLERİ u', 'TABLETLERİ II')
-pattern = r'ANKARA KÜLTEPE TABLETLERİ II\n'
-match = re.search(pattern, text, flags=re.MULTILINE)
-if match:
-    text = text[match.end():]
-res_is_tablet = is_tablet(text)
-if res_is_tablet[0]:
-    print(f"\nПеревод - Транслитерация {res_is_tablet[1]} - {res_is_tablet[2]}\n")
-    # print(translate_after_translite_after_tablet(text)[0], res_is_tablet[2])
-    # flag = translate_after_translite_after_table(text)[0]
-    # st = translate_after_translite(text)[1]
-    # end = translate_after_translite(text)[2]
-    # if flag:
-    text_translate = text[res_is_tablet[1]:res_is_tablet[2]-1]
-    # очистка от мусора
-    text_translate = process_text(text_translate, cleaning_from_ocr)
-    # print(text_translate)
-    text_trlit = text[translate_after_translite_after_table(text, res_is_tablet[2]):]
-    # print(text_trlit)
-    # очистка от мусора
-    text_trlit = process_text(text_trlit, cleaning_from_ocr)
-    result1 = renumber_trust_source(text_trlit)
-    # for key, value in result1.items():
-    #     print(f"{key}: {value}")
-else:
-    print("\nТранслитерация - Перевод\n")
-
-
-# очистка от мусора
-    result = process_text(text, cleaning_from_ocr)
-# вівод транслитерации после якоря
-    text_trlit = translate_after_translite(result)[0]
-    # print(result)
-    # первая позиция диапазона в переводе
-    pos_start_perevod = translate_after_translite(result)[1]
-    # последняя позиция перевода
-    pos_end_perevod = re.search(r'^\d+:', result, flags=re.MULTILINE)
-    text_translate = result[pos_start_perevod:pos_end_perevod.start()]
-    # print(text_translate)
-# очистка от мусора
-# result = process_text(text_trlit, cleaning_from_ocr)
-# print(result)
-# result1 = count_lines_trlits(result)
-# # print(result1)
-# for key, value in result1.items():
-#     print(f"{key}: {value}")
-# словарь с ключами номерами и строками транслитерации
-# print(renumber_trust_source(result))
-    result1 = renumber_trust_source(text_trlit)
-    # for key, value in result1.items():
-        # print(f"{key}: {value}")
-
-# print(result)
-# print(translate_after_translite_after_tablet(result))
-# blocks = extract_transliteration(translate_after_translite_after_tablet(result))
-# print(blocks)
-
-dict_r, text_r = process_text_last(text_translate, result1)
-
-for d, t in zip(dict_r, text_r):
-    print(f"{d} - {t}")
-# print(tr_lit)
-# print(pos_end)
-# block = extract_transliteration_only(text)
-# if block:
-#     print(f"Найден блок транслитерации: {block}")  # , len(all_blocks))
-
-# blocks = extract_transliteration(text)
-# if blocks:
-#     print("Найден блок транслитерации: ") #, len(all_blocks))
-
-    # Отладочный вывод: покажем проблемные строки которые были отфильтрованы
-#     print("\nПримеры отфильтрованных строк (для проверки):")
-#     test_strings = [
-#         "desk-bound commercial manager who conducted",
-#         "This naruqqu-institution must have been invented",
-#         "14 Jetzt ist gerade ein Brief des Iriba 15 an Litib-libbaSu 16 und ein Brief"
-#     ]
-#
-#     for test_str in test_strings:
-#         print(f"\nПроверка строки: '{test_str}'")
-#         has_basic = TRANSLIT_LINE_RE.match(test_str) and MORPHEME_SEP_RE.search(test_str)
-#         has_foreign = bool(FOREIGN_WORD_RE.search(test_str))
-#         not_translit = bool(NOT_TRANSLIT_RE.search(test_str))
-#         akkadian = bool(AKKADIAN_INDICATOR_RE.search(test_str))
-#
-#         print(f"  Базовый формат: {has_basic}")
-#         print(f"  Иностранные слова: {has_foreign}")
-#         print(f"  NOT транслитерация: {not_translit}")
-#         print(f"  Аккадские индикаторы: {akkadian}")
-#         print(
-#             f"  Результат: {'ПРИНЯТО' if (has_basic and (not has_foreign or akkadian) and not not_translit) else 'ОТФИЛЬТРОВАНО'}")
-#
-#     print("\n" + "=" * 60 + "\n")
-#
-#     # Выводим первые 3 блока для проверки
-#     for i, block in enumerate(all_blocks[:6], 1):
-#         print(f"Блок транслитерации {i}:")
-#         print(block[:300] + "..." if len(block) > 300 else block)
-#         print("-" * 50)
-#
-#     # # Сохраняем в файл
-#     # with open(thiscompteca + '/transliteration_blocks.txt', 'w', encoding='utf-8') as f:
-#     #     f.write(result_text)
+# text = text.replace('TABLETLERİ u', 'TABLETLERİ II')
+# pattern = r'ANKARA KÜLTEPE TABLETLERİ II\n'
+# match = re.search(pattern, text, flags=re.MULTILINE)
+# if match:
+#     text = text[match.end():]
+# res_is_tablet = is_tablet(text)
+# if res_is_tablet[0]:
+#     # print(f"\nПеревод - Транслитерация {res_is_tablet[1]} - {res_is_tablet[2]}\n")
+#     # print(translate_after_translite_after_tablet(text)[0], res_is_tablet[2])
+#     # flag = translate_after_translite_after_table(text)[0]
+#     # st = translate_after_translite(text)[1]
+#     # end = translate_after_translite(text)[2]
+#     # if flag:
+#     text_translate = text[res_is_tablet[1]:res_is_tablet[2]-1]
+#     # очистка от мусора
+#     text_translate = process_text(text_translate, cleaning_from_ocr)
+#     # print(text_translate)
+#     text_trlit = text[translate_after_translite_after_table(text, res_is_tablet[2]):]
+#     # print(text_trlit)
+#     # очистка от мусора
+#     text_trlit = process_text(text_trlit, cleaning_from_ocr)
+#     result1 = renumber_trust_source(text_trlit)
+#     # for key, value in result1.items():
+#     #     print(f"{key}: {value}")
 # else:
-#     print("Блоки транслитерации не найдены")
+#     # print("\nТранслитерация - Перевод\n")
+#
+#
+# # очистка от мусора
+#     result = process_text(text, cleaning_from_ocr)
+# # вівод транслитерации после якоря
+#     text_trlit = translate_after_translite(result)[0]
+#     # print(result)
+#     # первая позиция диапазона в переводе
+#     pos_start_perevod = translate_after_translite(result)[1]
+#     # последняя позиция перевода
+#     pos_end_perevod = re.search(r'^\d+:', result, flags=re.MULTILINE)
+#     text_translate = result[pos_start_perevod:pos_end_perevod.start()]
+#     # print(text_translate)
+# # очистка от мусора
+# # result = process_text(text_trlit, cleaning_from_ocr)
+# # print(result)
+# # result1 = count_lines_trlits(result)
+# # # print(result1)
+# # for key, value in result1.items():
+# #     print(f"{key}: {value}")
+# # словарь с ключами номерами и строками транслитерации
+# # print(renumber_trust_source(result))
+#     result1 = renumber_trust_source(text_trlit)
+#     # for key, value in result1.items():
+#         # print(f"{key}: {value}")
+#
+# # print(result)
+# # print(translate_after_translite_after_tablet(result))
+# # blocks = extract_transliteration(translate_after_translite_after_tablet(result))
+# # print(blocks)
+#
+# dict_r, text_r = process_text_last(text_translate, result1)
+#
+# for d, t in zip(dict_r, text_r):
+#     print(f"{d} - {t}")
+# # print(tr_lit)
+# # print(pos_end)
+# # block = extract_transliteration_only(text)
+# # if block:
+# #     print(f"Найден блок транслитерации: {block}")  # , len(all_blocks))
+#
+# # blocks = extract_transliteration(text)
+# # if blocks:
+# #     print("Найден блок транслитерации: ") #, len(all_blocks))
+#
+#     # Отладочный вывод: покажем проблемные строки которые были отфильтрованы
+# #     print("\nПримеры отфильтрованных строк (для проверки):")
+# #     test_strings = [
+# #         "desk-bound commercial manager who conducted",
+# #         "This naruqqu-institution must have been invented",
+# #         "14 Jetzt ist gerade ein Brief des Iriba 15 an Litib-libbaSu 16 und ein Brief"
+# #     ]
+# #
+# #     for test_str in test_strings:
+# #         print(f"\nПроверка строки: '{test_str}'")
+# #         has_basic = TRANSLIT_LINE_RE.match(test_str) and MORPHEME_SEP_RE.search(test_str)
+# #         has_foreign = bool(FOREIGN_WORD_RE.search(test_str))
+# #         not_translit = bool(NOT_TRANSLIT_RE.search(test_str))
+# #         akkadian = bool(AKKADIAN_INDICATOR_RE.search(test_str))
+# #
+# #         print(f"  Базовый формат: {has_basic}")
+# #         print(f"  Иностранные слова: {has_foreign}")
+# #         print(f"  NOT транслитерация: {not_translit}")
+# #         print(f"  Аккадские индикаторы: {akkadian}")
+# #         print(
+# #             f"  Результат: {'ПРИНЯТО' if (has_basic and (not has_foreign or akkadian) and not not_translit) else 'ОТФИЛЬТРОВАНО'}")
+# #
+# #     print("\n" + "=" * 60 + "\n")
+# #
+# #     # Выводим первые 3 блока для проверки
+# #     for i, block in enumerate(all_blocks[:6], 1):
+# #         print(f"Блок транслитерации {i}:")
+# #         print(block[:300] + "..." if len(block) > 300 else block)
+# #         print("-" * 50)
+# #
+# #     # # Сохраняем в файл
+# #     # with open(thiscompteca + '/transliteration_blocks.txt', 'w', encoding='utf-8') as f:
+# #     #     f.write(result_text)
+# # else:
+# #     print("Блоки транслитерации не найдены")

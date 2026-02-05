@@ -10,7 +10,7 @@ from langdetect import detect
 from langdetect import DetectorFactory
 from deep_translator import GoogleTranslator
 
-from Proba import text_translate
+# from Proba import text_translate
 
 try:
     nltk.data.find('tokenizers/punkt')
@@ -513,7 +513,7 @@ def extract_transliteration(text) -> list:
         #     is_transliteration = False
         num_morf = line.count("ℵ")
         num_defis = line.count('-')
-        num_div = max(num_morf, num_defis)
+        num_div = num_morf + num_defis
         # мало дефисов в строке
         if (num_div > 0 and len(line) / num_div - 1 > 16) or num_div == 0:
             is_transliteration = False
@@ -530,6 +530,41 @@ def extract_transliteration(text) -> list:
         blocks.append("\n".join(current).strip())
 
     return blocks
+
+def find_translit_by_rows(text: str, pos: int):
+    """поиск с начала транслитерации по строкам
+    следующая после якоря позиция строки
+    возвращает транслитерацию или None и позицию конца"""
+    next_first_pos = 0
+    result = ""
+    num_row = 0
+    while pos < len(text):
+        # строка и её первая позиция
+        n_l, next_first_pos = get_next_line_trl(text, pos)
+        if num_row > 1:
+            return None, pos
+        line_trl = []
+        if n_l:
+            line_trl = extract_transliteration(n_l)
+        end_translit = 0
+        while line_trl:
+            # сборная транслитерация
+            result += ("\n".join(line_trl))
+            end_translit = next_first_pos - 1
+            # строка
+            n_l, next_first_pos = get_next_line_trl(text, next_first_pos)
+            if next_first_pos == -1:
+                return result, end_translit
+            if n_l:
+                line_trl = extract_transliteration(n_l)
+            else:
+                line_trl = ""
+        num_row += 1
+        if result:
+            return result, end_translit
+        pos = next_first_pos
+    return None, next_first_pos - 1
+
 
 def extract_transliteration_only(text) -> str:
     """
@@ -784,6 +819,8 @@ def detect_translate(text: str, start_pos: int):
 
 def cleaning_from_ocr(text: str) -> str:
     # уборка мусора
+    for old, new in CHAR_MAP.items():
+        text = text.replace(old, new)
     subs = [
         (r'([a-z])ı\s+', r'\1i '),
         (r'ı\s+ı', '11'),
@@ -796,6 +833,10 @@ def cleaning_from_ocr(text: str) -> str:
         (r'\s(\d)\s(\d)\s', r' \1-\2 '),
         (r'(?<=\d)o', '0'),
         (r'S-9', '5-9'),
+        (r'§', 'S'),
+        (r':', ' '),
+        (r'.', ' '),
+        (r'<([^<>]+)>', '\1'),
         (r'^.\d{1,}\n', ''),
         (r'^.\.y\.\s*', ''),
         (r'^.\.y\.\n', ''),
@@ -839,10 +880,9 @@ def is_tablet(text: str):
                 # позиция начала транслитерации после слова tablet
                 pos_start_tr_after_tablet = pos_start_tr_after_tablet.end()
                 text_transliterate = text[pos_start_tr_after_tablet:]
-                text_transliterate = process_text(text_transliterate, cleaning_from_ocr)
-                if pos_start_tr_after_tablet > pos_tablet and extract_transliteration(text_transliterate):
-                    # очистка от мусора
-                    result = process_text(text_transliterate, cleaning_from_ocr)
+                # очистка от мусора
+                result = process_text(text_transliterate, cleaning_from_ocr)
+                if pos_start_tr_after_tablet > pos_tablet and extract_transliteration(result):
                     # словарь транслитерации ключ номер строки и значение строка
                     result1 = renumber_trust_source(result)
                     # начало и конец перевода и начало транслитерации
@@ -1072,10 +1112,11 @@ def find_single_quote(text: str, start_pos: int, first: bool=True):
     # дистанция от транслитерации
     # кавычки после текста
     diff = quote_pos - start_pos
-    if diff >= 100:
-        return -1
-    else:
-        return quote_pos
+    if first:
+        if diff >= 100:
+            return -1
+    #else:
+    return quote_pos
 
 def find_double_quote(text: str, start_pos: int, first: bool=True):
     text = (
@@ -1111,8 +1152,6 @@ def find_double_quote(text: str, start_pos: int, first: bool=True):
 
 #%%
 def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pattern: str):
-    # if start_search_pos != 0:
-    #     start_search_pos += 1
     pattern = re.compile(pattern, re.MULTILINE)
     next_first_pos = 0
     match = pattern.search(text, start_search_pos)
@@ -1128,27 +1167,29 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
     if pos_middle - pos > 2:
         return None, None, pos
     # начало строки поиска
-    pos = text.find("\n", pos_middle + 1) + 1
+    pos = text.find("\n", pos_middle + 1)
     if pos == 0:
         return None, None, len(text)
     if pos == -1:
         return None, None, pos_middle
     if pos - pos_middle > 2:
         return None, None, pos_middle
-    result = ""
-    # pos = match.end() + 1
     # поиск начала транслитерации по строкам
     # следующая после якоря позиция строки
+    result = ""
+    result, pos_end = find_translit_by_rows(text, pos)
+    if result:
+        return result, True, pos_end
+    else:
+        return result, False, pos_end
+
+    result = ""
     num_row = 0
     while pos < len(text):
         # строка и её первая позиция
         n_l, next_first_pos = get_next_line_trl(text, pos)
-        # if next_first_pos >= len(text):
-        #     return result, True, pos
-
         if num_row > 1:
             return None, None, match.end()
-        # num_row += 1
         line_trl = []
         if n_l:
             line_trl = extract_transliteration(n_l)
@@ -1157,13 +1198,6 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
             # сборная транслитерация
             result += ("\n".join(line_trl))
             end_translit = next_first_pos - 1
-            # последняя позиция в строке \n
-            # pos = pos + len(line_trl) + 1
-            # первая позиция в следующей строке
-            # pos = text.find("\n", next_first_pos) + 1
-            # if pos >= len(text):
-            #     return result, True, next_first_pos
-            # строка
             n_l, next_first_pos = get_next_line_trl(text, next_first_pos)
             if next_first_pos == -1:
                 return result, True, end_translit
@@ -1176,116 +1210,6 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
             return result, True, end_translit
         pos = next_first_pos
     return result, None, next_first_pos - 1
-
-    # ----------------------------------------------------
-    pos = match.end() + 1
-
-    limit = min(pos + 6, len(text))
-    # поиск начала транслитерации
-    start_pos = pos
-    for i in range(start_pos, limit):
-        if text[i].isdigit() or text[i] == '-' or text[i] == 'ℵ' or text[i] == "–" or text[i] == ":":
-            start_pos = i + 1
-        else:
-            start_pos = i
-            break
-    if start_pos == len(text):
-        return None, None, len(text)
-    # --------------------------------------------
-    # new_line_pos = 0
-    # end = text.find('\\n', start_pos)
-    end = text.find('\n', start_pos)
-    substring = text[start_pos:] if end == -1 else text[start_pos:end]
-    while 0 < len(substring) < 30:
-        start_pos = end + 1
-        # end = text.find('\\n', start_pos)
-        nd = text.find('\n', start_pos)
-        substring = text[start_pos:] if end == -1 else text[start_pos:end]
-        if end == -1:
-            return None, None, len(text)
-    # new_line_pos = None if end == -1 else end + 1
-    # if not new_line_pos:
-    #     return None, None, None
-    result = ""
-    while end < len(text):
-        count_empty = 0
-        if len(substring) == 0:
-            while len(substring) == 0 and count_empty < 3:
-                new_line_pos = None if end == -1 else end + 1
-                # end = text.find('\\n', new_line_pos)
-                end = text.find('\n', new_line_pos)
-                substring = text[new_line_pos:] if end == -1 else text[new_line_pos:end]
-                if end == -1:
-                    return None, None, len(text)
-                count_empty += 1
-            # две строки после якоря нет транслитерации
-            if len(substring) == 0:
-                if result:
-                    qu_pos = find_single_quote(text, end)
-                    if qu_pos:
-                        return result, True, qu_pos
-                    else:
-                        return result, None, end
-                else:
-                    return None, None, end
-        # else:
-        #     end = text.find('\\n', new_line_pos)
-        # new_line_pos = None if end == -1 else end + 1
-        # Пропускаем разделители
-        if SEPARATOR_RE.match(substring):
-            continue
-        # if result:
-        #     qu_pos = find_single_quote(text, new_line_pos)
-        #     if qu_pos:
-        #         return result, True, qu_pos
-        #     else:
-        #         return result, None, None
-        # else:
-        #     return None, None, new_line_pos
-        substring = substring.strip()
-        # Проверка 1: Соответствует ли базовому формату транслитерации?
-        has_basic_format = (
-                TRANSLIT_LINE_RE.match(substring) and
-                MORPHEME_SEP_RE.search(substring))
-        # Проверка 2: Содержит ли иностранные слова?
-        has_foreign_words = FOREIGN_WORD_RE.search(substring)
-        # if has_foreign_words:
-            # print("Найдено слово:", has_foreign_words.group())
-            # sys.exit()
-        # Проверка 3: Содержит ли явные признаки НЕ транслитерации?
-        is_not_translit = NOT_TRANSLIT_RE.search(substring)
-        # Проверка 4: Содержит ли признаки аккадской транслитерации?
-        has_akkadian_indicators = AKKADIAN_INDICATOR_RE.search(substring)
-        # Логика принятия решения:
-        # 1. Должен быть базовый формат
-        # 2. Не должен содержать иностранных слов ИЛИ должен иметь аккадские индикаторы
-        # 3. Не должен быть явно НЕ транслитерацией
-        is_transliteration = (
-                has_basic_format and
-                (not has_foreign_words and has_akkadian_indicators) and
-                not is_not_translit
-        )
-        # Особый случай: если есть аккадские индикаторы, принимаем даже с некоторыми иностранными словами
-        if has_akkadian_indicators and has_basic_format and not is_not_translit:
-            is_transliteration = True
-        if is_transliteration:
-            result = "".join(substring)
-            new_line_pos = None if end == -1 else end + 1
-            # end = text.find('\\n', new_line_pos)
-            end = text.find('\n', new_line_pos)
-            if end == -1:
-                return None, None, len(text)
-            substring = text[new_line_pos:] if end == -1 else text[new_line_pos:end]
-        else:
-            if result:
-                qu_pos = find_single_quote(text, end + 1)
-                if qu_pos:
-                    # print(f"Выбрана транслитерация: {result}")
-                    return result, True, qu_pos
-                else:
-                    return result, None, end
-            else:
-                return None, None, end
     # -----------------------------------------------
 
 #%%
@@ -1328,23 +1252,11 @@ def extract_ankara(text: str, start_pos: int, pattern: str):
     result = []
     if res_is_tablet[0]:
         # Перевод - Транслитерация
-        # # # print(f"\nПеревод - Транслитерация {res_is_tablet[1]} - {res_is_tablet[2]}\n")
-        # # text_translate = text[res_is_tablet[1]:res_is_tablet[2] - 1]
-        # # # очистка от мусора
-        # # text_translate = process_text(text_translate, cleaning_from_ocr)
-        # text_trlit = text[translate_after_translite_after_table(text, res_is_tablet[3]):]
-        # # очистка от мусора
-        # text_trlit = process_text(text_trlit, cleaning_from_ocr)
-        # # # словарь транслитерации ключ номер строки и значение строка
-        # # result1 = renumber_trust_source(text_trlit)
-        # # return result1, True, (res_is_tablet[1], res_is_tablet[3] - 1)
         # очищенный от мусора текст и словарь транслитерации,
         # флаг выполнения, конец транслитерации
-        # return (res_is_tablet[1][0], res_is_tablet[1][1]), True, (0, res_is_tablet[2])
         return (res_is_tablet[1][0], res_is_tablet[1][1]), True, res_is_tablet[2]
     else:
         # Транслитерация - Перевод
-        # print("\nТранслитерация - Перевод\n")
         # очистка от мусора
         result = process_text(text, cleaning_from_ocr)
         # вывод транслитерации после якоря
@@ -1359,23 +1271,15 @@ def extract_ankara(text: str, start_pos: int, pattern: str):
             else:
                 pos_end_extract = len(text)
             result = text[pos_start_perevod:pos_end_extract]
-            # text_translate = result[pos_start_perevod:pos_end_perevod.start()]
             # словарь с ключами номерами и строками транслитерации
             result1 = renumber_trust_source(text_trlit)
-            # dict_r, text_r = process_text_last(text_translate, result1)
             # очищенный от мусора текст и словарь транслитерации,
             # флаг выполнения, позиция конца перевода
-            # return (result, result1), True, (pos_start_perevod, pos_end_extract)
             return (result, result1), True, pos_end_extract
         return ("", ""), False, len(text)
 
 def extract_after_ankara(text_dict_tr: tuple, pos_s: int):
-    # Перевод - Транслитерация
-    # if pos_s[0] == 0:
     text_translate = text_dict_tr[0]
-    # Транслитерация - Перевод
-    # else:
-    #     text_translate = text_dict_tr[0][pos_s[0]:pos_s[1] - 1]
     list_trl_transl = process_text_last(text_translate, text_dict_tr[1])
     # кортеж списков транслитерации и перевода, флаг, конец перевода
     return list_trl_transl, True, pos_s
@@ -1680,7 +1584,11 @@ def process_text_and_build_csv_rows(text: str):
                     for translate_str, accad_str in zip(translate_str_arr, accad_str_arr):
                         # accad_str, translate_str = process_text_last(translate_str_1, accad_str_1)
                         # 1. Очистка перевода
-                        t = translate_str.replace("\n", " ")
+                        # t = translate_str.replace("\n", " ")
+                        if isinstance(translate_str, list):
+                            t = " ".join(map(str, translate_str)).replace("\n", " ")
+                        else:
+                            t = translate_str.replace("\n", " ")
 
                         # 2. Очистка аккадского
                         a = accad_str.replace("\n", " ")
@@ -1804,8 +1712,8 @@ def print_file_head(path, n=5, encoding="utf-8"):
 
 #%%
 # Завантаження даних з CSV-файлу
-thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
-# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
+thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
 # ----------------------------------------
@@ -1865,7 +1773,7 @@ for i in idx:
     print(f"{num + 1} пару блоков начинаем искать.\n")
     print(f"Index = {i}\n")
     # if i == 5141:
-    if i == 17915:
+    if i == 201325:
     # if i == 25:
     # if i == 130319:
         print("PROVERKA")
