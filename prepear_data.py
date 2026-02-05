@@ -139,7 +139,7 @@ TRANSLIT_LINE_RE = re.compile(r'''
 (?=.*(
         -[a-z]            |   # дефисная слоговая морфология
         \d                |   # индексные цифры (Puzur4)
-        \b(?:DUMU|KIŠIB|LÚ|IGI|EN|AŠ|ŠA|BABBAR|KÙ)\b |  # формулы / логограммы
+       \b(?:DINGIR|LUGAL|EN|NIN|DUMU|SAL|MUNUS|GURUŠ|LU₂|AMA|AB|AḪ|ŠEŠ|NIN₉|E₂|KI|URU|KUR|ABZU|A|IM|UD|U₄|ITI|MU|GIŠ|DU₃|GAR|GUB|TUKU|ŠU₂|ZI|NAM|ME|ŠU|IGI|DIŠ|MIN|EŠ|LIMMU|IA|KIŠIB|LÚ|AŠ|ŠA|BABBAR|KÙ|NUMUN)\b  # формулы / логограммы
         [šḫṭṣ]            |   # диакритика
 ))
 (?!.*[.,;:!?])                # нет пунктуации перевода
@@ -380,31 +380,62 @@ FOREIGN_WORD_RE = re.compile(
     re.I
 )
 # Явные признаки аккадской транслитерации
+# AKKADIAN_INDICATOR_RE = re.compile(
+#     r"[ŠšḪḥṢṣṬṭʾʿ⅀⅁ᲟᲠ]|"  # Аккадские специальные символы
+#     r"\[.*?\]|"  # Квадратные скобки
+#     r"\(.*?\)|"  # Круглые скобки
+#     r"\{.*?\}|"  # Фигурные скобки
+#     r"\b[A-Z][a-zšḫṭṣ]+ℵ[a-zšḫṭṣ]+\b|"  # Слова с ℵ, начинающиеся с заглавной
+#     r"\b[a-zšḫṭṣ]+ℵ[a-zšḫṭṣ]+\b|"  # Слова с ℵ из строчных
+#     r"\b[A-Z][a-zšḫṭṣ]+-[a-zšḫṭṣ]+\b|"  # Слова с дефисом, начинающиеся с заглавной
+#     r"\b[a-zšḫṭṣ]+-[a-zšḫṭṣ]+\b|"  # Слова с дефисом из строчных
+#     r"\b\d+[rv]\b|"  # Номера строк: 14r, 15v и т.д.
+#     r"x\+|x\-|x\?|x=\d+|"  # Фрагменты табличек
+#     r"\.\.\.|…|"  # Многоточия
+#     r"\d+['ˈ]|"  # Числа с апострофом
+#     r"–[^ ]"  # Длинное тире не после пробела
+# )
 AKKADIAN_INDICATOR_RE = re.compile(
-    r"[ŠšḪḥṢṣṬṭʾʿ⅀⅁ᲟᲠ]|"  # Аккадские специальные символы
-    r"\[.*?\]|"  # Квадратные скобки
-    r"\(.*?\)|"  # Круглые скобки
-    r"\{.*?\}|"  # Фигурные скобки
-    r"\b[A-Z][a-zšḫṭṣ]+-[a-zšḫṭṣ]+\b|"  # Слова с дефисом, начинающиеся с заглавной
-    r"\b[a-zšḫṭṣ]+-[a-zšḫṭṣ]+\b|"  # Слова с дефисом из строчных
-    r"\b\d+[rv]\b|"  # Номера строк: 14r, 15v и т.д.
-    r"x\+|x\-|x\?|x=\d+|"  # Фрагменты табличек
-    r"\.\.\.|…|"  # Многоточия
-    r"\d+['ˈ]|"  # Числа с апострофом
-    r"–[^ ]"  # Длинное тире не после пробела
+    r"[ŠšḪḥṢṣṬṭʾʿ⅀⅁ᲟᲠ]|"
+    r"[₀₁₂₃₄₅₆₇₈₉]|"
+    r"[ᵈᵐᶠᵏ]|(?:\{[dmfkg]\})|"
+    r"\b[A-Z]{2,}(?:\.[A-Z]{2,})+\b|"
+    r"\b[A-Z]{2,}[-ℵ][a-z]+\b|"
+    r"\[.*?\]|\(.*?\)|\{.*?\}|"
+    r"\b[A-Z][a-zšḫṭṣ]+[-ℵ][a-zšḫṭṣ]+\b|"
+    r"\b[a-zšḫṭṣ]+[-ℵ][a-zšḫṭṣ]+\b|"
+    r"\b\d+[rv]\b|"
+    r"x\+|x\-|x\?|x=\d+|"
+    r"\.\.\.|…|"
+    r"\d+['ˈ]|"
+    r"–[^ ]|"
+    r"\|"
 )
 
+
 # Признаки, что это НЕ транслитерация (пропускать такие строки)
+# NOT_TRANSLIT_RE = re.compile(
+# #     r"\b[A-Z][a-z]{3,} [A-Z][a-z]{3,}\b|"  # Два заглавных слова подряд (имя собственное)
+# #     r"\b[a-z]{4,} [a-z]{4,} [a-z]{4,}\b|"  # Три длинных слова подряд (предложение)
+# #     r"^\d+ [A-Z][a-z]|"  # Начинается с цифры и заглавной буквы
+# #     r"[a-z]{5,}-[a-z]{4,}[^šḫṭṣʾʿ]|"  # Длинные английские слова с дефисом
+# #     r"[a-zA-ZäöüÄÖÜß]{5,}-[a-zA-ZäöüÄÖÜß]{4,}|" # Длинные немецкие слова с дефисом
+# #     r"[a-zA-ZçğıİöşüÇĞİÖŞÜ]{5,}-[a-zA-ZçğıİöşüÇĞİÖŞÜ]{4,}|" # Длинные турецкие слова с дефисом
+# #     r", |; |: |\. [A-Z]|"  # Знаки пунктуации с пробелом
+# #     r"\b(?:[A-Za-z]+ ){3,}[A-Za-z]+\b"  # Более 3 слов подряд
+# # )
 NOT_TRANSLIT_RE = re.compile(
-    r"\b[A-Z][a-z]{3,} [A-Z][a-z]{3,}\b|"  # Два заглавных слова подряд (имя собственное)
-    r"\b[a-z]{4,} [a-z]{4,} [a-z]{4,}\b|"  # Три длинных слова подряд (предложение)
-    r"^\d+ [A-Z][a-z]|"  # Начинается с цифры и заглавной буквы
-    r"[a-z]{5,}-[a-z]{4,}[^šḫṭṣʾʿ]|"  # Длинные английские слова с дефисом
-    r"[a-zA-ZäöüÄÖÜß]{5,}-[a-zA-ZäöüÄÖÜß]{4,}|" # Длинные немецкие слова с дефисом
-    r"[a-zA-ZçğıİöşüÇĞİÖŞÜ]{5,}-[a-zA-ZçğıİöşüÇĞİÖŞÜ]{4,}|" # Длинные турецкие слова с дефисом
-    r", |; |: |\. [A-Z]|"  # Знаки пунктуации с пробелом
-    r"\b(?:[A-Za-z]+ ){3,}[A-Za-z]+\b"  # Более 3 слов подряд
+    r"\b[A-Z][a-z]{3,} [A-Z][a-z]{3,}\b|"        # Два заглавных слова подряд
+    r"\b[a-z]{4,} [a-z]{4,} [a-z]{4,}\b|"        # Три длинных слова подряд
+    r"^\d+ [A-Z][a-z]|"                          # Цифра + заглавное слово
+    r"[a-z]{5,}[-ℵ][a-z]{4,}(?![šḫṭṣʾʿ])|"       # англ. дефис/ℵ (НО не аккад.)
+    r"[a-zA-ZäöüÄÖÜß]{5,}[-ℵ][a-zA-ZäöüÄÖÜß]{4,}|" # нем.
+    r"[a-zA-ZçğıİöşüÇĞİÖŞÜ]{5,}[-ℵ][a-zA-ZçğıİÖŞÜ]{4,}|" # тур.
+    r", |; |: |\. [A-Z]|"                        # Пунктуация
+    r"\b(?:[A-Za-z]+ ){3,}[A-Za-z]+\b"           # 3+ слов подряд
 )
+
+
 
 WORD_RE = re.compile(
     r"[A-Za-zÀ-ÖØ-öø-ÿĞğŞşİıÇçÜüÖöÄäßÉéÈèÊêÂâÎîÔôÛûšṣṭḫʾʿ]{2,}"
@@ -467,13 +498,14 @@ def extract_transliteration(text) -> list:
         # Пропускаем пустые строки
         if not line_trimmed:
             continue
-
+        is_transliteration = False
         # Проверка 1: Соответствует ли базовому формату транслитерации?
         has_basic_format = (
                 TRANSLIT_LINE_RE.match(line_trimmed) and
                 MORPHEME_SEP_RE.search(line_trimmed)
         )
-
+        if has_basic_format:
+            is_transliteration = True
         # if not has_basic_format:
         #     if current:
         #         blocks.append("\n".join(current).strip())
@@ -489,7 +521,11 @@ def extract_transliteration(text) -> list:
             if ':' in line_trimmed:
                 line_trimmed = line_trimmed.replace(":", "")
         # Проверка 3: Содержит ли явные признаки НЕ транслитерации?
-        is_not_translit = NOT_TRANSLIT_RE.search(line_trimmed)
+        is_not_translit = False
+        if not is_transliteration:
+            is_not_translit = NOT_TRANSLIT_RE.search(line_trimmed)
+        # else:
+        #     is_not_translit = False
 
         # Логика принятия решения:
         # 1. Должен быть базовый формат
@@ -836,6 +872,8 @@ def cleaning_from_ocr(text: str) -> str:
         (r'§', 'S'),
         (r':', ' '),
         (r'.', ' '),
+        (r'‰', ''),
+        (r'™', '' ),
         (r'<([^<>]+)>', '\1'),
         (r'^.\d{1,}\n', ''),
         (r'^.\.y\.\s*', ''),
@@ -880,6 +918,7 @@ def is_tablet(text: str):
                 # позиция начала транслитерации после слова tablet
                 pos_start_tr_after_tablet = pos_start_tr_after_tablet.end()
                 text_transliterate = text[pos_start_tr_after_tablet:]
+                text_transliterate = normalize_for_mt(text_transliterate)
                 # очистка от мусора
                 result = process_text(text_transliterate, cleaning_from_ocr)
                 if pos_start_tr_after_tablet > pos_tablet and extract_transliteration(result):
@@ -1261,6 +1300,7 @@ def extract_ankara(text: str, start_pos: int, pattern: str):
         result = process_text(text, cleaning_from_ocr)
         # вывод транслитерации после якоря
         text_trlit = translate_after_translite(result)[0]
+        text_trlit = normalize_for_mt(text_trlit)
         if text_trlit and extract_transliteration(text_trlit):
             # первая позиция диапазона в переводе
             pos_start_perevod = translate_after_translite(result)[1]
@@ -1314,7 +1354,7 @@ def normalize_gaps(text: str) -> str:
 def normalize_for_mt(text: str) -> str:
     # 0. Базовая очистка (translate-таблица уже применяется снаружи)
     a = text
-    chars_to_remove = "!?/:.<>˹˺[]⅁ᲟᲠᲢ"
+    chars_to_remove = "!?/:.<>™‰˹˺[]⅁ᲟᲠᲢ"
     table = str.maketrans("", "", chars_to_remove)
     # удаление ненужных символов
     a = a.translate(table)
@@ -1574,30 +1614,37 @@ def process_text_and_build_csv_rows(text: str):
                                 translate_str_arr = str_txt_1[i % len_arr]
                                 accad_str_arr = str_txt[i % len_arr]
                         case 2:
-                            if isinstance(text, tuple):
+                            if isinstance(str_txt_1[i % len_arr], tuple):
                                 accad_str_arr = str_txt_1[i % len_arr][0]
                                 translate_str_arr = str_txt_1[i % len_arr][1]
                             else:
                                 translate_str_arr = str_txt_1[i % len_arr]
                                 accad_str_arr = str_txt[i % len_arr]
+                    if isinstance(translate_str_arr, str):
+                        translate_str_arr = [translate_str_arr]
+                    if isinstance(accad_str_arr, str):
+                        accad_str_arr = [accad_str_arr]
                     num_i = 1
                     for translate_str, accad_str in zip(translate_str_arr, accad_str_arr):
-                        # accad_str, translate_str = process_text_last(translate_str_1, accad_str_1)
                         # 1. Очистка перевода
-                        # t = translate_str.replace("\n", " ")
-                        if isinstance(translate_str, list):
-                            t = " ".join(map(str, translate_str)).replace("\n", " ")
-                        else:
-                            t = translate_str.replace("\n", " ")
+                        t = translate_str.replace("\n", " ")
+                        # if isinstance(translate_str, list):
+                        #     t = " ".join(map(str, translate_str)).replace("\n", " ")
+                        # else:
+                        #     t = translate_str.replace("\n", " ")
 
                         # 2. Очистка аккадского
                         a = accad_str.replace("\n", " ")
+                        # if isinstance(accad_str, list):
+                        #     a = " ".join(map(str, accad_str)).replace("\n", " ")
+                        # else:
+                        #     a = accad_str.replace("\n", " ")
                         a = normalize_for_mt(a)
 
                         # # 3. Токенизация перевода
                         # t_sentences = sent_tokenize(t)
                         # --------------------------------------------------------------
-                        # 3. Токенизация перевода
+                        # # 3. Токенизация перевода
                         t_sentences = sent_tokenize(t)
                         t_sentences = [sent for sent in t_sentences if looks_like_real_translation(sent)]
                         # определение языка и перевод на английский, если перевод не английский\n",
@@ -1712,8 +1759,8 @@ def print_file_head(path, n=5, encoding="utf-8"):
 
 #%%
 # Завантаження даних з CSV-файлу
-# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
-thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
+# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
 # ----------------------------------------
@@ -1773,7 +1820,8 @@ for i in idx:
     print(f"{num + 1} пару блоков начинаем искать.\n")
     print(f"Index = {i}\n")
     # if i == 5141:
-    if i == 201325:
+    if i == 202409:
+    #     не печатает переводы
     # if i == 25:
     # if i == 130319:
         print("PROVERKA")
@@ -1816,8 +1864,13 @@ for i in idx:
 new_df = split_accad_and_translate(all_rows)
 # new_df.to_csv('translate_from_publication.csv', index=False, quoting=csv.QUOTE_ALL)
 print("Примеры строк:")
-print(new_df)
+print(new_df.head(10))
 print(f"Кількість статей з перекладом: {len(idx)}\n")
+print(f"Кількість зроблених перекладів: {len(all_rows)}\n")
+# print(type(new_df))
+# print(new_df.shape)
+# print(new_df.head(5))
+
 # print(f"Кількість статей з перекладом: {len(values)}\n")
 # print(num)
 sys.exit()
