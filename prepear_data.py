@@ -899,10 +899,12 @@ def cleaning_from_ocr(text: str, trlit: bool = True) -> str:
             (r'(?<=[A-Za-z0-9]):(?=[A-Za-z0-9])', ' '),
             (r'([^\W\d_])4(-|[^\W\d_])', r'\1h\2'),
             (r'(?<!\d)([^\W\d_])4(?=[-–—])', r'\1h'),
+            (r'.\,.', ''),
+            (r'\,\n', ''),
             #(r'(?<=[^\W_]):(?=[^\W_])', ' '),
             # (r'\b\d{1,3}\s*[-–—-]\s*\d{1,3}\b', ''),
             # (r'§', 'S'),
-            # (r'\.', ' '),
+            # (r'\,', ' '),
         ]
     else:
         subs = [
@@ -1263,7 +1265,7 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
     #     return None, None, pos_middle
     # поиск начала транслитерации по строкам
     # следующая после якоря позиция строки
-    result = ""
+    # result = ""
     result, pos_end = find_translit_by_rows(text, pos)
     pos_end = len(text) if (pos_end == 0 or pos_end == -1) else pos_end
     if result:
@@ -1320,13 +1322,15 @@ def extract_ankara(text: str, start_pos: int, pattern: str):
         # очистка от мусора
         # result = process_text(text, cleaning_from_ocr)
         # вывод транслитерации после якоря
-        text_trlit = translate_after_translite(text)[0]
+        # text_trlit = translate_after_translite(text)[0]
+        text_trlit, pos_start_translate = find_translit_by_rows(text, 0)
         # очистка от мусора
         text_trlit = process_text(text_trlit)
         # text_trlit = normalize_for_mt(text_trlit)
         if text_trlit and extract_transliteration(text_trlit):
             # первая позиция диапазона в переводе
-            pos_start_perevod = translate_after_translite(text)[1]
+            pos_start_perevod = translate_after_translite(text, pos_start_translate)[1]
+            text = text[pos_start_perevod:]
             # последняя позиция перевода
             # pos_end_perevod = re.search(r'\d+:', text, flags=re.MULTILINE)
             pos_end_perevod = re.search(r'(?:\d{1,2},)?\d{1,2}:', text, flags=re.MULTILINE)
@@ -1336,6 +1340,8 @@ def extract_ankara(text: str, start_pos: int, pattern: str):
                 pos_end_extract = len(text)
             result = text[pos_start_perevod:pos_end_extract]
             result = process_text(result, False)
+            if not detect_translate(result, pos_start_perevod):
+                return ("", ""), False, pos_end_extract
             # словарь с ключами номерами и строками транслитерации
             result1 = renumber_trust_source(text_trlit)
             # очищенный от мусора текст и словарь транслитерации,
@@ -1829,7 +1835,7 @@ for i in idx:
     print(f"{num + 1} пару блоков начинаем искать.\n")
     print(f"Index = {i}\n")
     # if i == 74880:
-    if i == 5142:
+    if i == 5278:
     #     не печатает переводы
     # if i == 25:
     # if i == 130319:
