@@ -869,9 +869,14 @@ def detect_translate(text: str, start_pos: int):
 
 def cleaning_from_ocr(text: str, trlit: bool = True) -> str:
     # уборка мусора
-    for old, new in CHAR_MAP.items():
-        text = text.replace(old, new)
+
     if trlit:
+        text = re.sub(
+            r'^\s*(?:[SK]\.|S\. K\.|S\.K\.|K\.\s*\d|\n|.\.?\s*y\.\s*|v|\. v)\s*$',
+            '',
+            text,
+            flags=re.MULTILINE
+        )
         subs = [
             (r'([a-z])ı\s+', r'\1i '),
             (r'ı\s+ı', '11'),
@@ -884,9 +889,7 @@ def cleaning_from_ocr(text: str, trlit: bool = True) -> str:
             (r'\s(\d)\s(\d)\s', r' \1-\2 '),
             (r'(?<=\d)o', '0'),
             (r'S-9', '5-9'),
-            (r'§', 'S'),
             (r':', ' '),
-            (r'\.', ' '),
             (r'‰', ''),
             (r'™', '' ),
             (r'<([^<>]+)>', '\1'),
@@ -894,8 +897,12 @@ def cleaning_from_ocr(text: str, trlit: bool = True) -> str:
             (r'^.\.y\.\s*', ''),
             (r'^.\.y\.\n', ''),
             (r'(?<=[A-Za-z0-9]):(?=[A-Za-z0-9])', ' '),
+            (r'([^\W\d_])4(-|[^\W\d_])', r'\1h\2'),
+            (r'(?<!\d)([^\W\d_])4(?=[-–—])', r'\1h'),
             #(r'(?<=[^\W_]):(?=[^\W_])', ' '),
             # (r'\b\d{1,3}\s*[-–—-]\s*\d{1,3}\b', ''),
+            # (r'§', 'S'),
+            # (r'\.', ' '),
         ]
     else:
         subs = [
@@ -909,28 +916,32 @@ def cleaning_from_ocr(text: str, trlit: bool = True) -> str:
             (r'([A-Za-zА-Яа-я]),(\d)', r'\1 \2'),
             (r'\s(\d)\s(\d)\s', r' \1-\2 '),
             (r'(?<=\d)o', '0'),
+            (r'(?<=\d)°', '0'),
             (r'S-9', '5-9'),
-            (r'§', 'S'),
             (r'‰', ''),
             (r'™', ''),
             (r':', ''),
+            (r'§', 'S'),
+            (r'\$', '9'),
+            (r'([^\W\d_])4(-|[^\W\d_])', r'\1h\2'),
+            (r'(?<!\d)([^\W\d_])4(?=[-–—])', r'\1h'),
+            (r'9([A-ZА-ЯÀ-ÖØ-Þ])([a-zа-яà-öø-ÿ])', r'\1\2'),
+            (r'(\d{1,2})([-\s])(\d{1,2})9', r'\1\2\3'),
+            (r'(\d{1,2}[-\s]\d{1,2})\$', r'\g<1>9'),
+            (r'(?<=\w)1(?=\w)', 'i'),
             ]
     for pattern, repl in subs:
         text = re.sub(pattern, repl, text)
+    for old, new in CHAR_MAP.items():
+        text = text.replace(old, new)
 
-    text = re.sub(
-        r'^\s*(?:[SK]\.|S\. K\.|K\.\s*\d|.\.?\s*y\.\s*|v|\. v)\s*$',
-        '',
-        text,
-        flags=re.MULTILINE
-    )
     # text = re.sub(r'^.\.y\.\s*', '', text, flags=re.MULTILINE)
     return text
 
-def process_text(text, cleaning_from_ocr):
+def process_text(text, trlit: bool = True):
     """Возвращает текст без мусора ОСR"""
     lines = text.splitlines(keepends=True)  # сохраняем \n
-    processed_lines = [cleaning_from_ocr(line) for line in lines]
+    processed_lines = [cleaning_from_ocr(line, trlit) for line in lines]
     return ''.join(processed_lines)
 
 def is_tablet(text: str):
@@ -946,14 +957,14 @@ def is_tablet(text: str):
             pos_end_translate_tablet = pos_start_tr_after_tablet.start() - 1
             text_translate = text[pos_tablet:pos_end_translate_tablet].strip()
             # очистка от мусора текста
-            text_translate = process_text(text_translate, cleaning_from_ocr)
+            text_translate = process_text(text_translate, False)
             if looks_like_real_translation(text_translate):
                 # позиция начала транслитерации после слова tablet
                 pos_start_tr_after_tablet = pos_start_tr_after_tablet.end()
                 text_transliterate = text[pos_start_tr_after_tablet:]
-                text_transliterate = normalize_for_mt(text_transliterate)
+                # text_transliterate = normalize_for_mt(text_transliterate)
                 # очистка от мусора
-                result = process_text(text_transliterate, cleaning_from_ocr)
+                result = process_text(text_transliterate)
                 if pos_start_tr_after_tablet > pos_tablet and extract_transliteration(result):
                     # словарь транслитерации ключ номер строки и значение строка
                     result1 = renumber_trust_source(result)
@@ -966,7 +977,10 @@ def is_tablet(text: str):
 def translate_after_translite(text: str, start_pos: int = 0):
     """Ищет позицию первого диапазона предложений в переводе
     после транслитерации и возвращает транслитерацию, если найдёт диапазон"""
-    pos_first_diapazon = re.search(r'\d{1,3}\s*[-–—-]\s*\d{1,3}', text[start_pos:], flags=re.MULTILINE)
+    # pos_first_diapazon = re.search(r'\d{1,3}\s*[-–—-]\s*\d{1,3}', text[start_pos:], flags=re.MULTILINE)
+    # 'r(\d{1,2})\s*[-–—]\s*(\d{1,2})'
+    # pos_first_diapazon = re.search(r'\d{1,3}(?:\s*[-–—]\s*|\s+)\d{1,3}', text[start_pos:], flags=re.MULTILINE)
+    pos_first_diapazon = re.search(r'(\d{1,3})\s*[-–—]\s*(\d{1,3})', text[start_pos:], flags=re.MULTILINE)
     if pos_first_diapazon is not None:
         pos_first_diapazon = pos_first_diapazon.start()
         if extract_transliteration(text[:pos_first_diapazon]):
@@ -1031,14 +1045,16 @@ def renumber_trust_source(text: str) -> dict:
 # range_pattern = re.compile(r'(\d{1,2})\s*-\s*(\d{1,2})')
 
 def process_text_last(text, lines_dict):
-
-    range_pattern = re.compile(r'(\d{1,2})\s*-\s*(\d{1,2})')
+    # range_pattern = re.compile(r'(\d{1,2})\s*-\s*(\d{1,2})')
+    range_pattern = re.compile(r'(\d{1,3})\s*[-–—]\s*(\d{1,3})')
 
     matches = list(range_pattern.finditer(text))
     if matches:
         dict_results = []
         text_results = []
         for i, match in enumerate(matches):
+            # if not match:
+            #     continue
             start_num, end_num = map(int, match.groups())
 
             # границы текстового блока
@@ -1301,20 +1317,24 @@ def extract_ankara(text: str, start_pos: int, pattern: str):
     else:
         # Транслитерация - Перевод
         # очистка от мусора
-        result = process_text(text, cleaning_from_ocr)
+        # result = process_text(text, cleaning_from_ocr)
         # вывод транслитерации после якоря
-        text_trlit = translate_after_translite(result)[0]
-        text_trlit = normalize_for_mt(text_trlit)
+        text_trlit = translate_after_translite(text)[0]
+        # очистка от мусора
+        text_trlit = process_text(text_trlit)
+        # text_trlit = normalize_for_mt(text_trlit)
         if text_trlit and extract_transliteration(text_trlit):
             # первая позиция диапазона в переводе
-            pos_start_perevod = translate_after_translite(result)[1]
+            pos_start_perevod = translate_after_translite(text)[1]
             # последняя позиция перевода
-            pos_end_perevod = re.search(r'^\d+:', result, flags=re.MULTILINE)
+            # pos_end_perevod = re.search(r'\d+:', text, flags=re.MULTILINE)
+            pos_end_perevod = re.search(r'(?:\d{1,2},)?\d{1,2}:', text, flags=re.MULTILINE)
             if pos_end_perevod:
                 pos_end_extract = pos_end_perevod.start()
             else:
                 pos_end_extract = len(text)
             result = text[pos_start_perevod:pos_end_extract]
+            result = process_text(result, False)
             # словарь с ключами номерами и строками транслитерации
             result1 = renumber_trust_source(text_trlit)
             # очищенный от мусора текст и словарь транслитерации,
@@ -1808,7 +1828,7 @@ for i in idx:
     print(f"{num + 1} пару блоков начинаем искать.\n")
     print(f"Index = {i}\n")
     # if i == 74880:
-    if i == 202409:
+    if i == 17954:
     #     не печатает переводы
     # if i == 25:
     # if i == 130319:

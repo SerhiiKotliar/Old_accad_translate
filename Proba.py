@@ -688,7 +688,8 @@ def renumber_trust_source(text: str) -> dict:
 def process_text_last(text, lines_dict):
     dict_results = []
     text_results = []
-    range_pattern = re.compile(r'(\d{1,2})\s*-\s*(\d{1,2})')
+    # range_pattern = re.compile(r'(\d{1,2})\s*-\s*(\d{1,2})')
+    range_pattern = re.compile(r'\d{1,3}\s*[-–—-]\s*\d{1,3}')
 
     matches = list(range_pattern.finditer(text))
 
