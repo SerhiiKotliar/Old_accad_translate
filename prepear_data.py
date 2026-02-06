@@ -929,6 +929,7 @@ def cleaning_from_ocr(text: str, trlit: bool = True) -> str:
             (r'(\d{1,2})([-\s])(\d{1,2})9', r'\1\2\3'),
             (r'(\d{1,2}[-\s]\d{1,2})\$', r'\g<1>9'),
             (r'(?<=\w)1(?=\w)', 'i'),
+            (r'(\d)S([A-Z])', r'\g<1>5\2'),
             ]
     for pattern, repl in subs:
         text = re.sub(pattern, repl, text)
@@ -1009,7 +1010,7 @@ def renumber_trust_source(text: str) -> dict:
 
     if not anchors:
         # raise ValueError("Нет ни одного источникового номера")
-        dic_trlits["1"] = text
+        dic_trlits["0"] = text
         return dic_trlits
 
     result_numbers = [None] * n
@@ -1767,8 +1768,8 @@ def print_file_head(path, n=5, encoding="utf-8"):
 
 #%%
 # Завантаження даних з CSV-файлу
-# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
-thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
+# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
 # ----------------------------------------
@@ -1828,7 +1829,7 @@ for i in idx:
     print(f"{num + 1} пару блоков начинаем искать.\n")
     print(f"Index = {i}\n")
     # if i == 74880:
-    if i == 17954:
+    if i == 5142:
     #     не печатает переводы
     # if i == 25:
     # if i == 130319:
@@ -1874,7 +1875,7 @@ new_df = split_accad_and_translate(all_rows)
 print("Примеры строк:")
 print(new_df.head(10))
 print(f"Кількість статей з перекладом: {len(idx)}\n")
-print(f"Кількість зроблених перекладів: {len(all_rows)}\n")
+print(f"Кількість зроблених перекладів: {new_df.shape[0]}\n")
 # print(type(new_df))
 # print(new_df.shape)
 # print(new_df.head(5))
