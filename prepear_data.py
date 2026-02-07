@@ -1468,6 +1468,19 @@ def extract_after_ankara(text_dict_tr: tuple, pos_s: int):
     # кортеж списков транслитерации и перевода, флаг, конец перевода
     return list_trl_transl, True, pos_s
 
+def extract_ankara_next(text: str, start_pos: int, pattern: str):
+    if start_pos < 0 or start_pos >= len(text):
+        return None, None, start_pos
+    end_pos = len(text)
+    # text = text.replace('TABLETLERİ u', 'TABLETLERİ II')
+    pattern = re.compile(pattern)
+    match = pattern.search(text, start_pos)
+    if not match:
+        return None, None, len(text)
+    print(f"Найден поисковый якорь Ankara: {match.group()}")
+    text = text[match.end():]
+    # предварительная очистка
+    text = cleaning_from_ocr_prelim(text)
 
 
 #%%
@@ -1699,7 +1712,7 @@ def process_text_and_build_csv_rows(text: str):
     pattern1 = r'\d{2,}:\s+(?:\d+-\d+[:,)]\s*[^"]{0,80}?\s)?"'
     pattern2 = r'[A-Z][a-z]{3,} \d{4}[a-z]?: \d+(?:[–\-]\d+)?'
     pattern3 = r'ANKARA KÜLTEPE TABLETLERİ II\n'
-    pattern4 = r'^ANKARA KÜLTEPE TABLETLERİ\n$'
+    pattern4 = r'ANKARA KÜLTEPE TABLETLERİ\n'
     # список списков шаблонов поиска первого блока
     all_patterns = [pattern1, pattern2, pattern3]
     len_arr = len(all_patterns)
@@ -1940,6 +1953,7 @@ df_trnl.loc[idx, df_trnl.columns[2]] = (
 num = 0
 num_i = 0
 all_rows = []
+idx = idx[:4000]
 # for val in values:
 # texts = ''
 # with open("output4.txt", "a", encoding="utf-8", errors="replace") as f:
