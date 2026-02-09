@@ -572,9 +572,9 @@ def extract_transliteration(text) -> list:
 
     return blocks
 
-def find_translit_by_rows(text: str, pos: int, n_dop: int=2):
+def find_translit_by_rows(text: str, pos: int=0, n_dop: int=2):
     """поиск транслитерации начиная с позиции после якоря по строкам
-    возвращает транслитерацию или None и её позиции конца и начала"""
+    возвращает транслитерацию или "" и её позиции конца и начала"""
     pos_end_of_line = 0
     pos_start_trlit = pos
     result = ""
@@ -584,7 +584,7 @@ def find_translit_by_rows(text: str, pos: int, n_dop: int=2):
         n_l, pos_end_of_line = get_next_line(text, pos)
         # прекращение поиска транслитерации после 2 ложных строк
         if num_row > n_dop-1:
-            return None, pos_end_of_line, pos_start_trlit
+            return "", pos_end_of_line, pos_start_trlit
         line_trl = []
         if n_l:
             line_trl = extract_transliteration(n_l)
@@ -610,7 +610,7 @@ def find_translit_by_rows(text: str, pos: int, n_dop: int=2):
             return result, end_translit, pos_start_trlit
 
 
-    return None, pos_end_of_line, pos_start_trlit
+    return "", pos_end_of_line, pos_start_trlit
 
 
 def is_translation(text: str, one_word: bool=False) -> bool:
@@ -653,15 +653,17 @@ def get_next_line(text: str, start_pos: int):
         return "", len(text)
     # конец строки поиска
     end = text.find('\n', pos)
-    if end == -1:
+    if end == -1 and pos <= len(text):
         end = len(text)
         return text[pos:end], end
     # позиция старта совпадает с переводом строки
-    while pos == end and pos < len(text):
+    if pos == end and pos < len(text):
+        return text[pos:end], end
         pos = end + 1
         end = text.find('\n', pos)
         if end == -1 and pos <= len(text):
             end = len(text)
+            return text[pos:end], end
     # if end == pos and pos < len(text):
     #     pos = end + 1
     #     end = text.find('\n', pos)
@@ -911,9 +913,9 @@ def search_for_extract_ankara(text: str):
     if pos_start_translate:
         # начальная позиция транслитерации
         pos_start_tr = pos_first_translite(text, 0)
-        if not pos_start_tr:
+        if pos_start_tr < 0:
             text_transliterate, pos_end_tr, pos_start_tr = find_translit_by_rows(text, 0, len(text))
-        if pos_start_tr:
+        if pos_start_tr >= 0:
             # транслитерация после перевода
             if pos_start_tr > pos_start_translate.start():
                 pos_end_translate = pos_start_tr
@@ -926,14 +928,16 @@ def search_for_extract_ankara(text: str):
                 text_transliterate, pos_end_tr_1, pos_start_tr_1 = find_translit_by_rows(
                     text[pos_start_tr:pos_start_translate.start()], 0, (pos_start_translate.start() - pos_start_tr))
                 # последняя позиция перевода
-                match_end_translate = list(re.finditer(r'(?:\d{1,2},)?\d{1,2}:', text, flags=re.MULTILINE))
+                match_end_translate = list(re.finditer(r'^(?:\d{1,2},)?\d{1,2}:', text, flags=re.MULTILINE))
                 for m in match_end_translate:
                     if m.start() > pos_start_translate.end():
                         pos_end_translate = m.start()
                         text_translate = text[pos_start_translate.start():pos_end_translate]
                         break
                 if text_translate == "":
-                    Unfin_Data['trlit'] = text_transliterate
+                    if len(text) - pos_end_tr_1 < 8:
+                        Unfin_Data['trlit'] = text_transliterate
+                    text_transliterate = ""
                     pos_end = pos_end_tr_1
                     flag_vyp = False
                 else:
@@ -942,7 +946,7 @@ def search_for_extract_ankara(text: str):
         else:
             text_transliterate = ""
             # последняя позиция перевода
-            match_end_translate = list(re.finditer(r'(?:\d{1,2},)?\d{1,2}:', text, flags=re.MULTILINE))
+            match_end_translate = list(re.finditer(r'^(?:\d{1,2},)?\d{1,2}:', text, flags=re.MULTILINE))
             for m in match_end_translate:
                 if m.start() > pos_start_translate.end():
                     pos_end_translate = m.start()
@@ -966,18 +970,19 @@ def search_for_extract_ankara(text: str):
         else:
             text_transliterate = ""
         flag_vyp = False
-    # очистка от мусора текста
-    text_translate = process_text(text_translate, False)
+
     if text_transliterate != "":
         # очистка от мусора
         text_transliterate = process_text(text_transliterate)
         # словарь транслитерации ключ номер строки и значение строка
         text_transliterate = renumber_trust_source(text_transliterate)
     if text_translate != "":
+        # очистка от мусора текста
+        text_translate = process_text(text_translate, False)
         if not looks_like_real_translation(text_translate):
             text_translate = ""
 
-    return True, (text_translate, text_transliterate), pos_end
+    return flag_vyp, (text_translate, text_transliterate), pos_end
 
 
 def is_tablet(text: str):
@@ -1135,7 +1140,7 @@ def pos_first_translite(text: str, start_pos: int = 0):
     """Ищет позицию начала транслитерации
     и возвращает её"""
     pos_first_trl = re.search(r'^.\.?\s*y\.\n', text, flags=re.MULTILINE)
-    return pos_first_trl.start() if pos_first_trl is not None else None
+    return pos_first_trl.start() if pos_first_trl is not None else -1
 
 
 def renumber_trust_source(text: str) -> dict[int, str]:
@@ -1147,7 +1152,7 @@ def renumber_trust_source(text: str) -> dict[int, str]:
     anchors = []  # (index, source_number)
 
     for i, line in enumerate(lines):
-        m = re.match(r'\s*(\d+)\s*[.:]\s*(.*)', line)
+        m = re.match(r'^\s*(\d+)\s*[.:]\s*(.*)', line)
         if m:
             num = int(m.group(1))
             if num % 5 == 0:
@@ -1155,7 +1160,7 @@ def renumber_trust_source(text: str) -> dict[int, str]:
 
     if not anchors:
         # raise ValueError("Нет ни одного источникового номера")
-        dic_trlits["1"] = text
+        dic_trlits[1] = text
         return dic_trlits
 
     result_numbers = [None] * n
@@ -1178,11 +1183,11 @@ def renumber_trust_source(text: str) -> dict[int, str]:
         result_numbers[i] = last_num + (i - last_idx)
 
     # --- сборка результата
-    out = []
+    # out = []
     for num, line in zip(result_numbers, lines):
-        # content = re.sub(r'^\s*\d+\s*[.:]?\s*', '', line)
-        content = re.sub(r'^\d{1,2}[.:]?\s*', '', line)
-        out.append(f"{num}. {content}")
+        content = re.sub(r'^\s*\d+\s*[.:]\s*', '', line)
+        # content = re.sub(r'^\d{1,2}[.:]?\s*', '', line)
+        # out.append(f"{num}. {content}")
         dic_trlits[num] = content
 
     # return "\n".join(out)
@@ -2078,8 +2083,8 @@ def print_file_head(path, n=5, encoding="utf-8"):
 
 #%%
 # Завантаження даних з CSV-файлу
-# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
-thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
+# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
 # ----------------------------------------
