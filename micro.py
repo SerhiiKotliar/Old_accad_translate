@@ -13,7 +13,7 @@ def get_next_line(text: str, start_pos: int):
         return text[pos:end], end
     # позиция старта совпадает с переводом строки
     if pos == end and pos < len(text):
-        return text[pos:end], end
+        return text[pos:end+1], end+1
         pos = end + 1
         end = text.find('\n', pos)
         if end == -1 and pos <= len(text):
@@ -26,21 +26,11 @@ def get_next_line(text: str, start_pos: int):
     #         end = len(text)
     # достигнут конец текста
     if end == pos and pos >= len(text):
-        return "", end
+        return "", len(text)
     str_line = text[pos:end+1]
-    # str_line = re.sub(
-    #     r'^\s*(?:[SK]\.|S\. K\.|v|\. v)\s*(?:\r?\n|$)',
-    #     '',
-    #     str_line,
-    #     flags=re.MULTILINE
-    # )
-    # str_line = re.sub(
-    #     r'(?m)^\s*\d{1,2}\.\s*',
-    #     '',
-    #     str_line
-    # )
 
-    return str_line, end
+
+    return str_line, end+1
 txt1 = "Stroka"
 txt2 = "\n"
 txt3 = "Tretia stroka\n"
