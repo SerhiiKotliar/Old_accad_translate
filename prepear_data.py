@@ -123,7 +123,7 @@ TRANSLIT_LINE_RE = re.compile(r'''
 (?=.*(
         -[a-z]            |   # дефисная слоговая морфология
         \d                |   # индексные цифры (Puzur4)
-       \b(?:DINGIR|LUGAL|EN|NIN|DUMU|SAL|MUNUS|GURUŠ|LU₂|AMA|AB|AḪ|ŠEŠ|NIN₉|E₂|KI|URU|KUR|ABZU|A|IM|UD|U₄|ITI|MU|GIŠ|DU₃|GAR|GUB|TUKU|ŠU₂|ZI|NAM|ME|ŠU|IGI|DIŠ|MIN|EŠ|LIMMU|IA|KIŠIB|LÚ|AŠ|ŠA|BABBAR|KÙ|NUMUN)\b  # формулы / логограммы
+       \b(?:DINGIR|LUGAL|EN|NIN|DUMU|SAL|MUNUS|GURUŠ|LU₂|AMA|AB|AḪ|ŠEŠ|NIN₉|E₂|KI|URU|KUR|ABZU|A|IM|UD|U₄|ITI|MU|GIŠ|DU₃|GAR|GUB|TUKU|ŠU₂|ZI|NAM|ME|ŠU|IGI|DIŠ|MIN|EŠ|LIMMU|IA|KIŠIB|LÚ|AŠ|ŠA|BABBAR|KÙ|NUMUN|SU.|U.BA|TUG|NIGIN)\b  # формулы / логограммы
         [šḫṭṣ]            |   # диакритика
 ))
 (?!.*[.,;:!?])                # нет пунктуации перевода
@@ -903,6 +903,7 @@ def cleaning_from_ocr_prelim(text: str) -> str:
         (r'([^\d\s])(\d+[\s\-–—]?\d+)([^\d\s])', r'\g<1> \g<2> \g<3>'),
         (r'(\d+[\s\-–—]?\d+)([^\d\s])', r'\g<1> \g<2>'),
         (r'(\d+)\s*-\s*(\d+)', r'\g<1>-\g<2>'),
+        (r'^.\.?\s?y\.\s?\r?\n?', ''),
         # (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])(\d+\s*[-–—]?\s*\d+)([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r'\g<1> \g<2> \g<3>'),
         # (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])(\d+[\s*-–—\s*]\d+)([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r'\g<1>\s\g<2>\s\g<3>'),
         # (r'.\,.', ''),
@@ -915,7 +916,7 @@ def cleaning_from_ocr_prelim(text: str) -> str:
         # (r'^.\.y\.\n', ''),
     ]
     for pattern, repl in subs:
-        text = re.sub(pattern, repl, text)
+        text = re.sub(pattern, repl, text, flags=re.MULTILINE)
     return text
 
 
@@ -1050,13 +1051,15 @@ def search_for_extract_ankara(text: str):
     pos_end_translate_arr_before_trl = []
     pos_end = 0
     pos_end_tr = 0
+    pos_start_tr = 0
     flag_vyp = False
     # позиции начала перевода поиск диапазонов
     pos_start_translates_all = re.finditer(r'\(?[^\S\n]*(\d{1,3})[^\S\n]*[-–—][^\S\n]*(\d{1,3})[^\S\n]*\)?(?=[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', text, flags=re.MULTILINE)
     # есть ли диапазоны
     if pos_start_translates_all:
         for pos_st_transl in pos_start_translates_all:
-            if pos_st_transl.start() < pos_st_transl.end():
+            first, second = map(int, re.split(r"[-–—]", pos_st_transl.group()))
+            if first < second:
                 # возможные старты перевода
                 pos_start_translates.append(pos_st_transl)
 
@@ -1099,19 +1102,13 @@ def search_for_extract_ankara(text: str):
             pos_start_translate = min(pos_st_trla_less_start_trl, key=lambda m: m.start())
 
     if len(pos_start_translates) > 0:
-        # начальная позиция транслитерации
-        # pos_start_tr = pos_first_translite(text, 0)
-        # if pos_start_tr < 0:
-        # text_transliterate, pos_end_tr, pos_start_tr = find_translit_by_rows(text, 0, len(text))
         if text_transliterate != "":
-        # if pos_start_tr >= 0:
             # транслитерация после перевода
             if pos_start_tr > pos_start_translate.start():
                 pos_end_translate = pos_start_tr
                 text_translate = text[pos_start_translate.start():pos_end_translate]
                 text_transliterate, pos_end, pos_start_tr = find_translit_by_rows(text, 0,
                                                                                     (len(text) - pos_start_tr))
-                # flag_vyp = True
             # транслитерация до перевода
             else:
                 text_transliterate, pos_end_tr, pos_start_tr = find_translit_by_rows(
@@ -1127,17 +1124,14 @@ def search_for_extract_ankara(text: str):
                         break
                 # перевода нет, возможно он будет в следующем тексте
                 # и понадобится эта транслитерация для него
-                if text_translate == "":
-                    if len(text) - pos_end_tr < 8:
-                        Unfin_Data['trlit'] = text_transliterate
-                    text_transliterate = ""
-                    pos_end = pos_end_tr
-                    # flag_vyp = False
-                else:
+                # if text_translate == "":
+                #     if len(text) - pos_end_tr < 8:
+                #         Unfin_Data['trlit'] = text_transliterate
+                #     text_transliterate = ""
+                #     pos_end = pos_end_tr
+                if text_translate != "":
                     pos_end = pos_end_translate
-                    # flag_vyp = True
         else:
-            # text_transliterate = ""
             # последняя позиция перевода
             match_end_translate = list(re.finditer(r'^(?:\d{1,2},)?\d{1,2}:', text, flags=re.MULTILINE))
             for m in match_end_translate:
@@ -1147,29 +1141,21 @@ def search_for_extract_ankara(text: str):
                     break
             if text_translate == "":
                 pos_end = len(text)
-                # flag_vyp = False
             else:
                 pos_end = pos_end_translate
-                # flag_vyp = True
-    # нет позиции начала перевода как диапазон
-    # else:
-        # # начальная позиция транслитерации
-        # pos_start_tr = pos_first_translite(text, 0)
-        # if not pos_start_tr:
-        #     text_transliterate, pos_end, pos_start_tr = find_translit_by_rows(text, 0, len(text))
-        # if pos_start_tr:
-        #     text_transliterate, pos_end, pos_start_tr_1 = find_translit_by_rows(text[pos_start_tr:], 0,
-        #                                                                         (len(text) - pos_start_tr))
-        # else:
-        #     text_transliterate = ""
-        # flag_vyp = False
 
     if text_transliterate != "":
         # очистка от мусора
         text_transliterate = process_text(text_transliterate)
+        if text_translate == "":
+            # ltxt = len(text)
+            # if len(text) - pos_end_tr < 8:
+            Unfin_Data['trlit'] = text_transliterate
+            text_transliterate = ""
+            pos_end = pos_end_tr
+    if text_translate != "":
         # словарь транслитерации ключ номер строки и значение строка
         text_transliterate = renumber_trust_source(text_transliterate)
-    if text_translate != "":
         # # очистка от мусора текста
         text_translate = process_text(text_translate, False)
         if not looks_like_real_translation(text_translate):
@@ -2290,8 +2276,8 @@ def print_file_head(path, n=5, encoding="utf-8"):
 
 #%%
 # Завантаження даних з CSV-файлу
-# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
-thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
+# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
 # ----------------------------------------
