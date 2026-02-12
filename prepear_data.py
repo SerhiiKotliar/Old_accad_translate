@@ -7,7 +7,7 @@ import nltk
 from langdetect import detect
 from langdetect import DetectorFactory
 from deep_translator import GoogleTranslator
-from typing import Dict, List, Tuple, Any, Literal
+from typing import Dict, List, Tuple, Match, Pattern
 
 try:
     nltk.data.find('tokenizers/punkt')
@@ -756,14 +756,14 @@ def detect_translate(text: str, start_pos: int):
 # NUMBER_RE = re.compile(r'\b\d{1,3}\b')
 
 def clear_from_ocr_for_text(text: str) -> str:
-    """Упорядочивает значения диапазонов"""
+    """Упорядочивает последовательно значения диапазонов"""
     # --- 1. OCR-мусор: " 3A" → "3-A"
-    text = re.sub(r'(\s\d)\s*(\d\w)', r'\1-\2', text)
+    # text = re.sub(r'(\s\d)\s*(\d\w)', r'\1-\2', text)
 
     token_pattern = re.compile(
         r'\(?\s*\d{1,3}\s*[-–—]\s*\d{1,3}\s*\)?'
         r'|(?<!\d)[–—-]\s*\d{1,3}'
-        r'|\b\d{1,3}\b'
+        #r'|\b\d{1,3}\b'    # шаблон отдельного числа
     )
 
     tokens = []
@@ -778,7 +778,8 @@ def clear_from_ocr_for_text(text: str) -> str:
     parsed = []
     for t in tokens:
         s = t["text"]
-        m = re.match(r'\(?\s*(\d{1,3})\s*[-–—]\s*(\d{1,3})\s*\)?', s)
+        # m = re.match(r'\(?\s*(\d{1,3})\s*[-–—]\s*(\d{1,3})\s*\)?', s)
+        m = re.match(r'\(?[^\S\n]*(\d{1,3})[^\S\n]*[-–—][^\S\n]*(\d{1,3})[^\S\n]*\)?(?=[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', s)
         if m:
             parsed.append({"type": "range", "a": int(m.group(1)), "b": int(m.group(2)), **t})
             continue
@@ -839,9 +840,10 @@ def clear_from_ocr_for_text_last(text: str) -> str:
         word = m.group(4)
 
         # если правая часть длиннее
-        if len(right) > len(left):
-
+        if len(right) > len(left) and left != "9":
+            # отрезаем излишек
             main_right = right[:len(left)]
+            # излишек
             extra = right[len(left):]
 
             # смотрим что идёт после всего совпадения
@@ -856,11 +858,14 @@ def clear_from_ocr_for_text_last(text: str) -> str:
                 extra_conv = (
                     extra.replace('1', 'I')
                          .replace('0', 'O')
+                         .replace('5', 'S')
                 )
                 return f"{left}-{main_right} {extra_conv}{word}"
 
-            #  иначе просто отделяем extra
-            return f"{left}-{main_right} {extra}"
+            # #  иначе просто отделяем extra
+            # return f"{left}-{main_right} {extra}"
+            #  иначе просто удаляем extra
+            return f"{left}-{main_right} "
 
         return m.group(0)
 
@@ -884,7 +889,7 @@ def cleaning_from_ocr_prelim(text: str) -> str:
         (r'ı\s+ı', '11'),
         (r'ı\s+', '1'),
         (r'ı', '1'),
-        (r'5([A-Za-zА-Яа-я])', r'S\g<1>'),
+        (r'\s5([A-Za-zА-Яа-я])', r' S\g<1>'),
         (r'A1', 'Ai'),
         (r'([A-Za-zА-Яа-я])1\b', r'\g<1>i'),
         (r'([A-Za-zА-Яа-я]),(\d)', r'\g<1> \g<2>'),
@@ -899,11 +904,14 @@ def cleaning_from_ocr_prelim(text: str) -> str:
         (r'(\s\d\s*)4([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r'\g<1>h\g<2>'),
         (r'(?<!\d)([^\W\d_])4(?=[-–—])', r'\g<1>h'),
         (r"r'", "r"),
-        (r'(\s\d)\s*(\d[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r'\g<1>-\g<2>'),
+        (r'(\s\d)\s(\d[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r'\g<1>-\g<2>'),
         (r'([^\d\s])(\d+[\s\-–—]?\d+)([^\d\s])', r'\g<1> \g<2> \g<3>'),
         (r'(\d+[\s\-–—]?\d+)([^\d\s])', r'\g<1> \g<2>'),
         (r'(\d+)\s*-\s*(\d+)', r'\g<1>-\g<2>'),
         (r'^.\.?\s?y\.\s?\r?\n?', ''),
+        (r'(^\d)(\d{1,2})\s(\d{1,2})(^\d)', r'\g<1> \g<2>-\g<3> \g<4>'),
+        # (r'(\d\s*[-–—]?\s*)["“”«»„‟](\w)', r'\g<1>11\g<2>'),
+        # (r'([^\d])(\d{1,2})\s(\d{1,2})([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r'\g<1>\g<2>-\g<3>\g<4>'),
         # (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])(\d+\s*[-–—]?\s*\d+)([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r'\g<1> \g<2> \g<3>'),
         # (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])(\d+[\s*-–—\s*]\d+)([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r'\g<1>\s\g<2>\s\g<3>'),
         # (r'.\,.', ''),
@@ -917,6 +925,79 @@ def cleaning_from_ocr_prelim(text: str) -> str:
     ]
     for pattern, repl in subs:
         text = re.sub(pattern, repl, text, flags=re.MULTILINE)
+
+    PATTERN: Pattern[str] = re.compile(
+         r'(\D\s*)(\d{1,2})\s+(\d{1,3})(\s*[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])'
+    )
+
+    def transform_last_char(char: str) -> str:
+        """
+        Transform trailing digit:
+            5 -> S
+            1 -> I
+            0 -> O
+            other digit -> removed
+            letter -> unchanged
+        """
+        if char.isdigit():
+            if char == "5":
+                return "S"
+            if char == "1":
+                return "I"
+            if char == "0":
+                return "O"
+            return ""  # why: other digits must be removed
+        return char
+
+    def conditional_replace(match: Match[str]) -> str:
+        len_left = len(match.group(2))
+        len_right = len(match.group(3))
+        right_out = len_right - len_left
+        last_char: str = ""
+        if right_out > 0:
+            right: int = int(match.group(3)[:-right_out])
+            last_char = transform_last_char(match.group(3)[-right_out:])
+        else:
+            right: int = int(match.group(3))
+        left: int = int(match.group(2))
+        next_str = match.group(4).strip()
+
+        return f"{match.group(1)} {left}-{right} {last_char}{next_str}"
+
+    def replace_if_left_less(text: str) -> str:
+        """
+        Replace space with dash only if left number < right number.
+        """
+        return PATTERN.sub(conditional_replace, text)
+
+    text = replace_if_left_less(text)
+
+    PATTERN1: Pattern[str] = re.compile(
+        r'([^\d])(\d)\s(\d)-(\d{2})([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])'
+    )
+
+    def conditional_replace1(match: Match[str]) -> str:
+        left: int = int(match.group(2) + match.group(3))
+        right: int = int(match.group(4))
+
+        if left < right:
+            return f"{match.group(1)}{left}-{right}{match.group(5)}"
+
+        return match.group(0)  # why: preserve original if condition fails
+
+    def process_text1(text: str) -> str:
+        return PATTERN1.sub(conditional_replace1, text)
+    text = process_text1(text)
+
+    pattern2 = re.compile(r'(\d\s*[-–—]?\s*)[\"“”«»„‟]([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])')
+
+    def replace_func2(match):
+        # первая группа: убрать пробелы, оставить цифру и тире
+        first = re.sub(r'\s+', '', match.group(1))
+        return f"{first}11 {match.group(2)}"
+
+    text = pattern2.sub(replace_func2, text)
+
     return text
 
 
@@ -1107,7 +1188,7 @@ def search_for_extract_ankara(text: str):
             if pos_start_tr > pos_start_translate.start():
                 pos_end_translate = pos_start_tr
                 text_translate = text[pos_start_translate.start():pos_end_translate]
-                text_transliterate, pos_end, pos_start_tr = find_translit_by_rows(text, 0,
+                text_transliterate, pos_end_tr, pos_start_tr = find_translit_by_rows(text, 0,
                                                                                     (len(text) - pos_start_tr))
             # транслитерация до перевода
             else:
@@ -1148,8 +1229,6 @@ def search_for_extract_ankara(text: str):
         # очистка от мусора
         text_transliterate = process_text(text_transliterate)
         if text_translate == "":
-            # ltxt = len(text)
-            # if len(text) - pos_end_tr < 8:
             Unfin_Data['trlit'] = text_transliterate
             text_transliterate = ""
             pos_end = pos_end_tr
@@ -2032,51 +2111,12 @@ def translate_to_english(text):
  #        print(\"-\" * 50)"
 # ----------------------------------------------------------------------------------
 
-
-# def process_text_last(text: str, lines_dict: dict):
-#     dict_results = []
-#     text_results = []
-#     range_pattern = re.compile(r'(\d{1,2})\s*-\s*(\d{1,2})')
-#     matches = list(range_pattern.finditer(text))
-#
-#     for i, match in enumerate(matches):
-#         start_num, end_num = map(int, match.groups())
-#
-#         # границы текстового блока
-#         text_start = match.end()
-#         text_end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
-#
-#         # строгая проверка диапазона
-#         if not all(k in lines_dict for k in range(start_num, end_num + 1)):
-#             continue
-#
-#         # собираем строку из словаря
-#         dict_results.append(
-#             " ".join(lines_dict[k] for k in range(start_num, end_num + 1))
-#         )
-#
-#         # текст без диапазона
-#         fragment = text[text_start:text_end].strip()
-#         text_results.append(fragment)
-#
-#     return dict_results, text_results
-
-
 def process_text_and_build_csv_rows(text: str):
     """
     Обрабатывает текст ячейкеи и возвращает список строк CSV
     (без заголовка)
     """
     # списки шаблонов поиска для разных вариантов пар первого и второго блоков
-    # patterns1 = [r'/k \d{2,}:', r'[A-Za-z]{3,5} \d,', r'[A-Za-z]{3,5} \(\d{4},']
-    # patterns1 = [r'\d{2,}:\s(?:\d{1,3}-\d{1,3})?[:),]']
-    # patterns1 = [r'\d{2,}:\s']
-    # patterns1 = [r'\d{2,}:\s(?:(?:\d{1,3}-\d{1,3})?[:),])?(?:.{1,30})? "']
-    # patterns1 = [r'\d{2,}:\s(?:(?:\d{1,3}-\d{1,3})?[:),])?(?:.{1,80})?\s*"']
-    # patterns1 = [r'\d{2,}:\s(?:\d{1,3}-\d{1,3}[:),])?.*?\s*"']
-    # patterns1 = ['r\d{2,}:\s(?:\d{1,3}-\d{1,3}[,:)]\s*)?[^"]*"']
-    # patterns1 = [r'\d{2,}:\s(?:\d{1,3}-\d{1,3}[,:)]\s*)?[\s\S]*?"']
-    # patterns1 = [r'\d{2,}:\s(?:\d{1,3}-\d{1,3}[:),]\s*)?[\s\S]*?\s"']
     pattern1 = r'\d{2,}:\s+(?:\d+-\d+[:,)]\s*[^"]{0,80}?\s)?"'
     pattern2 = r'[A-Z][a-z]{3,} \d{4}[a-z]?: \d+(?:[–\-]\d+)?'
     pattern3 = r'ANKARA KÜLTEPE TABLETLERİ II\n'
@@ -2189,12 +2229,8 @@ def process_text_and_build_csv_rows(text: str):
                     # не найден 2 блок,
                     if close_pos < len(text):
                         # ищем следующие первые
-                        # start_pos = close_pos + 1
-                        # print("Меняем шаблон")
                         print("Ищем следующий 1 блок")
                         # меняем шаблон
-                        # work = False
-                        # start_pos = 0
                         start_pos = close_pos + 1
                     else:
                         print("Прошли текст, меняем шаблон")
@@ -2219,7 +2255,6 @@ def process_text_and_build_csv_rows(text: str):
         i += 1
     return csv_rows
 
-#%%
 # ----------------------------
 # Функция разбивки перевода на предложения
 # ----------------------------
@@ -2238,7 +2273,7 @@ def parse_csv_line(line: str):
     reader = csv.reader(StringIO(line))
     accad_str, translate_str = next(reader)
     return accad_str, translate_str
-#%%
+
 # ----------------------------
 # Выравнивание и разбивка транслитерации по <sent>
 # ----------------------------
@@ -2274,10 +2309,10 @@ def print_file_head(path, n=5, encoding="utf-8"):
                 break
             print(f"{i}: {line.rstrip()}")
 
-#%%
+
 # Завантаження даних з CSV-файлу
-thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
-# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
+thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
 # ----------------------------------------
@@ -2338,7 +2373,7 @@ for i in idx:
     print(f"{num + 1} пару блоков начинаем искать.\n")
     print(f"Index = {i}\n")
     # if i == 74880:
-    if i == 5141:
+    if i == 5142:
     #     не печатает переводы
     # if i == 25:
     # if i == 130319:
