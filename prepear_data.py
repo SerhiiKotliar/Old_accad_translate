@@ -763,7 +763,7 @@ def clear_from_ocr_for_text(text: str) -> str:
     token_pattern = re.compile(
         r'\(?\s*\d{1,3}\s*[-–—]\s*\d{1,3}\s*\)?'
         r'|(?<!\d)[–—-]\s*\d{1,3}'
-        #r'|\b\d{1,3}\b'    # шаблон отдельного числа
+        r'|\b\d{1,3}\b'    # шаблон отдельного числа
     )
 
     tokens = []
@@ -778,8 +778,8 @@ def clear_from_ocr_for_text(text: str) -> str:
     parsed = []
     for t in tokens:
         s = t["text"]
-        # m = re.match(r'\(?\s*(\d{1,3})\s*[-–—]\s*(\d{1,3})\s*\)?', s)
-        m = re.match(r'\(?[^\S\n]*(\d{1,3})[^\S\n]*[-–—][^\S\n]*(\d{1,3})[^\S\n]*\)?(?=[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', s)
+        m = re.match(r'\(?\s*(\d{1,3})\s*[-–—]\s*(\d{1,3})\s*\)?', s)
+        # m = re.match(r'\(?[^\S\n]*(\d{1,3})[^\S\n]*[-–—][^\S\n]*(\d{1,3})[^\S\n]*\)?(?=[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', s)
         if m:
             parsed.append({"type": "range", "a": int(m.group(1)), "b": int(m.group(2)), **t})
             continue
@@ -788,11 +788,14 @@ def clear_from_ocr_for_text(text: str) -> str:
         if m:
             parsed.append({"type": "broken", "b": int(m.group(1)), **t})
             continue
+        # ----------------------------------------------------------
         # собирает отдельные числа
         # parsed.append({"type": "single", "n": int(s), **t})
-
+        parsed.append({"type": "single", "a": int(s), **t})
+        # -------------------------------------------------------------
     # --- 3. Исправляем логику (исправляем ПРЕДЫДУЩИЙ диапазон)
     last_range = None
+    del_items = []
     for i, item in enumerate(parsed):
         if item["type"] == "range":
             if last_range and item["a"] <= last_range["b"]:
@@ -805,11 +808,34 @@ def clear_from_ocr_for_text(text: str) -> str:
             a = last_range["b"] + 1
             item["type"] = "range"
             item["a"] = a
+        # --------------------------------------------------
+            last_range = item
         # для обнаружения отдельных чисел
         # elif item["type"] == "single":
         #     if last_range and item["n"] <= last_range["b"]:
         #         item["n"] = last_range["b"] + 1
-
+        elif item["type"] == "single":
+            is_del = False
+            if last_range and item["a"]:
+                str_it = str(item["a"])
+                if len(str_it) > 2:
+                    str_it = str_it[:2]
+                    item["a"] = int(str_it)
+                diff = item["a"] - last_range["b"]
+                if diff> 1 or diff < -1:
+                    del_items.append(i)
+                    is_del = True
+                elif diff == -1 or diff == 0:
+                    item["a"] = last_range["b"] + 1
+            # if last_range and item["a"] <= last_range["b"]:
+            #     item["a"] = last_range["b"] + 1
+            if is_del:
+                continue
+            item["type"] = "range"
+            item["b"] = item["a"]
+            last_range = item
+    parsed = [item for i, item in enumerate(parsed) if i not in del_items]
+        # ------------------------------------------------------
     # --- 4. Точечная замена (справа налево!)
     chars = list(text)
 
@@ -823,8 +849,22 @@ def clear_from_ocr_for_text(text: str) -> str:
             continue
 
         chars[item["start"]:item["end"]] = repl
+    result = "".join(chars)
+    # ----------------------------------------------------
+    pattern = re.compile(r'\(?(\d+)-(\d+)\)?'r'|\b\d{1,3}\b')
 
-    return "".join(chars)
+    def wrap_if_no_parentheses(match: re.Match) -> str:
+        full = match.group(0)  # всё совпадение
+        a = match.group(1)
+        b = match.group(2)
+
+        if full.startswith("(") and full.endswith(")"):
+            return full  # уже в скобках — оставить как есть
+        else:
+            return f"({a}-{b})"  # обернуть
+
+    result = pattern.sub(wrap_if_no_parentheses, result)
+    return result
 
 
 def clear_from_ocr_for_text_last(text: str) -> str:
@@ -871,6 +911,21 @@ def clear_from_ocr_for_text_last(text: str) -> str:
 
     text = pattern.sub(range_repl, text)
     text = re.sub(r'\s+', ' ', text).strip()
+    # ------------------------------------------------------
+    # text = re.sub(r'(\d+)-(\d+)', r'(\g<1>-\g<2>)', text)
+    # pattern = re.compile(r'\(?(\d+)-(\d+)\)?')
+    #
+    # def wrap_if_no_parentheses(match: re.Match) -> str:
+    #     full = match.group(0)  # всё совпадение
+    #     a = match.group(1)
+    #     b = match.group(2)
+    #
+    #     if full.startswith("(") and full.endswith(")"):
+    #         return full  # уже в скобках — оставить как есть
+    #     else:
+    #         return f"({a}-{b})"  # обернуть
+    #
+    # text = pattern.sub(wrap_if_no_parentheses, text)
 
     return text
 
@@ -2311,8 +2366,8 @@ def print_file_head(path, n=5, encoding="utf-8"):
 
 
 # Завантаження даних з CSV-файлу
-# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
-thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
+# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
 # ----------------------------------------
