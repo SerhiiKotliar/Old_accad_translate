@@ -832,6 +832,10 @@ def clear_from_ocr_for_text(text: str) -> str:
             #     item["a"] = last_range["b"] + 1
             if is_del:
                 continue
+            if not last_range:
+                del_items.append(i)
+                is_del = True
+                continue
             item["type"] = "range"
             item["b"] = item["a"]
             last_range = item
@@ -1466,14 +1470,14 @@ def renumber_trust_source(text: str) -> dict[int, str]:
     dic_trlits = {}
     anchors = []  # (index, source_number)
     pattern1 = r'^\s*(\d+)\s*[.:]\s*(.*)'
-    pattern1 = re.compile(pattern1)
+    # pattern1 = re.compile(pattern1)
     pattern2 = r'\(\d+\)'
-    pattern2 = re.compile(pattern2)
+    # pattern2 = re.compile(pattern2)
     patterns = [pattern1, pattern2]
     count_exists = defaultdict(int)
     for i, pat in enumerate(patterns):
         # exists = (pat.search(line) for line in lines)
-        count = sum(1 for line in lines if pat.search(line))
+        count = sum(1 for line in lines if re.compile(pat).search(line))
         # if exists:
         count_exists[i] += count
     max_key = max(count_exists, key=count_exists.get)
@@ -1482,7 +1486,14 @@ def renumber_trust_source(text: str) -> dict[int, str]:
         # m = re.match(r'^\s*(\d+)\s*[.:]\s*(.*)', line)
         m = re.match(pattern_real, line)
         if m:
-            num = int(m.group(1))
+            if m.re.groups >= 1:
+                # num = int(m.group(1))
+                num = int(re.search(r'\d+', m.group(1)).group())
+
+            else:
+                # num = int(m.group(0))
+                num = int(re.search(r'\d+', m.group(0)).group())
+
             if num % 5 == 0:
                 anchors.append((i, num))
 
@@ -1961,16 +1972,19 @@ def extract_ankara_next(text: str, start_pos: int, pattern: str):
             match_end_trl = pattern_end_trl.search(text, pos_start_trlit)
             if match_end_trl:
                 pos_end_trlit = match_end_trl.start()
-            pos_end_trlit = len(text)
+            else:
+                pos_end_trlit = len(text)
         elif match_start_trl_1:
             pos_end_trlit = find_double_quote(text, pos_start_trlit)
         if pos_end_trlit <= 0:
             pos_end_trlit = len(text)
         text_transliterate = text[pos_start_trlit:pos_end_trlit]
-        pos_start_translate = pos_end_trlit + 1
+        pos_start_translate = pos_end_trlit
         match_end_translate = pattern_end_translate.search(text, pos_start_translate)
         if match_end_translate:
-            pos_end_translate = text.find("\n", match_end_translate.start(), pos_start_translate)
+            # pos_end_translate = text.find("\n", match_end_translate.start(), pos_start_translate)
+            pos_end_translate = text.rfind("\n", pos_start_translate, match_end_translate.start())
+
         else:
             pos_end_translate = find_double_quote(text, pos_start_translate, False)
         if pos_end_translate > 0:
@@ -1982,7 +1996,7 @@ def extract_ankara_next(text: str, start_pos: int, pattern: str):
             text_transliterate = Unfin_Data['trlit']
         match_start_translate = pattern_end_trl.search(text, 0)
         if match_start_translate:
-            pos_start_translate = match_start_translate.end()
+            pos_start_translate = match_start_translate.start()
         else:
             pos_start_translate = find_double_quote(text, 0)
         if pos_start_translate <= 0:
@@ -1990,7 +2004,8 @@ def extract_ankara_next(text: str, start_pos: int, pattern: str):
         else:
             match_end_translate = pattern_end_translate.search(text, pos_start_translate)
             if match_end_translate:
-                pos_end_translate = text.find("\n", match_end_translate.start(), pos_start_translate)
+                # pos_end_translate = text.find("\n", match_end_translate.start(), pos_start_translate)
+                pos_end_translate = text.rfind("\n", pos_start_translate, match_end_translate.start())
             else:
                 pos_end_translate = find_double_quote(text, pos_start_translate, False)
             if pos_end_translate > 0:
@@ -2309,8 +2324,8 @@ def process_text_and_build_csv_rows(text: str):
                                 accad_str_arr = str_txt[i % len_arr]
                         case 3:
                             if isinstance(str_txt_1[i % len_arr], tuple):
-                                accad_str_arr = str_txt[i % len_arr][0]
-                                translate_str_arr = str_txt[i % len_arr][1]
+                                accad_str_arr = str_txt_1[i % len_arr][0]
+                                translate_str_arr = str_txt_1[i % len_arr][1]
                             else:
                                 translate_str_arr = str_txt_1[i % len_arr]
                                 accad_str_arr = str_txt[i % len_arr]
@@ -2441,8 +2456,8 @@ def print_file_head(path, n=5, encoding="utf-8"):
 
 
 # Завантаження даних з CSV-файлу
-# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
-thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
+# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
 # ----------------------------------------
@@ -2503,7 +2518,7 @@ for i in idx:
     print(f"{num + 1} пару блоков начинаем искать.\n")
     print(f"Index = {i}\n")
     # if i == 74880:
-    if i == 17522:
+    if i == 17524:
     #     не печатает переводы
     # if i == 25:
     # if i == 130319:
