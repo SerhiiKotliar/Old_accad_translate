@@ -8,7 +8,7 @@ from langdetect import detect
 from langdetect import DetectorFactory
 from deep_translator import GoogleTranslator
 from typing import Dict, List, Tuple, Match, Pattern
-
+from collections import defaultdict
 try:
     nltk.data.find('tokenizers/punkt')
 except LookupError:
@@ -756,7 +756,8 @@ def detect_translate(text: str, start_pos: int):
 # NUMBER_RE = re.compile(r'\b\d{1,3}\b')
 
 def clear_from_ocr_for_text(text: str) -> str:
-    """Упорядочивает последовательно значения диапазонов"""
+    """Упорядочивает последовательно значения диапазонов
+    и оборачивает в круглые скобки"""
     # --- 1. OCR-мусор: " 3A" → "3-A"
     # text = re.sub(r'(\s\d)\s*(\d\w)', r'\1-\2', text)
 
@@ -1185,7 +1186,7 @@ def search_for_extract_ankara(text: str):
     pos_st_trla_less_start_trl = []
     pos_end_translate_arr_after_trl = []
     pos_end_translate_arr_before_trl = []
-    pos_end = 0
+    pos_end = len(text)
     pos_end_tr = 0
     pos_start_tr = 0
     flag_vyp = False
@@ -1464,9 +1465,22 @@ def renumber_trust_source(text: str) -> dict[int, str]:
     n = len(lines)
     dic_trlits = {}
     anchors = []  # (index, source_number)
-
+    pattern1 = r'^\s*(\d+)\s*[.:]\s*(.*)'
+    pattern1 = re.compile(pattern1)
+    pattern2 = r'\(\d+\)'
+    pattern2 = re.compile(pattern2)
+    patterns = [pattern1, pattern2]
+    count_exists = defaultdict(int)
+    for i, pat in enumerate(patterns):
+        # exists = (pat.search(line) for line in lines)
+        count = sum(1 for line in lines if pat.search(line))
+        # if exists:
+        count_exists[i] += count
+    max_key = max(count_exists, key=count_exists.get)
+    pattern_real = patterns[max_key]
     for i, line in enumerate(lines):
-        m = re.match(r'^\s*(\d+)\s*[.:]\s*(.*)', line)
+        # m = re.match(r'^\s*(\d+)\s*[.:]\s*(.*)', line)
+        m = re.match(pattern_real, line)
         if m:
             num = int(m.group(1))
             if num % 5 == 0:
@@ -1743,8 +1757,8 @@ def find_double_quote(text: str, start_pos: int, first: bool=True):
             quote_pos = -1
     else:
         quote_pos = text.find("\"", start_pos)
-    if quote_pos == -1:
-        return quote_pos
+    # if quote_pos == -1:
+    #     return quote_pos
     # дистанция от транслитерации или от перевода
     # кавычки после текста
     # diff = quote_pos - start_pos
@@ -1911,6 +1925,10 @@ def extract_ankara_next(text: str, start_pos: int, pattern: str):
     trlit_pred = ""
     perevod_pred = ""
     pos_start_trlit = 0
+    pos_end_trlit = 0
+    pos_end_translate = 0
+    text_transliterate = ""
+    text_translate = ""
     if start_pos < 0 or start_pos >= len(text):
         return None, None, start_pos
     end_pos = len(text)
@@ -1921,62 +1939,119 @@ def extract_ankara_next(text: str, start_pos: int, pattern: str):
         return None, None, len(text)
     print(f"Найден поисковый якорь Ankara: {match.group()}")
     text = text[match.end():]
-    if any(Unfin_Data.values()):
-        number_pred = Unfin_Data['number']
-        trlit_pred = Unfin_Data['trlit']
-        perevod_pred = Unfin_Data['perevod']
+    # if any(Unfin_Data.values()):
+    #     number_pred = Unfin_Data['number']
+    #     trlit_pred = Unfin_Data['trlit']
+    #     perevod_pred = Unfin_Data['perevod']
     # предварительная очистка
     text = cleaning_from_ocr_prelim(text)
-    if trlit_pred != "":
-        pos_start_trlit = pos_first_translite(text, 0)
+    pattern_start_trl = r'\((?:[A-Za-z]{1,2}\.\s)?\d{1,2}\)'
+    pattern_start_trl = re.compile(pattern_start_trl)
+    pattern_start_trl_1 = r'\s\d{1,2}-\d{1,2}\s:\s'
+    pattern_start_trl_1 = re.compile(pattern_start_trl_1)
+    pattern_end_trl = r'\(?\s*(\d{1,3})\s*[-–—]\s*(\d{1,3})\s*\)?'
+    pattern_end_trl = re.compile(pattern_end_trl)
+    pattern_end_translate = r'[A-Za-z]{1,2}\.\s\d{1,2}:'
+    pattern_end_translate = re.compile(pattern_end_translate)
+    match_start_trl = pattern_start_trl.search(text)
+    match_start_trl_1 = pattern_start_trl_1.search(text)
+    if match_start_trl or match_start_trl_1:
+        pos_start_trlit = match_start_trl.start() if match_start_trl else match_start_trl_1.end()
+        if match_start_trl:
+            match_end_trl = pattern_end_trl.search(text, pos_start_trlit)
+            if match_end_trl:
+                pos_end_trlit = match_end_trl.start()
+            pos_end_trlit = len(text)
+        elif match_start_trl_1:
+            pos_end_trlit = find_double_quote(text, pos_start_trlit)
+        if pos_end_trlit <= 0:
+            pos_end_trlit = len(text)
+        text_transliterate = text[pos_start_trlit:pos_end_trlit]
+        pos_start_translate = pos_end_trlit + 1
+        match_end_translate = pattern_end_translate.search(text, pos_start_translate)
+        if match_end_translate:
+            pos_end_translate = text.find("\n", match_end_translate.start(), pos_start_translate)
+        else:
+            pos_end_translate = find_double_quote(text, pos_start_translate, False)
+        if pos_end_translate > 0:
+            text_translate = text[pos_start_translate:pos_end_translate]
+        else:
+            text_translate = ""
     else:
-        patterns_number_before = [r'No. \d{1,}?\n', r'Tablet\n']
-        patterns_number_after = [r'No. \d{1,}?\n', r'Zarf\n']
-        for i, pattern_number in enumerate(patterns_number_before):
-            pattern_number_before = re.compile(pattern_number)
-            # pattern_number_after = re.compile(patterns_number_after[i])
-            match_number = pattern_number_before.search(text, start_pos)
-            if match_number:
-                match_number_before = match_number
-                text = text[match_number_before.end():]
-                Unfin_Data['number'] = match_number_before.group()
-                break
-        pattern_trlit = re.compile(r"\(([^)]*)\)")
-        match_trlit = pattern_trlit.search(text, start_pos)
-        if match_trlit:
-            pos_start_trlit = match_trlit.start()
-    text = text[pos_start_trlit:]
-    # match_number = pattern_number.search(text, start_pos)
-    # транслитерация и первая позиция диапазона в переводе
-    text_trlit, pos_start_perevod = translate_after_translite(text)
-    if pos_start_perevod == len(text):
-        Unfin_Data['trlit'] = text_trlit
-    if not text_trlit or not extract_transliteration(text_trlit) or not pos_start_perevod:
-        return ("", ""), False, pos_start_perevod
-    if trlit_pred and extract_transliteration(trlit_pred):
-            text_trlit = trlit_pred + text_trlit
-    # последняя позиция перевода
-    pos_end_perevod = re.search(r'(^St\.\s\d{1,2}:)', text, flags=re.MULTILINE)
-    if pos_end_perevod:
-        pos_end_extract = pos_end_perevod.start() - 1
-    else:
-        pos_end_extract = len(text)
-    # перевод
-    result = text[pos_start_perevod:pos_end_extract]
-    # очистка мусора
-    result = process_text(result, False)
-    if not detect_translate(result, pos_start_perevod):
-        return ("", ""), False, end_pos
-    if not pos_end_perevod:
-        Unfin_Data['perevod'] = result
-    # очистка от мусора
-    text_trlit = process_text(text_trlit)
-    # словарь с ключами номерами и строками транслитерации
-    # result1 = renumber_trust_source(text_trlit)
-    result1 = parse_numbered_fragments(text_trlit)
+        if Unfin_Data['trlit'] != "":
+            text_transliterate = Unfin_Data['trlit']
+        match_start_translate = pattern_end_trl.search(text, 0)
+        if match_start_translate:
+            pos_start_translate = match_start_translate.end()
+        else:
+            pos_start_translate = find_double_quote(text, 0)
+        if pos_start_translate <= 0:
+            text_translate = ""
+        else:
+            match_end_translate = pattern_end_translate.search(text, pos_start_translate)
+            if match_end_translate:
+                pos_end_translate = text.find("\n", match_end_translate.start(), pos_start_translate)
+            else:
+                pos_end_translate = find_double_quote(text, pos_start_translate, False)
+            if pos_end_translate > 0:
+                text_translate = text[pos_start_translate:pos_end_translate]
+            else:
+                text_translate = ""
+    # -----------------------------------------------------------------------
+    # if trlit_pred != "":
+    #     pos_start_trlit = pos_first_translite(text, 0)
+    # else:
+    #     patterns_number_before = [r'No. \d{1,}?\n', r'Tablet\n']
+    #     patterns_number_after = [r'No. \d{1,}?\n', r'Zarf\n']
+    #     for i, pattern_number in enumerate(patterns_number_before):
+    #         pattern_number_before = re.compile(pattern_number)
+    #         # pattern_number_after = re.compile(patterns_number_after[i])
+    #         match_number = pattern_number_before.search(text, start_pos)
+    #         if match_number:
+    #             match_number_before = match_number
+    #             text = text[match_number_before.end():]
+    #             Unfin_Data['number'] = match_number_before.group()
+    #             break
+    #     pattern_trlit = re.compile(r"\(([^)]*)\)")
+    #     match_trlit = pattern_trlit.search(text, start_pos)
+    #     if match_trlit:
+    #         pos_start_trlit = match_trlit.start()
+    # text = text[pos_start_trlit:]
+    # # match_number = pattern_number.search(text, start_pos)
+    # # транслитерация и первая позиция диапазона в переводе
+    # text_trlit, pos_start_perevod = translate_after_translite(text)
+    # if pos_start_perevod == len(text):
+    #     Unfin_Data['trlit'] = text_trlit
+    # if not text_trlit or not extract_transliteration(text_trlit) or not pos_start_perevod:
+    #     return ("", ""), False, pos_start_perevod
+    # if trlit_pred and extract_transliteration(trlit_pred):
+    #         text_trlit = trlit_pred + text_trlit
+    # # последняя позиция перевода
+    # pos_end_perevod = re.search(r'(^St\.\s\d{1,2}:)', text, flags=re.MULTILINE)
+    # if pos_end_perevod:
+    #     pos_end_extract = pos_end_perevod.start() - 1
+    # else:
+    #     pos_end_extract = len(text)
+    # # перевод
+    # result = text[pos_start_perevod:pos_end_extract]
+    if text_translate != "":
+        # очистка мусора перевода
+        text_translate = process_text(text_translate, False)
+        if not detect_translate(text_translate, pos_start_translate):
+            return ("", ""), False, end_pos
+        if not pos_end_translate:
+            Unfin_Data['perevod'] = text_translate
+    if text_transliterate != "":
+        # очистка от мусора транслитерации
+        text_transliterate = process_text(text_transliterate)
+        # словарь с ключами номерами и строками транслитерации
+        result1 = renumber_trust_source(text_transliterate)
+        # result1 = parse_numbered_fragments(text_transliterate)
+    if text_translate != "" or text_transliterate != "":
+        flag_vyp =True
     #     # очищенный от мусора текст и словарь транслитерации,
     #     # флаг выполнения, позиция конца перевода
-    return (result, result1), True, pos_end_extract
+    return (text_translate, result1), flag_vyp, pos_end_translate
 
 def extract_after_ankara_next(text_dict_tr: tuple, pos_s: int):
     text_translate = text_dict_tr[0]
@@ -2234,8 +2309,8 @@ def process_text_and_build_csv_rows(text: str):
                                 accad_str_arr = str_txt[i % len_arr]
                         case 3:
                             if isinstance(str_txt_1[i % len_arr], tuple):
-                                accad_str_arr = str_txt_1[i % len_arr][0]
-                                translate_str_arr = str_txt_1[i % len_arr][1]
+                                accad_str_arr = str_txt[i % len_arr][0]
+                                translate_str_arr = str_txt[i % len_arr][1]
                             else:
                                 translate_str_arr = str_txt_1[i % len_arr]
                                 accad_str_arr = str_txt[i % len_arr]
@@ -2366,8 +2441,8 @@ def print_file_head(path, n=5, encoding="utf-8"):
 
 
 # Завантаження даних з CSV-файлу
-thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
-# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
+thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
 # ----------------------------------------
@@ -2428,7 +2503,7 @@ for i in idx:
     print(f"{num + 1} пару блоков начинаем искать.\n")
     print(f"Index = {i}\n")
     # if i == 74880:
-    if i == 5142:
+    if i == 17522:
     #     не печатает переводы
     # if i == 25:
     # if i == 130319:
