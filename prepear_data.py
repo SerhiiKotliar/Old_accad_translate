@@ -1462,124 +1462,191 @@ def pos_first_translite(text: str, start_pos: int = 0):
     return pos_first_trl.start() if pos_first_trl is not None else -1
 
 
-def renumber_trust_source(text: str) -> dict[int, str]:
-    """преобразовует транслитерацию с номерами строк типа ЧИСЛО ТОЧКА или ДВОЕТОЧИЕ
-    в словарь, где номер строки это ключ, а строка это значение"""
-    lines = text.splitlines()
-    n = len(lines)
-    dic_trlits = {}
-    anchors = []  # (index, source_number)
-    pattern1 = r'^\s*(\d+)\s*[.:]\s*(.*)'
-    # pattern1 = re.compile(pattern1)
-    pattern2 = r'\(\d+\)'
-    # pattern2 = re.compile(pattern2)
-    patterns = [pattern1, pattern2]
-    count_exists = defaultdict(int)
-    for i, pat in enumerate(patterns):
-        # exists = (pat.search(line) for line in lines)
-        count = sum(1 for line in lines if re.compile(pat).search(line))
-        # if exists:
-        count_exists[i] += count
-    max_key = max(count_exists, key=count_exists.get)
-    pattern_real = patterns[max_key]
-    for i, line in enumerate(lines):
-        # m = re.match(r'^\s*(\d+)\s*[.:]\s*(.*)', line)
-        m = re.match(pattern_real, line)
-        if m:
-            if m.re.groups >= 1:
-                # num = int(m.group(1))
-                num = int(re.search(r'\d+', m.group(1)).group())
+# def renumber_trust_source(text: str) -> dict[int, str]:
+#     """преобразовует транслитерацию с номерами строк типа ЧИСЛО ТОЧКА или ДВОЕТОЧИЕ
+#     в словарь, где номер строки это ключ, а строка это значение"""
+#     lines = text.splitlines()
+#     n = len(lines)
+#     dic_trlits = {}
+#     anchors = []  # (index, source_number)
+#     pattern1 = r'^\s*(\d+)\s*[.:]\s*(.*)'
+#     # pattern1 = re.compile(pattern1)
+#     pattern2 = r'\(\d+\)'
+#     # pattern2 = re.compile(pattern2)
+#     patterns = [pattern1, pattern2]
+#     count_exists = defaultdict(int)
+#     for i, pat in enumerate(patterns):
+#         # exists = (pat.search(line) for line in lines)
+#         count = sum(1 for line in lines if re.compile(pat).search(line))
+#         # if exists:
+#         count_exists[i] += count
+#     max_key = max(count_exists, key=count_exists.get)
+#     pattern_real = patterns[max_key]
+#     for i, line in enumerate(lines):
+#         # m = re.match(r'^\s*(\d+)\s*[.:]\s*(.*)', line)
+#         m = re.match(pattern_real, line)
+#         if m:
+#             if m.re.groups >= 1:
+#                 # num = int(m.group(1))
+#                 num = int(re.search(r'\d+', m.group(1)).group())
+#             else:
+#                 # num = int(m.group(0))
+#                 num = int(re.search(r'\d+', m.group(0)).group())
+#             if num % 5 == 0:
+#                 anchors.append((i, num))
+#
+#     if not anchors:
+#         # raise ValueError("Нет ни одного источникового номера")
+#         dic_trlits[1] = text
+#         return dic_trlits
+#
+#     result_numbers = [None] * n
+#
+#     # --- сегмент ДО первого якоря (назад)
+#     first_idx, first_num = anchors[0]
+#     for i in range(first_idx, -1, -1):
+#         result_numbers[i] = first_num - (first_idx - i)
+#
+#     # --- сегменты МЕЖДУ якорями
+#     for (i1, n1), (i2, n2) in zip(anchors, anchors[1:]):
+#         result_numbers[i1] = n1
+#         for i in range(i1 + 1, i2):
+#             result_numbers[i] = n1 + (i - i1)
+#         result_numbers[i2] = n2  # источник всегда побеждает
+#
+#     # --- сегмент ПОСЛЕ последнего якоря
+#     last_idx, last_num = anchors[-1]
+#     for i in range(last_idx, n):
+#         result_numbers[i] = last_num + (i - last_idx)
+#
+#     # --- сборка результата
+#     # out = []
+#     for num, line in zip(result_numbers, lines):
+#         content = re.sub(r'^\s*\d+\s*[.:]\s*', '', line)
+#         # content = re.sub(r'^\d{1,2}[.:]?\s*', '', line)
+#         # out.append(f"{num}. {content}")
+#         dic_trlits[num] = content
+#
+#     # return "\n".join(out)
+#     return dic_trlits
 
-            else:
-                # num = int(m.group(0))
-                num = int(re.search(r'\d+', m.group(0)).group())
+# file: renumber_trust_source.py
+
+import re
+from typing import Dict, List, Tuple
+
+
+def _extract_number(text: str) -> int:
+    """Извлекает первое число из строки."""
+    match = re.search(r'\d+', text)
+    return int(match.group()) if match else None
+
+
+def _restore_sequence(
+    anchors: List[Tuple[int, int]],
+    total_length: int
+) -> List[int]:
+    """Восстанавливает номера по якорям."""
+    result = [None] * total_length
+
+    if not anchors:
+        return list(range(1, total_length + 1))
+
+    # ДО первого якоря
+    first_idx, first_num = anchors[0]
+    for i in range(first_idx, -1, -1):
+        result[i] = first_num - (first_idx - i)
+
+    # МЕЖДУ якорями
+    for (i1, n1), (i2, n2) in zip(anchors, anchors[1:]):
+        result[i1] = n1
+        for i in range(i1 + 1, i2):
+            result[i] = n1 + (i - i1)
+        result[i2] = n2
+
+    # ПОСЛЕ последнего якоря
+    last_idx, last_num = anchors[-1]
+    for i in range(last_idx, total_length):
+        result[i] = last_num + (i - last_idx)
+
+    return result
+
+
+def renumber_trust_source(text: str) -> Dict[int, str]:
+    """
+    Преобразует текст с частичной нумерацией (кратной 5)
+    в словарь {номер: строка}.
+
+    Поддерживаются форматы:
+    - 10.
+    - 10:
+    - (10)
+    - (abc10xyz)
+    - 10)
+    - 10'
+
+    Если строка не содержит номера,
+    номер восстанавливается по ближайшим якорям.
+    """
+    if not text.strip():
+        return {}
+
+    pattern_line_start = re.compile(r'^\s*(\d+)\s*[.:]')
+    inline_patterns = [
+        r'\(([^)]*\d+[^)]*)\)',
+        r'(\d+)\)',
+        r'(\d+)\'',
+    ]
+
+    lines = text.splitlines()
+
+    # --- РЕЖИМ 1: текст уже разбит на строки
+    if any(pattern_line_start.match(line) for line in lines):
+        anchors: List[Tuple[int, int]] = []
+
+        for idx, line in enumerate(lines):
+            m = pattern_line_start.match(line)
+            if m:
+                num = _extract_number(m.group(0))
+                if num % 5 == 0:
+                    anchors.append((idx, num))
+
+        numbers = _restore_sequence(anchors, len(lines))
+
+        result: Dict[int, str] = {}
+        for num, line in zip(numbers, lines):
+            content = pattern_line_start.sub('', line, count=1).strip()
+            result[num] = content
+
+        return result
+
+    # --- РЕЖИМ 2: сплошной текст
+    for pat in inline_patterns:
+        compiled = re.compile(pat)
+        matches = list(compiled.finditer(text))
+        if not matches:
+            continue
+
+        segments = []
+        anchors: List[Tuple[int, int]] = []
+
+        for i, match in enumerate(matches):
+            num = _extract_number(match.group(0))
+            start = match.end()
+            end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+            content = text[start:end].strip()
+            segments.append(content)
 
             if num % 5 == 0:
                 anchors.append((i, num))
 
-    if not anchors:
-        # raise ValueError("Нет ни одного источникового номера")
-        dic_trlits[1] = text
-        return dic_trlits
+        numbers = _restore_sequence(anchors, len(segments))
 
-    result_numbers = [None] * n
+        return {num: seg for num, seg in zip(numbers, segments)}
 
-    # --- сегмент ДО первого якоря (назад)
-    first_idx, first_num = anchors[0]
-    for i in range(first_idx, -1, -1):
-        result_numbers[i] = first_num - (first_idx - i)
-
-    # --- сегменты МЕЖДУ якорями
-    for (i1, n1), (i2, n2) in zip(anchors, anchors[1:]):
-        result_numbers[i1] = n1
-        for i in range(i1 + 1, i2):
-            result_numbers[i] = n1 + (i - i1)
-        result_numbers[i2] = n2  # источник всегда побеждает
-
-    # --- сегмент ПОСЛЕ последнего якоря
-    last_idx, last_num = anchors[-1]
-    for i in range(last_idx, n):
-        result_numbers[i] = last_num + (i - last_idx)
-
-    # --- сборка результата
-    # out = []
-    for num, line in zip(result_numbers, lines):
-        content = re.sub(r'^\s*\d+\s*[.:]\s*', '', line)
-        # content = re.sub(r'^\d{1,2}[.:]?\s*', '', line)
-        # out.append(f"{num}. {content}")
-        dic_trlits[num] = content
-
-    # return "\n".join(out)
-    return dic_trlits
+    return {1: text.strip()}
 
 
-# range_pattern = re.compile(r'(\d{1,2})\s*-\s*(\d{1,2})')
-
-# def process_text_last(text, lines_dict):
-#     """преобразует перевод и словарь транслитерации в два списка"""
-#     # range_pattern = re.compile(r'(\d{1,2})\s*-\s*(\d{1,2})')
-#     range_pattern = re.compile(r'(\d{1,3})\s*[-–—]\s*(\d{1,3})')
-#     # список диапазонов
-#     matches = list(range_pattern.finditer(text))
-#     if matches:
-#         dict_results = []
-#         text_results = []
-#         for i, match in enumerate(matches):
-#             start_num, end_num = map(int, match.groups())
-#
-#             # границы текстового блока
-#             text_start = match.end()
-#             text_end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
-#
-#             # строгая проверка диапазона
-#             if not all(k in lines_dict for k in range(start_num, end_num + 1)):
-#                 continue
-#
-#             # собираем строку из словаря
-#             dict_results.append(
-#                 " ".join(lines_dict[k] for k in range(start_num, end_num + 1))
-#             )
-#
-#             # текст без диапазона
-#             fragment = text[text_start + 1:text_end - 1].strip()
-#             text_results.append(fragment)
-#         # return dict_results, text_results
-#     else:
-#         dict_results = []
-#         text_results = []
-#         text_results_str = text.replace("\n", " ").strip()
-#         # собираем строку из словаря
-#         dict_results.append(
-#             " ".join(lines_dict.values())
-#         )
-#         result_string = " ".join(dict_results)
-#
-#         pattern = r'\d{1,2}\.\s'
-#         results = re.sub(pattern, '', result_string)
-#         text_results.append(text_results_str)
-#         dict_results.append(results)
-#
-#     return dict_results, text_results
 
 
 def process_text_last(text: str, lines_dict: Dict[int, str]) -> Tuple[List[str], List[str]]:
@@ -1587,12 +1654,13 @@ def process_text_last(text: str, lines_dict: Dict[int, str]) -> Tuple[List[str],
     # text = process_text(text, False)
     # форматирует диапазоны пробелами
     text = clear_from_ocr_for_text_last(text)
-    # упорядочивает последовательности диапазоно
+    # упорядочивает по порядку последовательности диапазоно
     text = clear_from_ocr_for_text(text)
 
     # range_pattern = re.compile(r'(\d{1,3})(?:\s*[-–—]\s*(\d{1,3}))?')
+    # шаблон диапазона
     range_pattern = re.compile(r'\b(\d{1,3})\s*[-–—]\s*(\d{1,3})\b|(?<!\d)[-–—]\s*(\d{1,3})\b')
-
+    # разделение текста по диапазонам
     matches = list(range_pattern.finditer(text))
 
     dict_results: List[str] = []
@@ -1603,11 +1671,12 @@ def process_text_last(text: str, lines_dict: Dict[int, str]) -> Tuple[List[str],
 
     if not matches:
         merged = " ".join(lines_dict.values())
+        # удаление из строк словаря нумерации(это, вероятно, уже сделано ранее)
         cleaned = re.sub(r'\d{1,2}[\.:]\s*', '', merged)
         dict_results.append(cleaned)
         text_results.append(text.replace("\n", " ").strip())
         return dict_results, text_results
-    # перебор по диапазонам
+    # перебор текста перевода по диапазонам
     for i, match in enumerate(matches):
         # начало дапазона
         start = int(match.group(1))
@@ -1618,12 +1687,14 @@ def process_text_last(text: str, lines_dict: Dict[int, str]) -> Tuple[List[str],
         keys = range(start, end+1)
         # # для случая типа 1-4 4-7 7-10
         # keys = range(start, end)
-        # пропуск тех строк транслитерации, что отсутствуют в диапазонах переводаа
+        # пропуск тех строк транслитерации, что отсутствуют в диапазонах перевода
+        # или присутствуют в неполном количестве
         if not all(k in lines_dict for k in keys):
-            continue  # why: пропускаем некорректный диапазон
+            continue
 
         dict_results.append(" ".join(lines_dict[k] for k in keys))
-
+        # сбор текста из участков с диапазонами,
+        # которым соответствуют имеющиеся транслитерации
         text_start = match.end()
         text_end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
         fragment = text[text_start:text_end].strip(" ()")

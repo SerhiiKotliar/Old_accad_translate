@@ -1,7 +1,7 @@
 import re
 
 def clear_from_ocr_for_text_last(text: str) -> str:
-
+    # шаблон диапазона
     pattern = re.compile(
         r'(\d+)\s*-\s*(\d+)(\s+([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü]+))?'
     )
@@ -11,7 +11,7 @@ def clear_from_ocr_for_text_last(text: str) -> str:
         right = m.group(2)
         word = m.group(4)
 
-        # если правая часть длиннее
+        # если правая часть(конец диапазона)длиннее
         if len(right) > len(left):
 
             main_right = right[:len(left)]
@@ -28,6 +28,7 @@ def clear_from_ocr_for_text_last(text: str) -> str:
             if word:
                 extra_conv = (
                     extra.replace('1', 'I')
+                         .replace('5', 'S')
                          .replace('0', 'O')
                 )
                 return f"{left}-{main_right} {extra_conv}{word}"
