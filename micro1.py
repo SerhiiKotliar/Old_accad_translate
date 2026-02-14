@@ -158,10 +158,18 @@ def clear_from_ocr_for_text(text: str) -> str:
     del_items = []
     for i, item in enumerate(parsed):
         if item["type"] == "range":
+            # is_del = False
             if last_range and item["a"] <= last_range["b"]:
+                diff = item["a"] - last_range["b"]
+                if diff > 1 or diff < -1:
+                    del_items.append(i)
+                    # is_del = True
+                    continue
                 last_range["b"] = item["a"] - 1
                 if last_range["b"] < last_range["a"]:
                     last_range["b"] = last_range["a"]
+            # if is_del:
+            #     continue
             last_range = item
 
         elif item["type"] == "broken" and last_range:
@@ -193,7 +201,7 @@ def clear_from_ocr_for_text(text: str) -> str:
                 continue
             if not last_range:
                 del_items.append(i)
-                is_del = True
+                # is_del = True
                 continue
             item["type"] = "range"
             item["b"] = item["a"]
@@ -214,22 +222,22 @@ def clear_from_ocr_for_text(text: str) -> str:
 
         chars[item["start"]:item["end"]] = repl
     result = "".join(chars)
-    # ----------------------------------------------------
-    # если не обёрнуты, оборачивает в скобки
-    # pattern = re.compile(r'\(?(\d+)-(\d+)\)?'r'|\b\d{1,3}\b')
-    pattern = re.compile(r'\(?(\d+)-(\d+)\)?')
-
-    def wrap_if_no_parentheses(match: re.Match) -> str:
-        full = match.group(0)  # всё совпадение
-        a = match.group(1)
-        b = match.group(2)
-
-        if full.startswith("(") and full.endswith(")"):
-            return full  # уже в скобках — оставить как есть
-        else:
-            return f"({a}-{b})"  # обернуть
-
-    result = pattern.sub(wrap_if_no_parentheses, result)
+    # # ----------------------------------------------------
+    # # если не обёрнуты, оборачивает в скобки
+    # # pattern = re.compile(r'\(?(\d+)-(\d+)\)?'r'|\b\d{1,3}\b')
+    # pattern = re.compile(r'\(?(\d+)-(\d+)\)?')
+    # 
+    # def wrap_if_no_parentheses(match: re.Match) -> str:
+    #     full = match.group(0)  # всё совпадение
+    #     a = match.group(1)
+    #     b = match.group(2)
+    # 
+    #     if full.startswith("(") and full.endswith(")"):
+    #         return full  # уже в скобках — оставить как есть
+    #     else:
+    #         return f"({a}-{b})"  # обернуть
+    # 
+    # result = pattern.sub(wrap_if_no_parentheses, result)
     return result
 
 
@@ -268,8 +276,6 @@ def clear_from_ocr_for_text_last(text: str) -> str:
                 )
                 return f"{left}-{main_right} {extra_conv}{word}"
 
-            # #  иначе просто отделяем extra
-            # return f"{left}-{main_right} {extra}"
             #  иначе просто удаляем extra
             return f"{left}-{main_right} "
 
@@ -277,22 +283,28 @@ def clear_from_ocr_for_text_last(text: str) -> str:
 
     text = pattern.sub(range_repl, text)
     text = re.sub(r'\s+', ' ', text).strip()
-    # ------------------------------------------------------
-    # text = re.sub(r'(\d+)-(\d+)', r'(\g<1>-\g<2>)', text)
-    # pattern = re.compile(r'\(?(\d+)-(\d+)\)?')
-    #
-    # def wrap_if_no_parentheses(match: re.Match) -> str:
-    #     full = match.group(0)  # всё совпадение
-    #     a = match.group(1)
-    #     b = match.group(2)
-    #
-    #     if full.startswith("(") and full.endswith(")"):
-    #         return full  # уже в скобках — оставить как есть
-    #     else:
-    #         return f"({a}-{b})"  # обернуть
-    #
-    # text = pattern.sub(wrap_if_no_parentheses, text)
+    # ----------------------------------------------------
+    # если не обёрнуты, оборачивает в скобки
+    # pattern = re.compile(r'\(?(\d+)-(\d+)\)?'r'|\b\d{1,3}\b')
+    pattern = re.compile(r'\(?(\d+)-(\d+)\)?')
+    last_range = None
+    def wrap_if_no_parentheses(match: re.Match) -> str:
+        nonlocal last_range
+        full = match.group(0)  # всё совпадение
+        a = match.group(1)
+        b = match.group(2)
+        if last_range:
+            diff = int(a) - int(last_range["b"])
+            if diff > 1 or diff < -1:
+                return full
+        last_range = {"b": b, "a": a}
 
+        if full.startswith("(") and full.endswith(")"):
+            return full  # уже в скобках — оставить как есть
+        else:
+            return f"({a}-{b})"  # обернуть
+
+    text = pattern.sub(wrap_if_no_parentheses, text)
     return text
 
 
@@ -314,7 +326,7 @@ def cleaning_from_ocr_prelim(text: str) -> str:
         (r'A1', 'Ai'),
         (r'([A-Za-zА-Яа-я])1\b', r'\g<1>i'),
         (r'([A-Za-zА-Яа-я]),(\d)', r'\g<1> \g<2>'),
-        # (r'\s(\d)\s(\d)\s', r' \g<1>-\g<2> '),
+        (r'\s[iI]\s?(\d+)', r'1\1'),
         (r'(?<=\d)o', '0'),
         (r'(?<=\d)°', '0'),
         (r'S([-–—])(\d)', r'5\g<1>\g<2>'),
@@ -336,7 +348,11 @@ def cleaning_from_ocr_prelim(text: str) -> str:
         # (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])(\d+\s*[-–—]?\s*\d+)([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r'\g<1> \g<2> \g<3>'),
         # (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])(\d+[\s*-–—\s*]\d+)([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r'\g<1>\s\g<2>\s\g<3>'),
         # (r'.\,.', ''),
-        # (r'\,\n', ''),
+        (r'\,\n', ''),
+        (r'^\d+\n', ''),
+        (r"(\d{1,2})'[-–—]\s*(\d{1,2})",r'\g<1>1-\g<2>'),
+        (r"[-–—]'(\d{1,2})", r'-\g<1>'),
+        (r'(\w)1(\w)', r'\g<1>i\g<2>')
         # (r'(?<=[^\W_]):(?=[^\W_])', ' '),
         # (r'\b\d{1,3}\s*[-–—-]\s*\d{1,3}\b', ''),
         # (r'§', 'S'),
@@ -593,7 +609,8 @@ def process_text_last(text: str, lines_dict: Dict[int, str]) -> Tuple[List[str],
         # которым соответствуют имеющиеся транслитерации
         text_start = match.end()
         text_end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
-        fragment = text[text_start:text_end].strip(" ()")
+        # fragment = text[text_start:text_end].strip(" ()")
+        fragment = text[text_start:text_end].strip()
         text_results.append(fragment)
 
     return dict_results, text_results
@@ -829,38 +846,71 @@ def align_and_mark_sentences(translit_text: str, translation_sentences: list, ma
 
 
 # -------------------------------------------------------------------------------------
-text_trlit = """(1) 231/2 ma-na 3 GIN (2) KÙ BABBAR sa-ru-pet-am (3) i-sé-er 1-ku-nim (4) A-gur-i-mi-
-ti i-gu (5) ig-tù ha-mug-tim (6) 's'a dMAR.TU-ba-ni (7) it 1-ku-nim (8) a-na 40 ha-am-ia-tim
-(9) i-ga-qal gu-ma (K.10) i-na u4-mi-gu (11) ma-al-a-tim (Ay. 12) là ig-qù-ul (13) 1 1/2 GIN.TA
-(14)i-na ITU.1.KAM (15) a-na 1 ma-na-im (16) si-ib-tàm ù-sa-àb (17) ITU.1.KAM A-là-na-tim
-(18) li-mu-um Sù-kà-li-a (19) IGI A-gur-SIPA (20) IGI A-sù-na-a (21) A-gur-ma-lik
+text_trlit = """um-ma dNİN. SUBUR-ba-ni-ma
+a-na Ija-na-na ù
+(J-şur-a-itar qi-bi-ma
+10 ma-na URUDU SİG5 sa Ta-ri-ta-ar
+5. ku-nu-ki-a a-na Ta-ri-is-ma-tim
+iju-za-let 44-4a-ru-um
+sa U-sur-sa-rtar na-si-i
+URUDU i-na lâ mu-di-4-tim
+si-it-ma a-na na-pâ-hi-i
+10. é ta-di-in-ma KU.BABBAR
+K.
+I GIN ù 2 GIN
+A.y.
+é û-şa-hu-ru-si
+URUDU [ku-nu]-ki-a su-ma a-na
+KU.BABBAR [d(-Jna-u-ma a-na
+15. Ta-ri-is-ma-tim di-na-su-ma
+a-na ma-14 té-er-ti-a se-am
+lu ta-a-a-ma bu-uq-lam
+51
+it ba-pi-ra-am-ma té-pu-ui
+,
+KU.BABBAR ma-id ta-dcı-na-si-<û->ni
+20. té-er-ta-ku-nu li-li-kam
+a-na U-sur-ia-İstar qi-bi4-ma
+au-ma Fia-na-na la-su-u
+K.
+<sé(!)>-um a-ta-ma di-iu-ma
+té-er-ta-kà
+S. K. 25. li-li-kam a-hi a-ta
+Ku-ra-ra û-a-am lcı û-Şa-am
+cız-ni pè-ti
 """
 
-text_translate = """(1-4) Ikûnum'un üzerinde Aggur-imitt1'nin 23 1/2 mina 3 gegel tasfiye edilmi§ gümü§ü
-vardir. (5-7) Amurru-bâni ve Ikûnum'un hamugtum'undan itibâren (8-9) 40 haftaya ka-dar tartacak. (9-12) Eger gününün dolu§unda tartmazsa (13-16) bir ayda herbir mina'ya bi-
-rer buçuk segel fâiz ilâve edecek (17) Allânâtum ayi, (18) Sukkallia'nin eponüm'ü, (19)
-Assur-ré'ûm'un huzûrunda, (20) Asunâ'nin huzûrunda, (21) Assur-mâlik'in huzûrunda.
+text_translate = """1-3İlabrat-bâni, ijanana ve Uşur-sa-rtar'a şöyle söylüyor: 4-'10 mina iyi Tarittar bakı-
+rını benim mührümle Uşur-sa-Iitar'ın uşağı Ijuzala (bayan) Taris-mâtum'a taşımıştır. 8-100
+kadin bakırı bilmeksizin demirciye vermesin ve 10-ı2(onlar) gümüşü o kadina 1 segel veyâ
+2 sege1 eksiltmesinler. 13-15Benim mührümle
+mle (gelen) bakırı eğer paraya çevirirseniz onu (bayan)
+Tari -mätum'a veriniz ve 16-18emrim gereğince tahalı satin alınız ki o kadin o çimlendirilmiş
+arpayı ve bira mayasını yapacak i9-20Parayi o kadina vereceğinize göre haberiniz bana gel-
+sin. 2'-23Uşur-sa-Istar'a söyle: Eğer Ijanana orada yoksa hububatı sen (alip) ona ver ve
+24-27haberin bana gelsin. Lutfen, Kurara'nın çikip çıkmadığını da bana bildir.
+
 """
 # работа в первом блоке
 text_trlit = cleaning_from_ocr_prelim(text_trlit)
 text_translate = cleaning_from_ocr_prelim(text_translate)
-# print("После предварительной чистки")
-# print(text_trlit)
-# print(text_translate)
+print("После предварительной чистки")
+print(text_trlit)
+print(text_translate)
 text_trlit = process_text(text_trlit)
 text_translate = process_text(text_translate)
 # print("После основной чистки")
 # print(text_trlit)
 # print(text_translate)
 dict_trlit = renumber_trust_source(text_trlit)
-# print("После подготовки к добавлению в список")
-# print(dict_trlit)
-# print(text_translate)
+print("После подготовки к добавлению в список")
+print(dict_trlit)
+print(text_translate)
 # работа во втором блоке
 list_trl_transl = process_text_last(text_translate, dict_trlit)
-# print("После создания списка")
-# for el in list_trl_transl:
-#     print(el)
+print("После создания списка")
+for el in list_trl_transl:
+    print(el)
 # окончательная чистка и обработка
 if isinstance(list_trl_transl, tuple):
     accad_str_arr = list_trl_transl[0]

@@ -763,23 +763,35 @@ def clear_from_ocr_for_text(text: str) -> str:
 
     token_pattern = re.compile(
         r'\(?\s*\d{1,3}\s*[-–—]\s*\d{1,3}\s*\)?'
+        r'|\(?\s*\d{1,3}\s*\)?'
         r'|(?<!\d)[–—-]\s*\d{1,3}'
         r'|\b\d{1,3}\b'    # шаблон отдельного числа
     )
 
     tokens = []
     for m in token_pattern.finditer(text):
+        # пропуск чисел без признаков нумерации
+        if not m.group().startswith("(") and not m.group().endswith(")") and not m.group().endswith("'"):
+            continue
+        token = m.group()
+        # если найдено (N) → превратить в (N-N)
+        if (token.startswith("(") and token.endswith(")")) or (token.endswith(")"))  or (token.endswith("'")):
+            inner = token[1:-1].strip()
+            if inner.isdigit():
+                token = f"({inner}-{inner})"
+
         tokens.append({
             "start": m.start(),
             "end": m.end(),
-            "text": m.group()
+            # "text": m.group()
+            "text": token
         })
 
     # --- 2. Разбираем токены в диапазоны
     parsed = []
     for t in tokens:
         s = t["text"]
-        m = re.match(r'\(?\s*(\d{1,3})\s*[-–—]\s*(\d{1,3})\s*\)?', s)
+        m = re.match(r'\(?\s*(\d{1,3})\s*[-–—]\s*(\d{1,3})\s*\)?'r'|\(?\s*\d{1,3}\s*\)?', s)
         # m = re.match(r'\(?[^\S\n]*(\d{1,3})[^\S\n]*[-–—][^\S\n]*(\d{1,3})[^\S\n]*\)?(?=[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', s)
         if m:
             parsed.append({"type": "range", "a": int(m.group(1)), "b": int(m.group(2)), **t})
@@ -799,10 +811,18 @@ def clear_from_ocr_for_text(text: str) -> str:
     del_items = []
     for i, item in enumerate(parsed):
         if item["type"] == "range":
+            # is_del = False
             if last_range and item["a"] <= last_range["b"]:
+                diff = item["a"] - last_range["b"]
+                if diff > 1 or diff < -1:
+                    del_items.append(i)
+                    # is_del = True
+                    continue
                 last_range["b"] = item["a"] - 1
                 if last_range["b"] < last_range["a"]:
                     last_range["b"] = last_range["a"]
+            # if is_del:
+            #     continue
             last_range = item
 
         elif item["type"] == "broken" and last_range:
@@ -834,7 +854,7 @@ def clear_from_ocr_for_text(text: str) -> str:
                 continue
             if not last_range:
                 del_items.append(i)
-                is_del = True
+                # is_del = True
                 continue
             item["type"] = "range"
             item["b"] = item["a"]
@@ -855,21 +875,24 @@ def clear_from_ocr_for_text(text: str) -> str:
 
         chars[item["start"]:item["end"]] = repl
     result = "".join(chars)
-    # ----------------------------------------------------
-    pattern = re.compile(r'\(?(\d+)-(\d+)\)?'r'|\b\d{1,3}\b')
-
-    def wrap_if_no_parentheses(match: re.Match) -> str:
-        full = match.group(0)  # всё совпадение
-        a = match.group(1)
-        b = match.group(2)
-
-        if full.startswith("(") and full.endswith(")"):
-            return full  # уже в скобках — оставить как есть
-        else:
-            return f"({a}-{b})"  # обернуть
-
-    result = pattern.sub(wrap_if_no_parentheses, result)
+    # # ----------------------------------------------------
+    # # если не обёрнуты, оборачивает в скобки
+    # # pattern = re.compile(r'\(?(\d+)-(\d+)\)?'r'|\b\d{1,3}\b')
+    # pattern = re.compile(r'\(?(\d+)-(\d+)\)?')
+    #
+    # def wrap_if_no_parentheses(match: re.Match) -> str:
+    #     full = match.group(0)  # всё совпадение
+    #     a = match.group(1)
+    #     b = match.group(2)
+    #
+    #     if full.startswith("(") and full.endswith(")"):
+    #         return full  # уже в скобках — оставить как есть
+    #     else:
+    #         return f"({a}-{b})"  # обернуть
+    #
+    # result = pattern.sub(wrap_if_no_parentheses, result)
     return result
+
 
 
 def clear_from_ocr_for_text_last(text: str) -> str:
@@ -885,7 +908,7 @@ def clear_from_ocr_for_text_last(text: str) -> str:
         word = m.group(4)
 
         # если правая часть длиннее
-        if len(right) > len(left) and left != "9":
+        if len(right) > len(left) and len(left) > 1:
             # отрезаем излишек
             main_right = right[:len(left)]
             # излишек
@@ -907,8 +930,6 @@ def clear_from_ocr_for_text_last(text: str) -> str:
                 )
                 return f"{left}-{main_right} {extra_conv}{word}"
 
-            # #  иначе просто отделяем extra
-            # return f"{left}-{main_right} {extra}"
             #  иначе просто удаляем extra
             return f"{left}-{main_right} "
 
@@ -916,22 +937,28 @@ def clear_from_ocr_for_text_last(text: str) -> str:
 
     text = pattern.sub(range_repl, text)
     text = re.sub(r'\s+', ' ', text).strip()
-    # ------------------------------------------------------
-    # text = re.sub(r'(\d+)-(\d+)', r'(\g<1>-\g<2>)', text)
-    # pattern = re.compile(r'\(?(\d+)-(\d+)\)?')
-    #
-    # def wrap_if_no_parentheses(match: re.Match) -> str:
-    #     full = match.group(0)  # всё совпадение
-    #     a = match.group(1)
-    #     b = match.group(2)
-    #
-    #     if full.startswith("(") and full.endswith(")"):
-    #         return full  # уже в скобках — оставить как есть
-    #     else:
-    #         return f"({a}-{b})"  # обернуть
-    #
-    # text = pattern.sub(wrap_if_no_parentheses, text)
+    # ----------------------------------------------------
+    # если не обёрнуты, оборачивает в скобки
+    # pattern = re.compile(r'\(?(\d+)-(\d+)\)?'r'|\b\d{1,3}\b')
+    pattern = re.compile(r'\(?(\d+)-(\d+)\)?')
+    last_range = None
+    def wrap_if_no_parentheses(match: re.Match) -> str:
+        nonlocal last_range
+        full = match.group(0)  # всё совпадение
+        a = match.group(1)
+        b = match.group(2)
+        if last_range:
+            diff = int(a) - int(last_range["b"])
+            if diff > 1 or diff < -1:
+                return full
+        last_range = {"b": b, "a": a}
 
+        if full.startswith("(") and full.endswith(")"):
+            return full  # уже в скобках — оставить как есть
+        else:
+            return f"({a}-{b})"  # обернуть
+
+    text = pattern.sub(wrap_if_no_parentheses, text)
     return text
 
 
@@ -953,7 +980,7 @@ def cleaning_from_ocr_prelim(text: str) -> str:
         (r'A1', 'Ai'),
         (r'([A-Za-zА-Яа-я])1\b', r'\g<1>i'),
         (r'([A-Za-zА-Яа-я]),(\d)', r'\g<1> \g<2>'),
-        # (r'\s(\d)\s(\d)\s', r' \g<1>-\g<2> '),
+        (r'\s[iI]\s?(\d+)', r'1\1'),
         (r'(?<=\d)o', '0'),
         (r'(?<=\d)°', '0'),
         (r'S([-–—])(\d)', r'5\g<1>\g<2>'),
@@ -975,7 +1002,11 @@ def cleaning_from_ocr_prelim(text: str) -> str:
         # (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])(\d+\s*[-–—]?\s*\d+)([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r'\g<1> \g<2> \g<3>'),
         # (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])(\d+[\s*-–—\s*]\d+)([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r'\g<1>\s\g<2>\s\g<3>'),
         # (r'.\,.', ''),
-        # (r'\,\n', ''),
+        (r'\,\n', ''),
+        (r'^\d+\n', ''),
+        (r"(\d{1,2})'[-–—]\s*(\d{1,2})",r'\g<1>1-\g<2>'),
+        (r"[-–—]'(\d{1,2})", r'-\g<1>'),
+        (r'(\w)1(\w)', r'\g<1>i\g<2>')
         # (r'(?<=[^\W_]):(?=[^\W_])', ' '),
         # (r'\b\d{1,3}\s*[-–—-]\s*\d{1,3}\b', ''),
         # (r'§', 'S'),
@@ -1462,75 +1493,6 @@ def pos_first_translite(text: str, start_pos: int = 0):
     return pos_first_trl.start() if pos_first_trl is not None else -1
 
 
-# def renumber_trust_source(text: str) -> dict[int, str]:
-#     """преобразовует транслитерацию с номерами строк типа ЧИСЛО ТОЧКА или ДВОЕТОЧИЕ
-#     в словарь, где номер строки это ключ, а строка это значение"""
-#     lines = text.splitlines()
-#     n = len(lines)
-#     dic_trlits = {}
-#     anchors = []  # (index, source_number)
-#     pattern1 = r'^\s*(\d+)\s*[.:]\s*(.*)'
-#     # pattern1 = re.compile(pattern1)
-#     pattern2 = r'\(\d+\)'
-#     # pattern2 = re.compile(pattern2)
-#     patterns = [pattern1, pattern2]
-#     count_exists = defaultdict(int)
-#     for i, pat in enumerate(patterns):
-#         # exists = (pat.search(line) for line in lines)
-#         count = sum(1 for line in lines if re.compile(pat).search(line))
-#         # if exists:
-#         count_exists[i] += count
-#     max_key = max(count_exists, key=count_exists.get)
-#     pattern_real = patterns[max_key]
-#     for i, line in enumerate(lines):
-#         # m = re.match(r'^\s*(\d+)\s*[.:]\s*(.*)', line)
-#         m = re.match(pattern_real, line)
-#         if m:
-#             if m.re.groups >= 1:
-#                 # num = int(m.group(1))
-#                 num = int(re.search(r'\d+', m.group(1)).group())
-#             else:
-#                 # num = int(m.group(0))
-#                 num = int(re.search(r'\d+', m.group(0)).group())
-#             if num % 5 == 0:
-#                 anchors.append((i, num))
-#
-#     if not anchors:
-#         # raise ValueError("Нет ни одного источникового номера")
-#         dic_trlits[1] = text
-#         return dic_trlits
-#
-#     result_numbers = [None] * n
-#
-#     # --- сегмент ДО первого якоря (назад)
-#     first_idx, first_num = anchors[0]
-#     for i in range(first_idx, -1, -1):
-#         result_numbers[i] = first_num - (first_idx - i)
-#
-#     # --- сегменты МЕЖДУ якорями
-#     for (i1, n1), (i2, n2) in zip(anchors, anchors[1:]):
-#         result_numbers[i1] = n1
-#         for i in range(i1 + 1, i2):
-#             result_numbers[i] = n1 + (i - i1)
-#         result_numbers[i2] = n2  # источник всегда побеждает
-#
-#     # --- сегмент ПОСЛЕ последнего якоря
-#     last_idx, last_num = anchors[-1]
-#     for i in range(last_idx, n):
-#         result_numbers[i] = last_num + (i - last_idx)
-#
-#     # --- сборка результата
-#     # out = []
-#     for num, line in zip(result_numbers, lines):
-#         content = re.sub(r'^\s*\d+\s*[.:]\s*', '', line)
-#         # content = re.sub(r'^\d{1,2}[.:]?\s*', '', line)
-#         # out.append(f"{num}. {content}")
-#         dic_trlits[num] = content
-#
-#     # return "\n".join(out)
-#     return dic_trlits
-
-# file: renumber_trust_source.py
 
 import re
 from typing import Dict, List, Tuple
@@ -1654,8 +1616,12 @@ def process_text_last(text: str, lines_dict: Dict[int, str]) -> Tuple[List[str],
     # text = process_text(text, False)
     # форматирует диапазоны пробелами
     text = clear_from_ocr_for_text_last(text)
-    # упорядочивает по порядку последовательности диапазоно
+    # print("форматирует диапазоны пробелами")
+    # print(text)
+    # упорядочивает по порядку последовательности диапазонов
     text = clear_from_ocr_for_text(text)
+    # print("упорядочивает по порядку последовательности диапазонов")
+    # print(text)
 
     # range_pattern = re.compile(r'(\d{1,3})(?:\s*[-–—]\s*(\d{1,3}))?')
     # шаблон диапазона
@@ -1697,7 +1663,8 @@ def process_text_last(text: str, lines_dict: Dict[int, str]) -> Tuple[List[str],
         # которым соответствуют имеющиеся транслитерации
         text_start = match.end()
         text_end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
-        fragment = text[text_start:text_end].strip(" ()")
+        # fragment = text[text_start:text_end].strip(" ()")
+        fragment = text[text_start:text_end].strip()
         text_results.append(fragment)
 
     return dict_results, text_results
