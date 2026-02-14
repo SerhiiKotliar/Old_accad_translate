@@ -312,11 +312,13 @@ def cleaning_from_ocr_prelim(text: str) -> str:
     text = re.sub(
         # r'^\s*(?:[SK]\.|S\. K\.|S\.K\.|K\.\s*\d|\n|v|\. v)\s*$',
         # r'^\s*(?:[SK]\.|S\. ?K\.|K\.\s*\d+|v|\. v)\s*\r?\n?',
-        r'^\s*(?:S\.(?:\s*K\.)?|K\.(?:\s*\d+)?|v|\. v)\s*',
+        r'^\s*(?:S\.(?:\s*K\.)?|K\.(?:\s*)?|v|\. v)\s*',
         '',
         text,
         flags=re.MULTILINE
     )
+    # text = re.sub(r'^K\.\s*(\d+)', '\g<1>', text, flags=re.MULTILINE)
+    text = re.sub(r'^\w\.\s*K\.\s*\w+', '', text, flags=re.MULTILINE)
     subs = [
         (r'([a-z])ı\s+', r'\g<1>i '),
         (r'ı\s+ı', '11'),
@@ -326,7 +328,7 @@ def cleaning_from_ocr_prelim(text: str) -> str:
         (r'A1', 'Ai'),
         (r'([A-Za-zА-Яа-я])1\b', r'\g<1>i'),
         (r'([A-Za-zА-Яа-я]),(\d)', r'\g<1> \g<2>'),
-        (r'\s[iI]\s?(\d+)', r'1\1'),
+        (r'\s[iI]\s?(\d+)', r'1\g<1>'),
         (r'(?<=\d)o', '0'),
         (r'(?<=\d)°', '0'),
         (r'S([-–—])(\d)', r'5\g<1>\g<2>'),
@@ -624,10 +626,7 @@ def _extract_number(text: str) -> int:
     return int(match.group()) if match else None
 
 
-def _restore_sequence(
-    anchors: List[Tuple[int, int]],
-    total_length: int
-) -> List[int]:
+def _restore_sequence(anchors: List[Tuple[int, int]], total_length: int) -> List[int]:
     """Восстанавливает номера по якорям."""
     result = [None] * total_length
 
@@ -846,50 +845,37 @@ def align_and_mark_sentences(translit_text: str, translation_sentences: list, ma
 
 
 # -------------------------------------------------------------------------------------
-text_trlit = """um-ma dNİN. SUBUR-ba-ni-ma
-a-na Ija-na-na ù
-(J-şur-a-itar qi-bi-ma
-10 ma-na URUDU SİG5 sa Ta-ri-ta-ar
-5. ku-nu-ki-a a-na Ta-ri-is-ma-tim
-iju-za-let 44-4a-ru-um
-sa U-sur-sa-rtar na-si-i
-URUDU i-na lâ mu-di-4-tim
-si-it-ma a-na na-pâ-hi-i
-10. é ta-di-in-ma KU.BABBAR
+text_trlit = """55
+su-ma ta-dâ-ga-lct-ma
+e-ti-i15
+K. 10. si-im-tcim sa-6,i-qi-lâ-su
+A. y.
+a-hu-a a- tù-nu
+i4-da-ma KÙ. BABBAR
+sa..â -qi-lâ-su gis-im-14-ni
+A-sur li-tù-ul
+15. ki-ma sa a-tù-nu
+ta-qt-sa-ni-su-ni
+li-bi4 lu i-lza-du
+ù té-er-ta-ku-nu
+li-li-kam-ma
+20. ù a-na-ku a-sar
 K.
-I GIN ù 2 GIN
-A.y.
-é û-şa-hu-ru-si
-URUDU [ku-nu]-ki-a su-ma a-na
-KU.BABBAR [d(-Jna-u-ma a-na
-15. Ta-ri-is-ma-tim di-na-su-ma
-a-na ma-14 té-er-ti-a se-am
-lu ta-a-a-ma bu-uq-lam
-51
-it ba-pi-ra-am-ma té-pu-ui
-,
-KU.BABBAR ma-id ta-dcı-na-si-<û->ni
-20. té-er-ta-ku-nu li-li-kam
-a-na U-sur-ia-İstar qi-bi4-ma
-au-ma Fia-na-na la-su-u
-K.
-<sé(!)>-um a-ta-ma di-iu-ma
-té-er-ta-kà
-S. K. 25. li-li-kam a-hi a-ta
-Ku-ra-ra û-a-am lcı û-Şa-am
-cız-ni pè-ti
+KÙ. BABBARPL-ku-nu I GÎN.TA
+û-kâc-lu-ni
+S. K.
+ld ..4i-id-ma
+lu-sa-âs-qi-lâ-ku-nu-ti
+25. gis-im-lâ-ni
 """
 
-text_translate = """1-3İlabrat-bâni, ijanana ve Uşur-sa-rtar'a şöyle söylüyor: 4-'10 mina iyi Tarittar bakı-
-rını benim mührümle Uşur-sa-Iitar'ın uşağı Ijuzala (bayan) Taris-mâtum'a taşımıştır. 8-100
-kadin bakırı bilmeksizin demirciye vermesin ve 10-ı2(onlar) gümüşü o kadina 1 segel veyâ
-2 sege1 eksiltmesinler. 13-15Benim mührümle
-mle (gelen) bakırı eğer paraya çevirirseniz onu (bayan)
-Tari -mätum'a veriniz ve 16-18emrim gereğince tahalı satin alınız ki o kadin o çimlendirilmiş
-arpayı ve bira mayasını yapacak i9-20Parayi o kadina vereceğinize göre haberiniz bana gel-
-sin. 2'-23Uşur-sa-Istar'a söyle: Eğer Ijanana orada yoksa hububatı sen (alip) ona ver ve
-24-27haberin bana gelsin. Lutfen, Kurara'nın çikip çıkmadığını da bana bildir.
-
+text_translate = """ı-3İlabrat-bäni, Uşur-sa-İstar ve Amur-ili'ye şöyle söylüyor: 4-5Sizler kardeşlerim (ve)
+efendilerimsiziniz, dikkat ediniz! 5-72 1/2 mina tasfiye edilmiş gümüşü ve faizini Hubâbum'a
+tarttiriniz. 8-9Eğer siz bana (iyi nazarla) bakarsanız ben de (size karşı) yiğitçe davranırım.ıo
+Ona bedeli tarttiriniz. ı ı - ı2 Sizler kardeşlerimsiniz, dikkat ediniz ve ı2- ı 3parayı tarttiriniz
+ve hoşnutluğumu kazaniniz. "'Tanrı Asur şâhit olsun ki sizin onu bana hediye etmeniz
+(halinde) kalbim gerçekten memnun olacaktır.18-23Haberiniz buraya gelsin ve ben paranı-
+zın yerine l'er segel tutmaya dikkat edeyim ve24-25size tarttırsınlar, sevgimi kazaniniz!
 """
 # работа в первом блоке
 text_trlit = cleaning_from_ocr_prelim(text_trlit)
@@ -899,9 +885,9 @@ print(text_trlit)
 print(text_translate)
 text_trlit = process_text(text_trlit)
 text_translate = process_text(text_translate)
-# print("После основной чистки")
-# print(text_trlit)
-# print(text_translate)
+print("После основной чистки")
+print(text_trlit)
+print(text_translate)
 dict_trlit = renumber_trust_source(text_trlit)
 print("После подготовки к добавлению в список")
 print(dict_trlit)
