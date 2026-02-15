@@ -899,16 +899,25 @@ def clear_from_ocr_for_text_last(text: str) -> str:
     """Окончательно чистит мусор и форматирует по пробелам диапазоны"""
 
     pattern = re.compile(
-        r'(\d+)\s*-\s*(\d+)(\s+([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü]+))?'
+        r'\(?(\d+)\s*-\s*(\d+)\)?(\s+([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü]+))?'
+        r'|[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü.\s](\d{1,2})\s?\r?\n?[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü]'
     )
 
     def range_repl(m):
+
+        count = sum(x is not None for x in m.groups())
+        if count == 1:
+            gr_not_None = next(x for x in m.groups() if x is not None)
+            # оставляем только цифры
+            digits_only = re.sub(r'\D', '', gr_not_None)
+            return f"{digits_only}-{digits_only} "
+        # -------------------------------------------------
         left = m.group(1)
         right = m.group(2)
         word = m.group(4)
 
         # если правая часть длиннее
-        if len(right) > len(left) and len(left) > 1:
+        if len(right) > len(left) and int(right[0]) > 1:
             # отрезаем излишек
             main_right = right[:len(left)]
             # излишек
@@ -918,8 +927,8 @@ def clear_from_ocr_for_text_last(text: str) -> str:
             rest = text[m.end():]
 
             #  если справа дробь → удаляем extra
-            if re.match(r'\s*\d+/\d+', rest):
-                return f"{left}-{main_right}"
+            if re.match(r'\s*\d+\s*/\d+', rest):
+                return f"{left}-{main_right} "
 
             #  если справа слово (захваченное)
             if word:
@@ -938,6 +947,53 @@ def clear_from_ocr_for_text_last(text: str) -> str:
     text = pattern.sub(range_repl, text)
     text = re.sub(r'\s+', ' ', text).strip()
     # ----------------------------------------------------
+    # последовательная сортировка диапазонов
+
+    pattern = re.compile(r'\(?(\d+)-(\d+)\)?')
+
+    def merge_ranges(text: str) -> str:
+        matches = list(pattern.finditer(text))
+        if not matches:
+            return text
+
+        merged = []
+        last = None
+
+        for m in matches:
+            a = int(m.group(1))
+            b = int(m.group(2))
+
+            if last is None:
+                last = [a, b]
+                continue
+
+            diff = a - last[1]
+
+            if diff == 0:
+                if last[1] - last[0] > 0:
+                    last[1] = a - 1
+                else:
+                    a += 1
+
+            elif diff < 0:
+                a = last[1] - diff + 1
+
+            elif diff >= 2:
+                last[1] = a - 1
+
+            merged.append(tuple(last))
+            last = [a, b]
+
+        merged.append(tuple(last))
+
+        # 🔹 заменяем диапазоны на новые, сохраняя текст
+        result = text
+        for m, (a, b) in zip(reversed(matches), reversed(merged)):
+            result = result[:m.start()] + f"({a}-{b})" + result[m.end():]
+
+        return result
+    text = merge_ranges(text)
+
     # если не обёрнуты, оборачивает в скобки
     # pattern = re.compile(r'\(?(\d+)-(\d+)\)?'r'|\b\d{1,3}\b')
     pattern = re.compile(r'\(?(\d+)-(\d+)\)?')
@@ -949,8 +1005,11 @@ def clear_from_ocr_for_text_last(text: str) -> str:
         b = match.group(2)
         # if last_range:
         #     diff = int(a) - int(last_range["b"])
-        #     if diff > 1 or diff < -1:
+        #     if diff > 2 or diff < -1:
         #         return full
+        #     elif diff == 2:
+        #         a = int(last_range["b"]) + 1
+        #
         # last_range = {"b": b, "a": a}
 
         if full.startswith("(") and full.endswith(")"):
@@ -966,21 +1025,29 @@ def cleaning_from_ocr_prelim(text: str) -> str:
     text = re.sub(
         # r'^\s*(?:[SK]\.|S\. K\.|S\.K\.|K\.\s*\d|\n|v|\. v)\s*$',
         # r'^\s*(?:[SK]\.|S\. ?K\.|K\.\s*\d+|v|\. v)\s*\r?\n?',
-        r'^\s*(?:S\.(?:\s*K\.)?|K\.(?:\s*\d+)?|v|\. v)\s*',
+        r'^\s*(?:S\.(?:\s*K\.)?|K\.(?:\s*)?|v|\. v)\s*',
         '',
         text,
         flags=re.MULTILINE
     )
+    # text = re.sub(r'^K\.\s*(\d+)', '\g<1>', text, flags=re.MULTILINE)
+    text = re.sub(r'^\w\.\s*K\.\s*\w+', '', text, flags=re.MULTILINE)
     subs = [
-        (r'([a-z])ı\s+', r'\g<1>i '),
-        (r'ı\s+ı', '11'),
-        (r'ı\s+', '1'),
+        (r'([a-z])ı\s*', r'\g<1>i'),
+        (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])ı([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r'\g<1>i\g<2> '),
+        (r'\s*ı\s*ı', ' 11'),
+        (r'\s*ı\s*(\d)', r' 1\g<1>'),
+        (r'o', '0'),
         (r'ı', '1'),
-        (r'\s5([A-Za-zА-Яа-я])', r' S\g<1>'),
+        (r'\s5([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r' S\g<1>'),
+        (r'\s0([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r' O\g<1>'),
+        (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])0([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r' \g<1>O\g<2>'),
+        (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])5([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r' \g<1>S\g<2>'),
+        (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])1([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r' \g<1>i\g<2>'),
         (r'A1', 'Ai'),
-        (r'([A-Za-zА-Яа-я])1\b', r'\g<1>i'),
-        (r'([A-Za-zА-Яа-я]),(\d)', r'\g<1> \g<2>'),
-        (r'\s[iI]\s?(\d+)', r'1\1'),
+        (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])1', r'\g<1>i'),
+        (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü]),(\d)', r'\g<1> \g<2>'),
+        (r'\s[iI]\s?(\d+)', r'1\g<1>'),
         (r'(?<=\d)o', '0'),
         (r'(?<=\d)°', '0'),
         (r'S([-–—])(\d)', r'5\g<1>\g<2>'),
@@ -1003,7 +1070,7 @@ def cleaning_from_ocr_prelim(text: str) -> str:
         # (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])(\d+[\s*-–—\s*]\d+)([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r'\g<1>\s\g<2>\s\g<3>'),
         # (r'.\,.', ''),
         (r'\,\n', ''),
-        (r'^\d+\n', ''),
+        # (r'^\d+\n', ''),
         (r"(\d{1,2})'[-–—]\s*(\d{1,2})",r'\g<1>1-\g<2>'),
         (r"[-–—]'(\d{1,2})", r'-\g<1>'),
         (r'(\w)1(\w)', r'\g<1>i\g<2>')
@@ -1079,6 +1146,16 @@ def cleaning_from_ocr_prelim(text: str) -> str:
     def process_text1(text: str) -> str:
         return PATTERN1.sub(conditional_replace1, text)
     text = process_text1(text)
+
+    pattern3 = re.compile(r'^(\d+)\n', re.MULTILINE)
+
+    def repl(match: re.Match) -> str:
+        num = int(match.group(1))
+        if num % 5 == 0 and num <= 40:
+            return f"{num}."
+        return ""  # иначе удаляем
+
+    text = pattern3.sub(repl, text)
 
     pattern2 = re.compile(r'(\d\s*[-–—]?\s*)[\"“”«»„‟]([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])')
 
@@ -1616,12 +1693,12 @@ def process_text_last(text: str, lines_dict: Dict[int, str]) -> Tuple[List[str],
     # text = process_text(text, False)
     # форматирует диапазоны пробелами
     text = clear_from_ocr_for_text_last(text)
-    # print("форматирует диапазоны пробелами")
-    # print(text)
+    print("форматирует диапазоны пробелами")
+    print(text)
     # упорядочивает по порядку последовательности диапазонов
     text = clear_from_ocr_for_text(text)
-    # print("упорядочивает по порядку последовательности диапазонов")
-    # print(text)
+    print("упорядочивает по порядку последовательности диапазонов")
+    print(text)
 
     # range_pattern = re.compile(r'(\d{1,3})(?:\s*[-–—]\s*(\d{1,3}))?')
     # шаблон диапазона
@@ -2556,7 +2633,7 @@ for i in idx:
     print(f"{num + 1} пару блоков начинаем искать.\n")
     print(f"Index = {i}\n")
     # if i == 74880:
-    if i == 5275:
+    if i == 5173:
     #     не печатает переводы
     # if i == 25:
     # if i == 130319:

@@ -382,9 +382,10 @@ def cleaning_from_ocr_prelim(text: str) -> str:
         (r'([a-z])ı\s*', r'\g<1>i'),
         (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])ı([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r'\g<1>i\g<2> '),
         (r'\s*ı\s*ı', ' 11'),
-        (r'\s*ı\s*(\d)', ' 1\g<1>'),
+        (r'\s*ı\s*(\d)', r' 1\g<1>'),
         (r'o', '0'),
         (r'ı', '1'),
+        (r'4ssur', r'Assur'),
         (r'\s5([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r' S\g<1>'),
         (r'\s0([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r' O\g<1>'),
         (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])0([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r' \g<1>O\g<2>'),
@@ -416,9 +417,11 @@ def cleaning_from_ocr_prelim(text: str) -> str:
         # (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])(\d+[\s*-–—\s*]\d+)([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r'\g<1>\s\g<2>\s\g<3>'),
         # (r'.\,.', ''),
         (r'\,\n', ''),
+        (r'\n', ''),
         # (r'^\d+\n', ''),
         (r"(\d{1,2})'[-–—]\s*(\d{1,2})",r'\g<1>1-\g<2>'),
         (r"[-–—]'(\d{1,2})", r'-\g<1>'),
+        (r"\s'(\d)\s*[-–—]", r' 1\g<1>-'),
         (r'(\w)1(\w)', r'\g<1>i\g<2>')
         # (r'(?<=[^\W_]):(?=[^\W_])', ' '),
         # (r'\b\d{1,3}\s*[-–—-]\s*\d{1,3}\b', ''),
@@ -920,37 +923,43 @@ def align_and_mark_sentences(translit_text: str, translation_sentences: list, ma
 
 
 # -------------------------------------------------------------------------------------
-text_trlit = """55
-su-ma ta-dâ-ga-lct-ma
-e-ti-i15
-K. 10. si-im-tcim sa-6,i-qi-lâ-su
-A. y.
-a-hu-a a- tù-nu
-i4-da-ma KÙ. BABBAR
-sa..â -qi-lâ-su gis-im-14-ni
-A-sur li-tù-ul
-15. ki-ma sa a-tù-nu
-ta-qt-sa-ni-su-ni
-li-bi4 lu i-lza-du
-ù té-er-ta-ku-nu
-li-li-kam-ma
-20. ù a-na-ku a-sar
+text_trlit = """e-ba-ru-ti-a wa-ia-ba-am
+û-ld a-le-e
+is-tù tup-pd-kà
 K.
-KÙ. BABBARPL-ku-nu I GÎN.TA
-û-kâc-lu-ni
+sa a-0-er 4
+A. y. 15. ni-a-ti i-li-led
+té-mi-i i-şé-ri-ni
+a-lâ i-ba-s(-a
+a-pu-ùh li-bi4-im
+ta-da-nim a-su-mi
+20. E led-ri-im i-hi-id-ma
+za-ku-sd su-up-ra-ma
+li-ba-am di-na-am
+10 ma-na KU.BABBAR ù ni-is-ha-sû
+şa-ru-pu-um
+25. 1/2 ma-na 3 GIN K Ù. Kİ
+
+i-na û-za-an
+şû-ha-ar-té-en ia-ki-in
+1/3 ma-na 7 GIN KÙ. BABBAR
+K.
+ku-nu-ki-a Ü-ş, -ur-a-Ltar
+30. na-di-a-ku-um
 S. K.
-ld ..4i-id-ma
-lu-sa-âs-qi-lâ-ku-nu-ti
-25. gis-im-lâ-ni
+mi-ma a-nim Ü-şü-ur-a-Ltar
 """
 
-text_translate = """ı-3İlabrat-bäni, Uşur-sa-İstar ve Amur-ili'ye şöyle söylüyor: 4-5Sizler kardeşlerim (ve)
-efendilerimsiziniz, dikkat ediniz! 5-72 1/2 mina tasfiye edilmiş gümüşü ve faizini Hubâbum'a
-tarttiriniz. 8-9Eğer siz bana (iyi nazarla) bakarsanız ben de (size karşı) yiğitçe davranırım.ıo
-Ona bedeli tarttiriniz. ı ı - ı2 Sizler kardeşlerimsiniz, dikkat ediniz ve ı2- ı 3parayı tarttiriniz
-ve hoşnutluğumu kazaniniz. "'Tanrı Asur şâhit olsun ki sizin onu bana hediye etmeniz
-(halinde) kalbim gerçekten memnun olacaktır.18-23Haberiniz buraya gelsin ve ben paranı-
-zın yerine l'er segel tutmaya dikkat edeyim ve24-25size tarttırsınlar, sevgimi kazaniniz!
+text_translate = """1-314ssur-imitti'ye Assur-bel-awdtim şöyle söylüyor:4-8Ben sana hangi kötülüğü yaptim
+ki sen bana kötü kalpli oluyorsun ve benim kalayımı tuttun. Kalayımı tut bakalım!9Niçin
+sen bana rahat nefes aldırmıyorsun? "'"Dostluk
+2Dostluk yardimi uğruna oturmaya muktedir deği-
+lim. '3-"Senin, bizim dördümüzün adresine gelmiş olan mektubunda, bizim hakkimizda ha-
+berler bulunmuyor.l8-22Bana cesaret vermek yerine, karum ddiresine dikkat vet ve ona dâir
+tam bilgiyi bana yaz ve bana cesaret ver! 23-2710 mina tasfiye edilmiş gümüş ve nişhatum'unu
+1/2 mina 3 segel altin (hakkinda) senin her iki kadın hizmetçinin dikkatini çek.28-3ÖMührümü
+(hâvi) 1 1/2 mina 7 segel gümüşü Nur-sa-Ltar sana taşimaktadir. 31 Bütün bunlar Uşur-sa-
+itar('ın mesuliyetindedir).
 """
 # работа в первом блоке
 text_trlit = cleaning_from_ocr_prelim(text_trlit)
