@@ -941,17 +941,17 @@ def clear_from_ocr_for_text_last(text: str) -> str:
     # если не обёрнуты, оборачивает в скобки
     # pattern = re.compile(r'\(?(\d+)-(\d+)\)?'r'|\b\d{1,3}\b')
     pattern = re.compile(r'\(?(\d+)-(\d+)\)?')
-    last_range = None
+    # last_range = None
     def wrap_if_no_parentheses(match: re.Match) -> str:
-        nonlocal last_range
+        # nonlocal last_range
         full = match.group(0)  # всё совпадение
         a = match.group(1)
         b = match.group(2)
-        if last_range:
-            diff = int(a) - int(last_range["b"])
-            if diff > 1 or diff < -1:
-                return full
-        last_range = {"b": b, "a": a}
+        # if last_range:
+        #     diff = int(a) - int(last_range["b"])
+        #     if diff > 1 or diff < -1:
+        #         return full
+        # last_range = {"b": b, "a": a}
 
         if full.startswith("(") and full.endswith(")"):
             return full  # уже в скобках — оставить как есть
