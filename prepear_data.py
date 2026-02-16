@@ -123,7 +123,7 @@ TRANSLIT_LINE_RE = re.compile(r'''
 (?=.*(
         -[a-z]            |   # дефисная слоговая морфология
         \d                |   # индексные цифры (Puzur4)
-       \b(?:DINGIR|LUGAL|EN|NIN|DUMU|SAL|MUNUS|GURUŠ|LU₂|AMA|AB|AḪ|ŠEŠ|NIN₉|E₂|KI|URU|KUR|ABZU|A|IM|UD|U₄|ITI|MU|GIŠ|DU₃|GAR|GUB|TUKU|ŠU₂|ZI|NAM|ME|ŠU|IGI|DIŠ|MIN|EŠ|LIMMU|IA|KIŠIB|LÚ|AŠ|ŠA|BABBAR|KÙ|NUMUN|SU.|U.BA|TUG|NIGIN)\b  # формулы / логограммы
+       \b(?:DINGIR|LUGAL|EN|NIN|DUMU|SAL|MUNUS|GURUŠ|LU₂|AMA|AB|AḪ|ŠEŠ|NIN₉|E₂|KI|URU|KUR|ABZU|A|IM|UD|U₄|ITI|MU|GIŠ|DU₃|GAR|GUB|TUKU|ŠU₂|ZI|NAM|ME|ŠU|IGI|DIŠ|MIN|EŠ|LIMMU|IA|KIŠIB|LÚ|AŠ|ŠA|BABBAR|KÙ|NUMUN|SU.|U.BA|TUG|NIGIN|GIN|KÙ.|KI)\b  # формулы / логограммы
         [šḫṭṣ]            |   # диакритика
 ))
 (?!.*[.,;:!?])                # нет пунктуации перевода
@@ -926,21 +926,22 @@ def clear_from_ocr_for_text_last(text: str) -> str:
             # смотрим что идёт после всего совпадения
             rest = text[m.end():]
 
-            #  если справа дробь → удаляем extra
-            if re.match(r'\s*\d+\s*/\d+', rest):
+            #  если справа дробь или число → удаляем extra
+            if re.match(r'\s*?\d+(?:\s*/\s*\d+)?', rest):
                 return f"{left}-{main_right} "
 
             #  если справа слово (захваченное)
             if word:
-                extra_conv = (
-                    extra.replace('1', 'I')
-                         .replace('0', 'O')
-                         .replace('5', 'S')
-                )
-                return f"{left}-{main_right} {extra_conv}{word}"
+                if word[0].islower():
+                    extra_conv = (
+                        extra.replace('1', 'I')
+                             .replace('0', 'O')
+                             .replace('5', 'S')
+                    )
+                    return f"{left}-{main_right} {extra_conv}{word}"
 
             #  иначе просто удаляем extra
-            return f"{left}-{main_right} "
+            return f"{left}-{main_right} {word}"
 
         return m.group(0)
 
@@ -1039,6 +1040,7 @@ def cleaning_from_ocr_prelim(text: str) -> str:
         (r'\s*ı\s*(\d)', r' 1\g<1>'),
         (r'o', '0'),
         (r'ı', '1'),
+        (r'4ssur', r'Assur'),
         (r'\s5([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r' S\g<1>'),
         (r'\s0([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r' O\g<1>'),
         (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])0([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r' \g<1>O\g<2>'),
@@ -1070,10 +1072,14 @@ def cleaning_from_ocr_prelim(text: str) -> str:
         # (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])(\d+[\s*-–—\s*]\d+)([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r'\g<1>\s\g<2>\s\g<3>'),
         # (r'.\,.', ''),
         (r'\,\n', ''),
+        (r'^\n', ''),
         # (r'^\d+\n', ''),
         (r"(\d{1,2})'[-–—]\s*(\d{1,2})",r'\g<1>1-\g<2>'),
         (r"[-–—]'(\d{1,2})", r'-\g<1>'),
-        (r'(\w)1(\w)', r'\g<1>i\g<2>')
+        (r"\s'(\d)\s*[-–—]", r' 1\g<1>-'),
+        (r'(\w)1(\w)', r'\g<1>i\g<2>'),
+        (r'K Ù\.', r'KÙ\.'),
+        (r'\"\'\"', ''),
         # (r'(?<=[^\W_]):(?=[^\W_])', ' '),
         # (r'\b\d{1,3}\s*[-–—-]\s*\d{1,3}\b', ''),
         # (r'§', 'S'),
@@ -1204,6 +1210,7 @@ def cleaning_from_ocr(text: str, trlit: bool = True) -> str:
             # (r'(?<!\d)([^\W\d_])4(?=[-–—])', r'\g<1>h'),
             (r'(.)\,(.)', r'\g<1>\g<2>'),
             (r'\,\n', ''),
+            (r'\\', ''),
             #(r'(?<=[^\W_]):(?=[^\W_])', ' '),
             # (r'\b\d{1,3}\s*[-–—-]\s*\d{1,3}\b', ''),
             # (r'§', 'S'),
@@ -1287,6 +1294,29 @@ def process_text(text, trlit: bool = True):
     processed_lines = [cleaning_from_ocr(line, trlit) for line in lines]
     return ''.join(processed_lines)
 
+def choose_pattern(text: str):
+    patterns = {
+        "paren_both": r"\(\s*\d+(?:\s*[-–—]\s*\d+)?\s*\)",  # (12) (12-15)
+        "paren_right": r"\d+(?:\s*[-–—]\s*\d+)?\s*\)",  # 12) 12-15)
+        "quote_right": r"\d+(?:\s*[-–—]\s*\d+)?\s*'",  # 12' 12-15'
+        "plain": r"\b\s*\d+(?:\s*[-–—]\s*\d+)?\s*\b"  # 12 12-15
+    }
+
+    def detect_numbering_style(text):
+        counts = {}
+
+        for name, pat in patterns.items():
+            matches = re.findall(pat, text)
+            counts[name] = len(matches)
+
+        return counts
+
+    counts = detect_numbering_style(text)
+    style = max(counts, key=counts.get)
+    pattern = patterns[style]
+    return pattern
+
+
 def search_for_extract_ankara(text: str):
     # ------------------------------------------------
     text_translate = ""
@@ -1302,8 +1332,10 @@ def search_for_extract_ankara(text: str):
     pos_end_tr = 0
     pos_start_tr = 0
     flag_vyp = False
+    pattern = choose_pattern(text)
+    pos_start_translates_all = re.finditer(pattern, text, flags=re.MULTILINE)
     # позиции начала перевода поиск диапазонов
-    pos_start_translates_all = re.finditer(r'\(?[^\S\n]*(\d{1,3})[^\S\n]*[-–—][^\S\n]*(\d{1,3})[^\S\n]*\)?(?=[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', text, flags=re.MULTILINE)
+    # pos_start_translates_all = re.finditer(r'\(?[^\S\n]*(\d{1,3})[^\S\n]*[-–—][^\S\n]*(\d{1,3})[^\S\n]*\)?(?=[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', text, flags=re.MULTILINE)
     # есть ли диапазоны
     if pos_start_translates_all:
         for pos_st_transl in pos_start_translates_all:
@@ -2413,8 +2445,6 @@ def process_text_and_build_csv_rows(text: str):
                     str_txt_1[i % len_arr], flag2, close_pos = extract_function_2[i % len_arr](text_tuple, next_pos)
                 else:
                     str_txt_1[i % len_arr], flag2, close_pos = extract_function_2[i % len_arr](text, next_pos)
-                # поиск по круглым скобкам потом по одинарным кавычкам
-                # str_txt_1[i % len_arr], flag2, close_pos = extract_function_2[i % len_arr](text, next_pos)
                 if flag2:
                     print("Найден 2 блок")
                     translate_str_arr = []
@@ -2561,18 +2591,17 @@ def split_accad_and_translate(csv_lines, marker="<sent>"):
 
     return pd.DataFrame(rows, columns=["id", "accad_str", "translate"])
 
-#%%
-def print_file_head(path, n=5, encoding="utf-8"):
-    with open(path, "r", encoding=encoding) as f:
-        for i, line in enumerate(f):
-            if i >= n:
-                break
-            print(f"{i}: {line.rstrip()}")
+# def print_file_head(path, n=5, encoding="utf-8"):
+#     with open(path, "r", encoding=encoding) as f:
+#         for i, line in enumerate(f):
+#             if i >= n:
+#                 break
+#             print(f"{i}: {line.rstrip()}")
 
 
 # Завантаження даних з CSV-файлу
-thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
-# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
+thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
 # ----------------------------------------

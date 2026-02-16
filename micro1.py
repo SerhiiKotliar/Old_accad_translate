@@ -159,13 +159,24 @@ def clear_from_ocr_for_text(text: str) -> str:
     for i, item in enumerate(parsed):
         if item["type"] == "range":
             # is_del = False
-            if last_range and item["a"] <= last_range["b"]:
+            if last_range: # and item["a"] <= last_range["b"]:
                 diff = item["a"] - last_range["b"]
-                if diff > 1 or diff < -1:
-                    del_items.append(i)
-                    # is_del = True
-                    continue
-                last_range["b"] = item["a"] - 1
+                # if diff > 1 or diff < -1:
+                    # del_items.append(i)
+                    # continue
+                if diff == 0:
+                    if last_range["b"] > last_range["a"]:
+                        last_range["b"] = item["a"] - 1
+                    else:
+                        item["a"] += 1
+                elif diff < 0:
+                    item["a"] = last_range["b"] + 1
+                    if item["a"] == item["b"]:
+                        item["b"] = item["a"] + 1
+                elif diff > 0:
+                    item["a"] = last_range["b"] + 1
+
+                # last_range["b"] = item["a"] - 1
                 if last_range["b"] < last_range["a"]:
                     last_range["b"] = last_range["a"]
             # if is_del:
@@ -245,8 +256,8 @@ def clear_from_ocr_for_text_last(text: str) -> str:
     """Окончательно чистит мусор и форматирует по пробелам диапазоны"""
 
     pattern = re.compile(
-        r'\(?(\d+)\s*-\s*(\d+)\)?(\s+([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü]+))?'
-        r'|[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü.\s](\d{1,2})\s?\r?\n?[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü]'
+        r'\(?(\d+)\s*-\s*(\d+)\)?(\s?([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü]+))?'
+        r'|[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü.!\s?](\d{1,2})\s?\r?\n?[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü]'
     )
 
     def range_repl(m):
@@ -272,21 +283,22 @@ def clear_from_ocr_for_text_last(text: str) -> str:
             # смотрим что идёт после всего совпадения
             rest = text[m.end():]
 
-            #  если справа дробь → удаляем extra
-            if re.match(r'\s*\d+\s*/\d+', rest):
+            #  если справа дробь или число → удаляем extra
+            if re.match(r'\s*?\d+(?:\s*/\s*\d+)?', rest):
                 return f"{left}-{main_right} "
 
             #  если справа слово (захваченное)
             if word:
-                extra_conv = (
-                    extra.replace('1', 'I')
-                         .replace('0', 'O')
-                         .replace('5', 'S')
-                )
-                return f"{left}-{main_right} {extra_conv}{word}"
+                if word[0].islower():
+                    extra_conv = (
+                        extra.replace('1', 'I')
+                             .replace('0', 'O')
+                             .replace('5', 'S')
+                    )
+                    return f"{left}-{main_right} {extra_conv}{word}"
 
             #  иначе просто удаляем extra
-            return f"{left}-{main_right} "
+            return f"{left}-{main_right} {word}"
 
         return m.group(0)
 
@@ -304,17 +316,18 @@ def clear_from_ocr_for_text_last(text: str) -> str:
 
         merged = []
         last = None
-
+        i = 0
+        del_items = []
         for m in matches:
             a = int(m.group(1))
             b = int(m.group(2))
 
             if last is None:
                 last = [a, b]
+                i += 1
                 continue
 
             diff = a - last[1]
-
             if diff == 0:
                 if last[1] - last[0] > 0:
                     last[1] = a - 1
@@ -322,15 +335,37 @@ def clear_from_ocr_for_text_last(text: str) -> str:
                     a += 1
 
             elif diff < 0:
-                a = last[1] - diff + 1
-
-            elif diff >= 2:
-                last[1] = a - 1
+                if a == b:
+                    if abs(diff) > 1:
+                        del_items.append(i)
+                        i += 1
+                        continue
+                    else:
+                        a = last[1] + 1
+                        b = a
+                else:
+                    a = last[1] + 1
+                    if last[0] == last[1]:
+                        last[1] = last[0] + 1
+            elif diff > 0:
+                if a == b:
+                    if diff > 1:
+                        del_items.append(i)
+                        i += 1
+                        continue
+                else:
+                # last[1] = a - 1
+                    a = last[1] + 1
+            if last[1] < last[0]:
+                last[1] = last[0]
 
             merged.append(tuple(last))
             last = [a, b]
+            i += 1
 
         merged.append(tuple(last))
+        matches = [item for i, item in enumerate(matches) if i not in del_items]
+        merged = [item for i, item in enumerate(merged) if i not in del_items]
 
         # 🔹 заменяем диапазоны на новые, сохраняя текст
         result = text
@@ -417,12 +452,15 @@ def cleaning_from_ocr_prelim(text: str) -> str:
         # (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])(\d+[\s*-–—\s*]\d+)([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r'\g<1>\s\g<2>\s\g<3>'),
         # (r'.\,.', ''),
         (r'\,\n', ''),
-        (r'\n', ''),
+        (r'^\n', ''),
         # (r'^\d+\n', ''),
         (r"(\d{1,2})'[-–—]\s*(\d{1,2})",r'\g<1>1-\g<2>'),
         (r"[-–—]'(\d{1,2})", r'-\g<1>'),
         (r"\s'(\d)\s*[-–—]", r' 1\g<1>-'),
-        (r'(\w)1(\w)', r'\g<1>i\g<2>')
+        (r'(\w)1(\w)', r'\g<1>i\g<2>'),
+        (r'K Ù\.', r'KÙ\.'),
+        (r'\"\'\"', ''),
+        (r'(?<![A-Za-z])\s?l\s?(\d+)', r'1\g<1>'),
         # (r'(?<=[^\W_]):(?=[^\W_])', ' '),
         # (r'\b\d{1,3}\s*[-–—-]\s*\d{1,3}\b', ''),
         # (r'§', 'S'),
@@ -553,6 +591,7 @@ def cleaning_from_ocr(text: str, trlit: bool = True) -> str:
             # (r'(?<!\d)([^\W\d_])4(?=[-–—])', r'\g<1>h'),
             (r'(.)\,(.)', r'\g<1>\g<2>'),
             (r'\,\n', ''),
+            (r'\\', ''),
             #(r'(?<=[^\W_]):(?=[^\W_])', ' '),
             # (r'\b\d{1,3}\s*[-–—-]\s*\d{1,3}\b', ''),
             # (r'§', 'S'),
@@ -805,6 +844,29 @@ def renumber_trust_source(text: str) -> Dict[int, str]:
 
     return {1: text.strip()}
 
+def choose_pattern(text: str):
+    patterns = {
+        "paren_both": r"\(\s*\d+(?:\s*[-–—]\s*\d+)?\s*\)",  # (12) (12-15)
+        "paren_right": r"\d+(?:\s*[-–—]\s*\d+)?\s*\)",  # 12) 12-15)
+        "quote_right": r"\d+(?:\s*[-–—]\s*\d+)?\s*'",  # 12' 12-15'
+        "plain": r"\b\s*\d+(?:\s*[-–—]\s*\d+)?\s*\b"  # 12 12-15
+    }
+
+    def detect_numbering_style(text):
+        counts = {}
+
+        for name, pat in patterns.items():
+            matches = re.findall(pat, text)
+            counts[name] = len(matches)
+
+        return counts
+
+    counts = detect_numbering_style(text)
+    style = max(counts, key=counts.get)
+    pattern = patterns[style]
+    return re.compile(pattern)
+
+
 def normalize_akkadian_determinatives(text: str) -> str:
     for sup, norm in DETERMINATIVE_MAP.items():
         text = text.replace(sup, norm)
@@ -961,6 +1023,9 @@ tam bilgiyi bana yaz ve bana cesaret ver! 23-2710 mina tasfiye edilmiş gümüş
 (hâvi) 1 1/2 mina 7 segel gümüşü Nur-sa-Ltar sana taşimaktadir. 31 Bütün bunlar Uşur-sa-
 itar('ın mesuliyetindedir).
 """
+print("До предварительной чистки")
+print(text_trlit)
+print(text_translate)
 # работа в первом блоке
 text_trlit = cleaning_from_ocr_prelim(text_trlit)
 text_translate = cleaning_from_ocr_prelim(text_translate)
