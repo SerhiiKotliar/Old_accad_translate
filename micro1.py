@@ -864,7 +864,7 @@ def choose_pattern(text: str):
     counts = detect_numbering_style(text)
     style = max(counts, key=counts.get)
     pattern = patterns[style]
-    return re.compile(pattern)
+    return pattern
 
 
 def normalize_akkadian_determinatives(text: str) -> str:
