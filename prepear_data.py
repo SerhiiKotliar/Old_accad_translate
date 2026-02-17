@@ -123,7 +123,7 @@ TRANSLIT_LINE_RE = re.compile(r'''
 (?=.*(
         -[a-z]            |   # дефисная слоговая морфология
         \d                |   # индексные цифры (Puzur4)
-       \b(?:DINGIR|LUGAL|EN|NIN|DUMU|SAL|MUNUS|GURUŠ|LU₂|AMA|AB|AḪ|ŠEŠ|NIN₉|E₂|KI|URU|KUR|ABZU|A|IM|UD|U₄|ITI|MU|GIŠ|DU₃|GAR|GUB|TUKU|ŠU₂|ZI|NAM|ME|ŠU|IGI|DIŠ|MIN|EŠ|LIMMU|IA|KIŠIB|LÚ|AŠ|ŠA|BABBAR|KÙ|NUMUN|SU.|U.BA|TUG|NIGIN|GIN|KÙ.|KI)\b  # формулы / логограммы
+       \b(?:DINGIR|LUGAL|EN|NIN|DUMU|SAL|MUNUS|GURUŠ|LU₂|AMA|AB|AḪ|ŠEŠ|NIN₉|E₂|KI|URU|KUR|ABZU|A|IM|UD|U₄|ITI|MU|GIŠ|DU₃|GAR|GUB|TUKU|ŠU₂|ZI|NAM|ME|ŠU|IGI|DIŠ|MIN|EŠ|LIMMU|IA|KIŠIB|LÚ|AŠ|ŠA|BABBAR|KÙ|NUMUN|SU.|U.BA|TUG|NIGIN|GIN|KÙ.|TA)\b  # формулы / логограммы
         [šḫṭṣ]            |   # диакритика
 ))
 (?!.*[.,;:!?])                # нет пунктуации перевода
@@ -488,6 +488,7 @@ def extract_transliteration(text) -> list:
         has_basic_format = (
                 TRANSLIT_LINE_RE.match(line_trimmed) and
                 MORPHEME_SEP_RE.search(line_trimmed)
+                if len(line_trimmed) > 25 else TRANSLIT_LINE_RE.match(line_trimmed)
         )
         if has_basic_format:
             is_transliteration = True
@@ -554,7 +555,7 @@ def extract_transliteration(text) -> list:
         num_defis = line.count('-')
         num_div = num_morf + num_defis
         # мало дефисов в строке
-        if (num_div > 0 and len(line) / num_div - 1 > 16) or num_div == 0:
+        if (num_div > 0 and len(line) / num_div - 1 > 16) or num_div == 0 and not has_basic_format:
             is_transliteration = False
 
         if is_transliteration:
@@ -759,6 +760,7 @@ def clear_from_ocr_for_text(text: str) -> str:
     """Упорядочивает последовательно значения диапазонов
     и оборачивает в круглые скобки"""
     # --- 1. OCR-мусор: " 3A" → "3-A"
+    global Pattern_search
     # text = re.sub(r'(\s\d)\s*(\d\w)', r'\1-\2', text)
 
     # token_pattern = re.compile(
@@ -787,6 +789,8 @@ def clear_from_ocr_for_text(text: str) -> str:
                 "type": "range",
                 "a": m.group("start"),
                 "b": m.group("end"),
+                "start": m.span()[0],
+                "end": m.span()[1],
                 # "text": m.group()
                 # "text": token
             })
@@ -797,6 +801,8 @@ def clear_from_ocr_for_text(text: str) -> str:
             tokens.append({
                 "type": "broken",
                 "b": m.group("only_end"),
+                "start": m.span()[0],
+                "end": m.span()[1],
                 # "text": m.group()
                 # "text": token
             })
@@ -807,6 +813,8 @@ def clear_from_ocr_for_text(text: str) -> str:
             tokens.append({
                 "type": "single",
                 "a": m.group("number"),
+                "start": m.span()[0],
+                "end": m.span()[1],
                 # "text": m.group()
                 # "text": token
             })
@@ -851,14 +859,16 @@ def clear_from_ocr_for_text(text: str) -> str:
         if last_range is None:
             last_range = item
             continue
+        if item["type"] != "broken":
+            diff = int(item["a"]) - int(last_range["b"])
         if item["type"] == "range":
             # ----------------------------------------------------
-            diff = item["a"] - last_range["b"]
+            # diff = int(item["a"]) - int(last_range["b"])
             if diff == 0:
-                if last_range["b"] - last_range["a"] > 0:
-                    last_range["b"] = item["a"] - 1
+                if int(last_range["b"]) - int(last_range["a"]) > 0:
+                    last_range["b"] = str(int(item["a"]) - 1)
                 else:
-                    item["a"] += 1
+                    item["a"] =str(int(item["a"]) + 1)
 
             elif diff < 0:
                 if item["a"] == item["b"]:
@@ -867,12 +877,12 @@ def clear_from_ocr_for_text(text: str) -> str:
                         i += 1
                         continue
                     else:
-                        item["a"] = last_range["b"] + 1
+                        item["a"] = str(int(last_range["b"]) + 1)
                         item["b"] = item["a"]
                 else:
-                    item["a"] = last_range["b"] + 1
+                    item["a"] = str(int(last_range["b"]) + 1)
                     if last_range["a"] == last_range["b"]:
-                        last_range["b"] = last_range["a"] + 1
+                        last_range["b"] = str(int(last_range["a"]) + 1)
             elif diff > 0:
                 if item["a"] == item["b"]:
                     if diff > 1:
@@ -881,7 +891,7 @@ def clear_from_ocr_for_text(text: str) -> str:
                         continue
                 else:
                     # last[1] = a - 1
-                    item["a"] = last_range["b"]  + 1
+                    item["a"] = str(int(last_range["b"])  + 1)
             # merged.append(last_range)
             # last = [a, b]
             # if last_range["b"] < last_range["a"]:
@@ -898,9 +908,9 @@ def clear_from_ocr_for_text(text: str) -> str:
             # last_range = item
 
         elif item["type"] == "broken": # and last_range:
-            a = last_range["b"] + 1
+            item["a"] = str(int(last_range["b"]) + 1)
             item["type"] = "range"
-            item["a"] = a
+            # item["a"] = a
         # --------------------------------------------------
         #     last_range = item
         # для обнаружения отдельных чисел
@@ -910,18 +920,18 @@ def clear_from_ocr_for_text(text: str) -> str:
         elif item["type"] == "single":
             is_del = False
             # if last_range and item["a"]:
-            str_it = str(item["a"])
-            if len(str_it) > 2:
+            # str_it = item["a"]
+            if len(item["a"]) > 2:
                 del_items.append(i)
                 is_del = True
                 # str_it = str_it[:2]
                 # item["a"] = int(str_it)
-            diff = int(item["a"]) - int(last_range["b"])
+            # diff = int(item["a"]) - int(last_range["b"])
             if diff> 1 or diff < -1:
                 del_items.append(i)
                 is_del = True
             elif diff == -1 or diff == 0:
-                item["a"] = last_range["b"] + 1
+                item["a"] = str(int(last_range["b"]) + 1)
             # if last_range and item["a"] <= last_range["b"]:
             #     item["a"] = last_range["b"] + 1
             if is_del:
@@ -1164,6 +1174,7 @@ def cleaning_from_ocr_prelim(text: str) -> str:
         (r'(\w)1(\w)', r'\g<1>i\g<2>'),
         (r'K Ù\.', r'KÙ\.'),
         (r'\"\'\"', ''),
+        (r'^(\d+\.)\r?\n?', r'\g<1>'),
         # (r'(?<=[^\W_]):(?=[^\W_])', ' '),
         # (r'\b\d{1,3}\s*[-–—-]\s*\d{1,3}\b', ''),
         # (r'§', 'S'),
@@ -1407,6 +1418,7 @@ def choose_pattern(text: str):
 
 def search_for_extract_ankara(text: str):
     # ------------------------------------------------
+    global Pattern_search
     text_translate = ""
     text_transliterate = ""
     pos_end_translate = int
@@ -1428,7 +1440,7 @@ def search_for_extract_ankara(text: str):
     # есть ли диапазоны
     if pos_start_translates_all:
         for pos_st_transl in pos_start_translates_all:
-            if pos_st_transl.group("start"):
+            if pos_st_transl and pos_st_transl.group("start"):
                 first, second = map(int, re.split(r"[-–—]", pos_st_transl.group()))
                 if first < second:
                     # возможные старты перевода
@@ -1615,15 +1627,18 @@ def renumber_trust_source(text: str) -> Dict[int, str]:
     Если строка не содержит номера,
     номер восстанавливается по ближайшим якорям.
     """
+    global Pattern_search
     if not text.strip():
         return {}
 
     pattern_line_start = re.compile(r'^\s*(\d+)\s*[.:]')
-    inline_patterns = [
-        r'\(([^)]*\d+[^)]*)\)',
-        r'(\d+)\)',
-        r'(\d+)\'',
-    ]
+    # inline_patterns = [
+    #     r'\(([^)]*\d+[^)]*)\)',
+    #     r'(\d+)\)',
+    #     r'(\d+)\'',
+    # ]
+    inline_pattern = Pattern_search
+
 
     lines = text.splitlines()
 
@@ -1648,30 +1663,55 @@ def renumber_trust_source(text: str) -> Dict[int, str]:
         return result
 
     # --- РЕЖИМ 2: сплошной текст
-    for pat in inline_patterns:
-        compiled = re.compile(pat)
-        matches = list(compiled.finditer(text))
-        if not matches:
-            continue
+    # for pat in inline_patterns:
+    #     compiled = re.compile(pat)
+    #     matches = list(compiled.finditer(text))
+    #     if not matches:
+    #         continue
+    #
+    #     segments = []
+    #     anchors: List[Tuple[int, int]] = []
+    #
+    #     for i, match in enumerate(matches):
+    #         num = _extract_number(match.group(0))
+    #         start = match.end()
+    #         end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+    #         content = text[start:end].strip()
+    #         segments.append(content)
+    #
+    #         if num % 5 == 0:
+    #             anchors.append((i, num))
+    #
+    #     numbers = _restore_sequence(anchors, len(segments))
+    #
+    #     return {num: seg for num, seg in zip(numbers, segments)}
 
-        segments = []
-        anchors: List[Tuple[int, int]] = []
+    # for pat in inline_patterns:
+    compiled = re.compile(inline_pattern)
+    # matches = list(compiled.finditer(text))
+    matches = [m.group("number") for m in compiled.finditer(text) if m.group("number")]
 
-        for i, match in enumerate(matches):
-            num = _extract_number(match.group(0))
-            start = match.end()
-            end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
-            content = text[start:end].strip()
-            segments.append(content)
+    if not matches:
+        return {1: text.strip()}
 
-            if num % 5 == 0:
-                anchors.append((i, num))
+    segments = []
+    anchors: List[Tuple[int, int]] = []
 
-        numbers = _restore_sequence(anchors, len(segments))
+    for i, match in enumerate(matches):
+        num = _extract_number(match.group(0))
+        start = match.end()
+        end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+        content = text[start:end].strip()
+        segments.append(content)
 
-        return {num: seg for num, seg in zip(numbers, segments)}
+        if num % 5 == 0:
+            anchors.append((i, num))
 
-    return {1: text.strip()}
+    numbers = _restore_sequence(anchors, len(segments))
+
+    return {num: seg for num, seg in zip(numbers, segments)}
+
+    # return {1: text.strip()}
 
 
 
@@ -1679,6 +1719,7 @@ def renumber_trust_source(text: str) -> Dict[int, str]:
 def process_text_last(text: str, lines_dict: Dict[int, str]) -> Tuple[List[str], List[str]]:
     # очистка от мусора текста
     # text = process_text(text, False)
+    global Pattern_search
     # форматирует диапазоны пробелами
     text = clear_from_ocr_for_text_last(text)
     print("форматирует диапазоны пробелами")
@@ -1690,7 +1731,8 @@ def process_text_last(text: str, lines_dict: Dict[int, str]) -> Tuple[List[str],
 
     # range_pattern = re.compile(r'(\d{1,3})(?:\s*[-–—]\s*(\d{1,3}))?')
     # шаблон диапазона
-    range_pattern = re.compile(r'\b(\d{1,3})\s*[-–—]\s*(\d{1,3})\b|(?<!\d)[-–—]\s*(\d{1,3})\b')
+    range_pattern = re.compile(Pattern_search)
+    # range_pattern = re.compile(r'\b(\d{1,3})\s*[-–—]\s*(\d{1,3})\b|(?<!\d)[-–—]\s*(\d{1,3})\b')
     # разделение текста по диапазонам
     matches = list(range_pattern.finditer(text))
 
@@ -1709,28 +1751,31 @@ def process_text_last(text: str, lines_dict: Dict[int, str]) -> Tuple[List[str],
         return dict_results, text_results
     # перебор текста перевода по диапазонам
     for i, match in enumerate(matches):
-        # начало дапазона
-        start = int(match.group(1))
-        # конец диапазона
-        # end = int(match.group(2)) if match.group(2) else start + 1
-        end = int(match.group(2)) if match.group(2) else start
-        # для случая типа 1-4 5-6 7-8
-        keys = range(start, end+1)
-        # # для случая типа 1-4 4-7 7-10
-        # keys = range(start, end)
-        # пропуск тех строк транслитерации, что отсутствуют в диапазонах перевода
-        # или присутствуют в неполном количестве
-        if not all(k in lines_dict for k in keys):
-            continue
+        if match.group("start") and match.group("end"):
+            # начало дапазона
+            # start = int(match.group(1))
+            start = int(match.group("start"))
+            # конец диапазона
+            # end = int(match.group(2)) if match.group(2) else start + 1
+            # end = int(match.group(2)) if match.group(2) else start
+            end = int(match.group("end")) if match.group("end") else start
+            # для случая типа 1-4 5-6 7-8
+            keys = range(start, end+1)
+            # # для случая типа 1-4 4-7 7-10
+            # keys = range(start, end)
+            # пропуск тех строк транслитерации, что отсутствуют в диапазонах перевода
+            # или присутствуют в неполном количестве
+            if not all(k in lines_dict for k in keys):
+                continue
 
-        dict_results.append(" ".join(lines_dict[k] for k in keys))
-        # сбор текста из участков с диапазонами,
-        # которым соответствуют имеющиеся транслитерации
-        text_start = match.end()
-        text_end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
-        # fragment = text[text_start:text_end].strip(" ()")
-        fragment = text[text_start:text_end].strip()
-        text_results.append(fragment)
+            dict_results.append(" ".join(lines_dict[k] for k in keys))
+            # сбор текста из участков с диапазонами,
+            # которым соответствуют имеющиеся транслитерации
+            text_start = match.end()
+            text_end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+            # fragment = text[text_start:text_end].strip(" ()")
+            fragment = text[text_start:text_end].strip()
+            text_results.append(fragment)
 
     return dict_results, text_results
 
@@ -2528,8 +2573,8 @@ def split_accad_and_translate(csv_lines, marker="<sent>"):
 
 
 # Завантаження даних з CSV-файлу
-# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
-thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
+# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
 # ----------------------------------------
@@ -2590,7 +2635,7 @@ for i in idx:
     print(f"{num + 1} пару блоков начинаем искать.\n")
     print(f"Index = {i}\n")
     # if i == 74880:
-    if i == 5173:
+    if i == 5235:
     #     не печатает переводы
     # if i == 25:
     # if i == 130319:
