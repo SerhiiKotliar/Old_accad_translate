@@ -856,6 +856,7 @@ def clear_from_ocr_for_text(text: str) -> str:
     merged = []
     del_items = []
     for i, item in enumerate(parsed):
+        is_del = False
         if last_range is None:
             last_range = item
             continue
@@ -863,7 +864,7 @@ def clear_from_ocr_for_text(text: str) -> str:
             diff = int(item["a"]) - int(last_range["b"])
         if item["type"] == "range":
             # ----------------------------------------------------
-            # diff = int(item["a"]) - int(last_range["b"])
+            # is_del = False
             if diff == 0:
                 if int(last_range["b"]) - int(last_range["a"]) > 0:
                     last_range["b"] = str(int(item["a"]) - 1)
@@ -874,8 +875,9 @@ def clear_from_ocr_for_text(text: str) -> str:
                 if item["a"] == item["b"]:
                     if abs(diff) > 1:
                         del_items.append(i)
-                        i += 1
-                        continue
+                        is_del = True
+                        # i += 1
+                        # continue
                     else:
                         item["a"] = str(int(last_range["b"]) + 1)
                         item["b"] = item["a"]
@@ -887,64 +889,33 @@ def clear_from_ocr_for_text(text: str) -> str:
                 if item["a"] == item["b"]:
                     if diff > 1:
                         del_items.append(i)
-                        i += 1
-                        continue
+                        is_del = True
+                        # i += 1
+                        # continue
                 else:
-                    # last[1] = a - 1
                     item["a"] = str(int(last_range["b"])  + 1)
-            # merged.append(last_range)
-            # last = [a, b]
-            # if last_range["b"] < last_range["a"]:
-            #     last_range["b"] = last_range["a"]
-            # -------------------------------------------------------
-            # if last_range: #and item["a"] <= last_range["b"]:
-            #     diff = item["a"] - last_range["b"]
-            #     if diff > 1 or diff < -1:
-            #         del_items.append(i)
-            #         continue
-            #     last_range["b"] = item["a"] - 1
-            #     if last_range["b"] < last_range["a"]:
-            #         last_range["b"] = last_range["a"]
-            # last_range = item
-
         elif item["type"] == "broken": # and last_range:
             item["a"] = str(int(last_range["b"]) + 1)
             item["type"] = "range"
-            # item["a"] = a
-        # --------------------------------------------------
-        #     last_range = item
-        # для обнаружения отдельных чисел
-        # elif item["type"] == "single":
-        #     if last_range and item["n"] <= last_range["b"]:
-        #         item["n"] = last_range["b"] + 1
         elif item["type"] == "single":
-            is_del = False
-            # if last_range and item["a"]:
-            # str_it = item["a"]
-            if len(item["a"]) > 2:
+            # is_del = False
+            if len(item["a"]) > 2 or diff> 1 or diff < -1:
+                # item["b"] = item["a"]
                 del_items.append(i)
                 is_del = True
-                # str_it = str_it[:2]
-                # item["a"] = int(str_it)
-            # diff = int(item["a"]) - int(last_range["b"])
-            if diff> 1 or diff < -1:
-                del_items.append(i)
-                is_del = True
+            # if diff> 1 or diff < -1:
+            #     item["b"] = item["a"]
+            #     del_items.append(i)
+                # is_del = True
             elif diff == -1 or diff == 0:
                 item["a"] = str(int(last_range["b"]) + 1)
-            # if last_range and item["a"] <= last_range["b"]:
-            #     item["a"] = last_range["b"] + 1
-            if is_del:
-                continue
-            # if not last_range:
-            #     del_items.append(i)
-            #     # is_del = True
+            # if is_del:
             #     continue
             item["type"] = "range"
             item["b"] = item["a"]
-            # last_range = item
         merged.append(last_range)
-        last_range = item
+        if not is_del:
+            last_range = item
     merged.append(last_range)
     # parsed = [item for i, item in enumerate(parsed) if i not in del_items]
     merged = [item for i, item in enumerate(merged) if i not in del_items]
@@ -1010,7 +981,7 @@ def clear_from_ocr_for_text_last(text: str) -> str:
             word = m.group(4)
 
             # если правая часть длиннее
-            if len(right) > len(left) and int(right[0]) > 1:
+            if (len(right) > len(left) and len(left) == 1 and right[:1] == "1") or (len(right) > len(left) and len(left) > 1):
                 # отрезаем излишек
                 main_right = right[:len(left)]
                 # излишек
@@ -1141,7 +1112,7 @@ def cleaning_from_ocr_prelim(text: str) -> str:
         (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])5([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r' \g<1>S\g<2>'),
         (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])1([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r' \g<1>i\g<2>'),
         (r'A1', 'Ai'),
-        (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])1', r'\g<1>i'),
+        (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])1\s', r'\g<1>i '),
         (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü]),(\d)', r'\g<1> \g<2>'),
         (r'\s[iI]\s?(\d+)', r'1\g<1>'),
         (r'(?<=\d)o', '0'),
@@ -1401,19 +1372,76 @@ def choose_pattern(text: str):
   # 12 12-15
     }
 
+    # def detect_numbering_style(text):
+    #     counts = {}
+    #
+    #     for name, pat in patterns.items():
+    #         matches = re.findall(pat, text)
+    #         counts[name] = len(matches)
+    #
+    #     return counts
+    #
+    # counts = detect_numbering_style(text)
+    # style = max(counts, key=counts.get)
+    # pattern = patterns[style]
+    # return pattern
     def detect_numbering_style(text):
         counts = {}
-
         for name, pat in patterns.items():
             matches = re.findall(pat, text)
             counts[name] = len(matches)
-
         return counts
 
     counts = detect_numbering_style(text)
     style = max(counts, key=counts.get)
+
+    # ❌ если совпадений < 3 → перевода нет
+    if counts[style] < 3:
+        return None, "no_translate_less_3"
+
     pattern = patterns[style]
-    return pattern
+    compiled = re.compile(pattern)
+
+    # --- извлекаем диапазоны ---
+    ranges = []
+
+    for m in compiled.finditer(text):
+        if m.group("start") and m.group("end"):
+            a = int(m.group("start"))
+            b = int(m.group("end"))
+        # elif m.group("only_end"):
+        #     a = b = int(m.group("only_end"))
+        # else:
+        #     a = b = int(m.group("number"))
+
+        # if a > b:
+        #     a, b = b, a
+            if b > a:
+                ranges.append((a, b))
+
+    if not ranges:
+        return None, "no_translate_not_ranges"
+
+    # сортируем диапазоны
+    ranges.sort()
+
+    # # --- проверяем последовательность ---
+    # last_end = ranges[0][1]
+    #
+    # for start, end in ranges[1:]:
+    #     gap = start - last_end
+    #
+    #     # допускается:
+    #     # 0  → перекрытие (7 и 7)
+    #     # 1  → нормальная последовательность
+    #     # 2  → пропущено одно число
+    #     if abs(gap) > 2:
+    #         return None, "no_translate_big_distance"
+    #
+    #     # last_end = max(last_end, end)
+    #     last_end = end
+
+    return pattern, "is_translate"
 
 
 def search_for_extract_ankara(text: str):
@@ -1432,19 +1460,21 @@ def search_for_extract_ankara(text: str):
     pos_end_tr = 0
     pos_start_tr = 0
     flag_vyp = False
+    pos_start_translates = []
     # поиск шаблона нумерации предложений в переводе
-    Pattern_search = choose_pattern(text)
-    pos_start_translates_all = re.finditer(Pattern_search, text, flags=re.MULTILINE)
-    # позиции начала перевода поиск диапазонов
-    # pos_start_translates_all = re.finditer(r'\(?[^\S\n]*(\d{1,3})[^\S\n]*[-–—][^\S\n]*(\d{1,3})[^\S\n]*\)?(?=[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', text, flags=re.MULTILINE)
-    # есть ли диапазоны
-    if pos_start_translates_all:
-        for pos_st_transl in pos_start_translates_all:
-            if pos_st_transl and pos_st_transl.group("start"):
-                first, second = map(int, re.split(r"[-–—]", pos_st_transl.group()))
-                if first < second:
-                    # возможные старты перевода
-                    pos_start_translates.append(pos_st_transl)
+    Pattern_search, status_translate = choose_pattern(text)
+    if Pattern_search is not None:
+        pos_start_translates_all = re.finditer(Pattern_search, text, flags=re.MULTILINE)
+        # позиции начала перевода поиск диапазонов
+        # pos_start_translates_all = re.finditer(r'\(?[^\S\n]*(\d{1,3})[^\S\n]*[-–—][^\S\n]*(\d{1,3})[^\S\n]*\)?(?=[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', text, flags=re.MULTILINE)
+        # есть ли диапазоны
+        if pos_start_translates_all:
+            for pos_st_transl in pos_start_translates_all:
+                if pos_st_transl and pos_st_transl.group("start"):
+                    first, second = map(int, re.split(r"[-–—]", pos_st_transl.group()))
+                    if first < second:
+                        # возможные старты перевода
+                        pos_start_translates.append(pos_st_transl)
 
     text_transliterate, pos_end_tr, pos_start_tr = find_translit_by_rows(text, 0, len(text))
     if len(pos_start_translates) > 0:
@@ -1521,8 +1551,8 @@ def search_for_extract_ankara(text: str):
                 pos_end = pos_end_translate
 
     if text_transliterate != "":
-        # очистка от мусора
-        text_transliterate = process_text(text_transliterate)
+        # # очистка от мусора(уже очищено при поиске)
+        # text_transliterate = process_text(text_transliterate)
         if text_translate == "":
             # перевода нет, возможно он будет в следующем тексте
             # и понадобится эта транслитерация для него
@@ -1698,7 +1728,8 @@ def renumber_trust_source(text: str) -> Dict[int, str]:
     anchors: List[Tuple[int, int]] = []
 
     for i, match in enumerate(matches):
-        num = _extract_number(match.group(0))
+        # num = _extract_number(match.group(0))
+        num = _extract_number(match.group("number"))
         start = match.end()
         end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
         content = text[start:end].strip()
@@ -1991,8 +2022,8 @@ def extract_ankara(text: str, start_pos: int, pattern: str):
         return (perevod, dict_trlit), flag_vyp, pos_end
 
 def extract_after_ankara(text_dict_tr: tuple[str, dict[int, str]], pos_s: int) -> Tuple[Tuple[List:str, List:str], bool, int]:
-    text_translate = text_dict_tr[0]
-    list_trl_transl = process_text_last(text_translate, text_dict_tr[1])
+    # text_translate = text_dict_tr[0]
+    list_trl_transl = process_text_last(text_dict_tr[0], text_dict_tr[1])
     # кортеж списков транслитерации и перевода, флаг, конец перевода
     return list_trl_transl, True, pos_s
 
@@ -2573,8 +2604,8 @@ def split_accad_and_translate(csv_lines, marker="<sent>"):
 
 
 # Завантаження даних з CSV-файлу
-thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
-# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
+thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
 # ----------------------------------------
@@ -2635,7 +2666,7 @@ for i in idx:
     print(f"{num + 1} пару блоков начинаем искать.\n")
     print(f"Index = {i}\n")
     # if i == 74880:
-    if i == 5235:
+    if i == 5173:
     #     не печатает переводы
     # if i == 25:
     # if i == 130319:
