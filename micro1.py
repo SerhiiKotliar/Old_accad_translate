@@ -10,6 +10,8 @@ except LookupError:
 # nltk.download('punkt')
 # nltk.download('punkt_tab')
 from nltk.tokenize import sent_tokenize
+Pattern_search = r"(?:(?P<start>\d+)\s*[-–—]\s*(?P<end>\d+)|[-–—]\s*(?P<only_end>\d+)|(?P<number>\d+))"
+
 
 DETERMINATIVE_MAP = {
     # боги
@@ -106,118 +108,166 @@ def clear_from_ocr_for_text(text: str) -> str:
     """Упорядочивает последовательно значения диапазонов
     и оборачивает в круглые скобки"""
     # --- 1. OCR-мусор: " 3A" → "3-A"
+    global Pattern_search
     # text = re.sub(r'(\s\d)\s*(\d\w)', r'\1-\2', text)
 
-    token_pattern = re.compile(
-        r'\(?\s*\d{1,3}\s*[-–—]\s*\d{1,3}\s*\)?'
-        r'|\(?\s*\d{1,3}\s*\)?'
-        r'|(?<!\d)[–—-]\s*\d{1,3}'
-        r'|\b\d{1,3}\b'    # шаблон отдельного числа
-    )
-
+    # token_pattern = re.compile(
+    #     r'\(?\s*\d{1,3}\s*[-–—]\s*\d{1,3}\s*\)?'
+    #     r'|\(?\s*\d{1,3}\s*\)?'
+    #     r'|(?<!\d)[–—-]\s*\d{1,3}'
+    #     r'|\b\d{1,3}\b'    # шаблон отдельного числа
+    # )
+    token_pattern = re.compile(Pattern_search)
     tokens = []
     for m in token_pattern.finditer(text):
-        # пропуск чисел без признаков нумерации
-        if not m.group().startswith("(") and not m.group().endswith(")") and not m.group().endswith("'"):
-            continue
-        token = m.group()
-        # если найдено (N) → превратить в (N-N)
-        if (token.startswith("(") and token.endswith(")")) or (token.endswith(")"))  or (token.endswith("'")):
-            inner = token[1:-1].strip()
-            if inner.isdigit():
-                token = f"({inner}-{inner})"
+        # # пропуск чисел без признаков нумерации
+        # if not m.group().startswith("(") and not m.group().endswith(")") and not m.group().endswith("'"):
+        #     continue
+        # token = m.group()
+        # # если найдено (N) → превратить в (N-N)
+        # if (token.startswith("(") and token.endswith(")")) or (token.endswith(")"))  or (token.endswith("'")):
+        # inner = token[1:-1].strip()
+        # if inner.isdigit():
+        #     token = f"({inner}-{inner})"
+        # if m:
+        if m.group("start"):
+            # print("полный диапазон")
+            # print(m.group("start"), m.group("end"))
+            tokens.append({
+                "type": "range",
+                "a": m.group("start"),
+                "b": m.group("end"),
+                "start": m.span()[0],
+                "end": m.span()[1],
+                # "text": m.group()
+                # "text": token
+            })
 
-        tokens.append({
-            "start": m.start(),
-            "end": m.end(),
-            # "text": m.group()
-            "text": token
-        })
+        elif m.group("only_end"):
+            # print("неполный диапазон")
+            # print("end =", m.group("only_end"))
+            tokens.append({
+                "type": "broken",
+                "b": m.group("only_end"),
+                "start": m.span()[0],
+                "end": m.span()[1],
+                # "text": m.group()
+                # "text": token
+            })
 
+        else:
+            # print("одиночное число")
+            # print("number =", m.group("number"))
+            tokens.append({
+                "type": "single",
+                "a": m.group("number"),
+                "start": m.span()[0],
+                "end": m.span()[1],
+                # "text": m.group()
+                # "text": token
+            })
+        # tokens.append({
+        #     "start": m.start(),
+        #     "end": m.end(),
+        #     # "text": m.group()
+        #     "text": token
+        # })
+        # tokens.append({
+        #     "start": m.group("start"),
+        #     "end": m.group("end"),
+        #     # "text": m.group()
+        #     # "text": token
+        # })
+    parsed = tokens
     # --- 2. Разбираем токены в диапазоны
-    parsed = []
-    for t in tokens:
-        s = t["text"]
-        m = re.match(r'\(?\s*(\d{1,3})\s*[-–—]\s*(\d{1,3})\s*\)?'r'|\(?\s*\d{1,3}\s*\)?', s)
-        # m = re.match(r'\(?[^\S\n]*(\d{1,3})[^\S\n]*[-–—][^\S\n]*(\d{1,3})[^\S\n]*\)?(?=[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', s)
-        if m:
-            parsed.append({"type": "range", "a": int(m.group(1)), "b": int(m.group(2)), **t})
-            continue
-
-        m = re.match(r'[–—-]\s*(\d{1,3})', s)
-        if m:
-            parsed.append({"type": "broken", "b": int(m.group(1)), **t})
-            continue
-        # ----------------------------------------------------------
-        # собирает отдельные числа
-        # parsed.append({"type": "single", "n": int(s), **t})
-        parsed.append({"type": "single", "a": int(s), **t})
-        # -------------------------------------------------------------
+    # parsed = []
+    # for t in tokens:
+    #     s = t["text"]
+    #     # m = re.match(r'\(?\s*(\d{1,3})\s*[-–—]\s*(\d{1,3})\s*\)?'r'|\(?\s*\d{1,3}\s*\)?', s)
+    #     m = re.match(Pattern_search, s)
+    #     # m = re.match(r'\(?[^\S\n]*(\d{1,3})[^\S\n]*[-–—][^\S\n]*(\d{1,3})[^\S\n]*\)?(?=[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', s)
+    #     if m:
+    #         parsed.append({"type": "range", "a": int(m.group(1)), "b": int(m.group(2)), **t})
+    #         continue
+    #
+    #     m = re.match(r'[–—-]\s*(\d{1,3})', s)
+    #     if m:
+    #         parsed.append({"type": "broken", "b": int(m.group(1)), **t})
+    #         continue
+    #     # ----------------------------------------------------------
+    #     # собирает отдельные числа
+    #     # parsed.append({"type": "single", "n": int(s), **t})
+    #     parsed.append({"type": "single", "a": int(s), **t})
+    #     # -------------------------------------------------------------
     # --- 3. Исправляем логику (исправляем ПРЕДЫДУЩИЙ диапазон)
     last_range = None
+    merged = []
     del_items = []
     for i, item in enumerate(parsed):
+        is_del = False
+        if last_range is None:
+            last_range = item
+            continue
+        if item["type"] != "broken":
+            diff = int(item["a"]) - int(last_range["b"])
         if item["type"] == "range":
+            # ----------------------------------------------------
             # is_del = False
-            if last_range: # and item["a"] <= last_range["b"]:
-                diff = item["a"] - last_range["b"]
-                # if diff > 1 or diff < -1:
-                    # del_items.append(i)
-                    # continue
-                if diff == 0:
-                    if last_range["b"] > last_range["a"]:
-                        last_range["b"] = item["a"] - 1
-                    else:
-                        item["a"] += 1
-                elif diff < 0:
-                    item["a"] = last_range["b"] + 1
-                    if item["a"] == item["b"]:
-                        item["b"] = item["a"] + 1
-                elif diff > 0:
-                    item["a"] = last_range["b"] + 1
+            if diff == 0:
+                if int(last_range["b"]) - int(last_range["a"]) > 0:
+                    last_range["b"] = str(int(item["a"]) - 1)
+                else:
+                    item["a"] =str(int(item["a"]) + 1)
 
-                # last_range["b"] = item["a"] - 1
-                if last_range["b"] < last_range["a"]:
-                    last_range["b"] = last_range["a"]
+            elif diff < 0:
+                if item["a"] == item["b"]:
+                    if abs(diff) > 1:
+                        del_items.append(i)
+                        is_del = True
+                        # i += 1
+                        # continue
+                    else:
+                        item["a"] = str(int(last_range["b"]) + 1)
+                        item["b"] = item["a"]
+                else:
+                    item["a"] = str(int(last_range["b"]) + 1)
+                    if last_range["a"] == last_range["b"]:
+                        last_range["b"] = str(int(last_range["a"]) + 1)
+            elif diff > 0:
+                if item["a"] == item["b"]:
+                    if diff > 1:
+                        del_items.append(i)
+                        is_del = True
+                        # i += 1
+                        # continue
+                else:
+                    item["a"] = str(int(last_range["b"])  + 1)
+        elif item["type"] == "broken": # and last_range:
+            item["a"] = str(int(last_range["b"]) + 1)
+            item["type"] = "range"
+        elif item["type"] == "single":
+            # is_del = False
+            if len(item["a"]) > 2 or diff> 1 or diff < -1:
+                # item["b"] = item["a"]
+                del_items.append(i)
+                is_del = True
+            # if diff> 1 or diff < -1:
+            #     item["b"] = item["a"]
+            #     del_items.append(i)
+                # is_del = True
+            elif diff == -1 or diff == 0:
+                item["a"] = str(int(last_range["b"]) + 1)
             # if is_del:
             #     continue
-            last_range = item
-
-        elif item["type"] == "broken" and last_range:
-            a = last_range["b"] + 1
-            item["type"] = "range"
-            item["a"] = a
-        # --------------------------------------------------
-            last_range = item
-        # для обнаружения отдельных чисел
-        # elif item["type"] == "single":
-        #     if last_range and item["n"] <= last_range["b"]:
-        #         item["n"] = last_range["b"] + 1
-        elif item["type"] == "single":
-            is_del = False
-            if last_range and item["a"]:
-                str_it = str(item["a"])
-                if len(str_it) > 2:
-                    str_it = str_it[:2]
-                    item["a"] = int(str_it)
-                diff = item["a"] - last_range["b"]
-                if diff> 1 or diff < -1:
-                    del_items.append(i)
-                    is_del = True
-                elif diff == -1 or diff == 0:
-                    item["a"] = last_range["b"] + 1
-            # if last_range and item["a"] <= last_range["b"]:
-            #     item["a"] = last_range["b"] + 1
-            if is_del:
-                continue
-            if not last_range:
-                del_items.append(i)
-                # is_del = True
-                continue
             item["type"] = "range"
             item["b"] = item["a"]
+        merged.append(last_range)
+        if not is_del:
             last_range = item
-    parsed = [item for i, item in enumerate(parsed) if i not in del_items]
+    merged.append(last_range)
+    # parsed = [item for i, item in enumerate(parsed) if i not in del_items]
+    merged = [item for i, item in enumerate(merged) if i not in del_items]
+    parsed = merged
         # ------------------------------------------------------
     # --- 4. Точечная замена (справа налево!)
     chars = list(text)
@@ -237,168 +287,153 @@ def clear_from_ocr_for_text(text: str) -> str:
     # # если не обёрнуты, оборачивает в скобки
     # # pattern = re.compile(r'\(?(\d+)-(\d+)\)?'r'|\b\d{1,3}\b')
     # pattern = re.compile(r'\(?(\d+)-(\d+)\)?')
-    # 
+    #
     # def wrap_if_no_parentheses(match: re.Match) -> str:
     #     full = match.group(0)  # всё совпадение
     #     a = match.group(1)
     #     b = match.group(2)
-    # 
+    #
     #     if full.startswith("(") and full.endswith(")"):
     #         return full  # уже в скобках — оставить как есть
     #     else:
     #         return f"({a}-{b})"  # обернуть
-    # 
+    #
     # result = pattern.sub(wrap_if_no_parentheses, result)
     return result
 
 
+
+
 def clear_from_ocr_for_text_last(text: str) -> str:
     """Окончательно чистит мусор и форматирует по пробелам диапазоны"""
-
-    pattern = re.compile(
-        r'\(?(\d+)\s*-\s*(\d+)\)?(\s?([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü]+))?'
-        r'|[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü.!\s?](\d{1,2})\s?\r?\n?[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü]'
-    )
+    global Pattern_search
+    # pattern = re.compile(
+    #     r'\(?(\d+)\s*-\s*(\d+)\)?(\s+([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü]+))?'
+    #     r'|[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü.\s](\d{1,2})\s?\r?\n?[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü]'
+    # )
+    pattern = re.compile(Pattern_search)
 
     def range_repl(m):
 
-        count = sum(x is not None for x in m.groups())
-        if count == 1:
-            gr_not_None = next(x for x in m.groups() if x is not None)
-            # оставляем только цифры
-            digits_only = re.sub(r'\D', '', gr_not_None)
-            return f"{digits_only}-{digits_only} "
-        # -------------------------------------------------
-        left = m.group(1)
-        right = m.group(2)
-        word = m.group(4)
+        # count = sum(x is not None for x in m.groups())
+        # if count == 1:
+        #     gr_not_None = next(x for x in m.groups() if x is not None)
+        #     # оставляем только цифры
+        #     digits_only = re.sub(r'\D', '', gr_not_None)
+        #     return f"{digits_only}-{digits_only} "
+        # # -------------------------------------------------
+        if m and m.group("start"):
+            # if not m.group("start"):
+            #     return m.group(0)
+            left = m.group("start")
+            right = m.group("end")
+            word = m.group(4)
+            if int(right) - int(left) > 10:
+                # если правая часть длиннее
+                if len(right) > len(left):
+                    # отрезаем излишек
+                    main_right = right[:len(left)]
+                    # излишек
+                    extra = right[len(left):]
 
-        # если правая часть длиннее
-        if len(right) > len(left) and int(right[0]) > 1:
-            # отрезаем излишек
-            main_right = right[:len(left)]
-            # излишек
-            extra = right[len(left):]
+                    # смотрим что идёт после всего совпадения
+                    rest = text[m.end():]
 
-            # смотрим что идёт после всего совпадения
-            rest = text[m.end():]
+                    #  если справа дробь или число → удаляем extra
+                    if re.match(r'\s*?\d+(?:\s*/\s*\d+)?', rest):
+                        return f"{left}-{main_right} "
 
-            #  если справа дробь или число → удаляем extra
-            if re.match(r'\s*?\d+(?:\s*/\s*\d+)?', rest):
-                return f"{left}-{main_right} "
+                    #  если справа слово (захваченное)
+                    if word:
+                        if word[0].islower():
+                            extra_conv = (
+                                extra.replace('1', 'I')
+                                     .replace('0', 'O')
+                                     .replace('5', 'S')
+                                     .replace('4', 'A')
+                            )
+                            return f"{left}-{main_right} {extra_conv}{word}"
 
-            #  если справа слово (захваченное)
-            if word:
-                if word[0].islower():
-                    extra_conv = (
-                        extra.replace('1', 'I')
-                             .replace('0', 'O')
-                             .replace('5', 'S')
-                    )
-                    return f"{left}-{main_right} {extra_conv}{word}"
-
-            #  иначе просто удаляем extra
-            return f"{left}-{main_right} {word}"
+                    #  иначе просто удаляем extra
+                    return f"{left}-{main_right} {word}"
 
         return m.group(0)
 
     text = pattern.sub(range_repl, text)
+    text = re.sub(r'\s*i0\s*', r' 10 ', text)
     text = re.sub(r'\s+', ' ', text).strip()
-    # ----------------------------------------------------
-    # последовательная сортировка диапазонов
+    # # ----------------------------------------------------
+    # # последовательная сортировка диапазонов
+    #
+    # pattern = re.compile(r'\(?(\d+)-(\d+)\)?')
+    #
+    # def merge_ranges(text: str) -> str:
+    #     matches = list(pattern.finditer(text))
+    #     if not matches:
+    #         return text
+    #
+    #     merged = []
+    #     last = None
+    #
+    #     for m in matches:
+    #         a = int(m.group(1))
+    #         b = int(m.group(2))
+    #
+    #         if last is None:
+    #             last = [a, b]
+    #             continue
+    #
+    #         diff = a - last[1]
+    #
+    #         if diff == 0:
+    #             if last[1] - last[0] > 0:
+    #                 last[1] = a - 1
+    #             else:
+    #                 a += 1
+    #
+    #         elif diff < 0:
+    #             a = last[1] - diff + 1
+    #
+    #         elif diff >= 2:
+    #             last[1] = a - 1
+    #
+    #         merged.append(tuple(last))
+    #         last = [a, b]
+    #
+    #     merged.append(tuple(last))
+    #
+    #     # 🔹 заменяем диапазоны на новые, сохраняя текст
+    #     result = text
+    #     for m, (a, b) in zip(reversed(matches), reversed(merged)):
+    #         result = result[:m.start()] + f"({a}-{b})" + result[m.end():]
+    #
+    #     return result
+    # text = merge_ranges(text)
 
-    pattern = re.compile(r'\(?(\d+)-(\d+)\)?')
-
-    def merge_ranges(text: str) -> str:
-        matches = list(pattern.finditer(text))
-        if not matches:
-            return text
-
-        merged = []
-        last = None
-        i = 0
-        del_items = []
-        for m in matches:
-            a = int(m.group(1))
-            b = int(m.group(2))
-
-            if last is None:
-                last = [a, b]
-                i += 1
-                continue
-
-            diff = a - last[1]
-            if diff == 0:
-                if last[1] - last[0] > 0:
-                    last[1] = a - 1
-                else:
-                    a += 1
-
-            elif diff < 0:
-                if a == b:
-                    if abs(diff) > 1:
-                        del_items.append(i)
-                        i += 1
-                        continue
-                    else:
-                        a = last[1] + 1
-                        b = a
-                else:
-                    a = last[1] + 1
-                    if last[0] == last[1]:
-                        last[1] = last[0] + 1
-            elif diff > 0:
-                if a == b:
-                    if diff > 1:
-                        del_items.append(i)
-                        i += 1
-                        continue
-                else:
-                # last[1] = a - 1
-                    a = last[1] + 1
-            if last[1] < last[0]:
-                last[1] = last[0]
-
-            merged.append(tuple(last))
-            last = [a, b]
-            i += 1
-
-        merged.append(tuple(last))
-        matches = [item for i, item in enumerate(matches) if i not in del_items]
-        merged = [item for i, item in enumerate(merged) if i not in del_items]
-
-        # 🔹 заменяем диапазоны на новые, сохраняя текст
-        result = text
-        for m, (a, b) in zip(reversed(matches), reversed(merged)):
-            result = result[:m.start()] + f"({a}-{b})" + result[m.end():]
-
-        return result
-    text = merge_ranges(text)
-
-    # если не обёрнуты, оборачивает в скобки
-    # pattern = re.compile(r'\(?(\d+)-(\d+)\)?'r'|\b\d{1,3}\b')
-    pattern = re.compile(r'\(?(\d+)-(\d+)\)?')
-    # last_range = None
-    def wrap_if_no_parentheses(match: re.Match) -> str:
-        # nonlocal last_range
-        full = match.group(0)  # всё совпадение
-        a = match.group(1)
-        b = match.group(2)
-        # if last_range:
-        #     diff = int(a) - int(last_range["b"])
-        #     if diff > 2 or diff < -1:
-        #         return full
-        #     elif diff == 2:
-        #         a = int(last_range["b"]) + 1
-        #
-        # last_range = {"b": b, "a": a}
-
-        if full.startswith("(") and full.endswith(")"):
-            return full  # уже в скобках — оставить как есть
-        else:
-            return f"({a}-{b})"  # обернуть
-
-    text = pattern.sub(wrap_if_no_parentheses, text)
+    # # если не обёрнуты, оборачивает в скобки
+    # # pattern = re.compile(r'\(?(\d+)-(\d+)\)?'r'|\b\d{1,3}\b')
+    # pattern = re.compile(r'\(?(\d+)-(\d+)\)?')
+    # # last_range = None
+    # def wrap_if_no_parentheses(match: re.Match) -> str:
+    #     # nonlocal last_range
+    #     full = match.group(0)  # всё совпадение
+    #     a = match.group(1)
+    #     b = match.group(2)
+    #     # if last_range:
+    #     #     diff = int(a) - int(last_range["b"])
+    #     #     if diff > 2 or diff < -1:
+    #     #         return full
+    #     #     elif diff == 2:
+    #     #         a = int(last_range["b"]) + 1
+    #     #
+    #     # last_range = {"b": b, "a": a}
+    #
+    #     if full.startswith("(") and full.endswith(")"):
+    #         return full  # уже в скобках — оставить как есть
+    #     else:
+    #         return f"({a}-{b})"  # обернуть
+    #
+    # text = pattern.sub(wrap_if_no_parentheses, text)
     return text
 
 
@@ -427,9 +462,10 @@ def cleaning_from_ocr_prelim(text: str) -> str:
         (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])5([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r' \g<1>S\g<2>'),
         (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])1([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r' \g<1>i\g<2>'),
         (r'A1', 'Ai'),
-        (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])1', r'\g<1>i'),
+        (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])1\s', r'\g<1>i '),
         (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü]),(\d)', r'\g<1> \g<2>'),
         (r'\s[iI]\s?(\d+)', r'1\g<1>'),
+        (r'(?<![A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])l\s*(\d)', r' 1\g<1>'),
         (r'(?<=\d)o', '0'),
         (r'(?<=\d)°', '0'),
         (r'S([-–—])(\d)', r'5\g<1>\g<2>'),
@@ -460,7 +496,9 @@ def cleaning_from_ocr_prelim(text: str) -> str:
         (r'(\w)1(\w)', r'\g<1>i\g<2>'),
         (r'K Ù\.', r'KÙ\.'),
         (r'\"\'\"', ''),
-        (r'(?<![A-Za-z])\s?l\s?(\d+)', r'1\g<1>'),
+        (r'^(\d+\.)\r?\n?', r'\g<1>'),
+        (r'\s[ÖO](?=[A-ZÀ-ÖØİŞĞÇÜ])', r'0 '),
+        # (r'\s*i0\s*', r' 10 '),
         # (r'(?<=[^\W_]):(?=[^\W_])', ' '),
         # (r'\b\d{1,3}\s*[-–—-]\s*\d{1,3}\b', ''),
         # (r'§', 'S'),
@@ -556,6 +594,8 @@ def cleaning_from_ocr_prelim(text: str) -> str:
     return text
 
 
+
+
 def cleaning_from_ocr(text: str, trlit: bool = True) -> str:
     if not isinstance(text, str):
         text = str(text)
@@ -592,6 +632,7 @@ def cleaning_from_ocr(text: str, trlit: bool = True) -> str:
             (r'(.)\,(.)', r'\g<1>\g<2>'),
             (r'\,\n', ''),
             (r'\\', ''),
+            (r'\s*i0\s*', r' 10 '),
             #(r'(?<=[^\W_]):(?=[^\W_])', ' '),
             # (r'\b\d{1,3}\s*[-–—-]\s*\d{1,3}\b', ''),
             # (r'§', 'S'),
@@ -627,6 +668,7 @@ def cleaning_from_ocr(text: str, trlit: bool = True) -> str:
             (r'(\d)S([A-Z])', r'\g<1>5\g<2>'),
             (r'\s4([a-zа-яà-öø-ÿ])', r' h\g<1>'),
             (r'(\d)\s*/\s*(\d)', r'\g<1>/\g<2>'),
+            (r'\s*i0\s*', r' 10 '),
             # (r'([^\d\s])(\d+[\s\-–—]?\d+)([^\d\s])', r'\g<1> \g<2> \g<3>'),
             # (r'(\d+[\s\-–—]?\d+)([^\d\s])', r'\g<1> \g<2>'),
             # (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])(\d+\s*[-–—]?\s*\d+)([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r'\g<1> \g<2> \g<3>'),
@@ -786,15 +828,18 @@ def renumber_trust_source(text: str) -> Dict[int, str]:
     Если строка не содержит номера,
     номер восстанавливается по ближайшим якорям.
     """
+    global Pattern_search
     if not text.strip():
         return {}
 
     pattern_line_start = re.compile(r'^\s*(\d+)\s*[.:]')
-    inline_patterns = [
-        r'\(([^)]*\d+[^)]*)\)',
-        r'(\d+)\)',
-        r'(\d+)\'',
-    ]
+    # inline_patterns = [
+    #     r'\(([^)]*\d+[^)]*)\)',
+    #     r'(\d+)\)',
+    #     r'(\d+)\'',
+    # ]
+    inline_pattern = Pattern_search
+
 
     lines = text.splitlines()
 
@@ -819,52 +864,139 @@ def renumber_trust_source(text: str) -> Dict[int, str]:
         return result
 
     # --- РЕЖИМ 2: сплошной текст
-    for pat in inline_patterns:
-        compiled = re.compile(pat)
-        matches = list(compiled.finditer(text))
-        if not matches:
-            continue
+    # for pat in inline_patterns:
+    #     compiled = re.compile(pat)
+    #     matches = list(compiled.finditer(text))
+    #     if not matches:
+    #         continue
+    #
+    #     segments = []
+    #     anchors: List[Tuple[int, int]] = []
+    #
+    #     for i, match in enumerate(matches):
+    #         num = _extract_number(match.group(0))
+    #         start = match.end()
+    #         end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+    #         content = text[start:end].strip()
+    #         segments.append(content)
+    #
+    #         if num % 5 == 0:
+    #             anchors.append((i, num))
+    #
+    #     numbers = _restore_sequence(anchors, len(segments))
+    #
+    #     return {num: seg for num, seg in zip(numbers, segments)}
 
-        segments = []
-        anchors: List[Tuple[int, int]] = []
+    # for pat in inline_patterns:
+    compiled = re.compile(inline_pattern)
+    # matches = list(compiled.finditer(text))
+    matches = [m.group("number") for m in compiled.finditer(text) if m.group("number")]
 
-        for i, match in enumerate(matches):
-            num = _extract_number(match.group(0))
-            start = match.end()
-            end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
-            content = text[start:end].strip()
-            segments.append(content)
+    if not matches:
+        return {1: text.strip()}
 
-            if num % 5 == 0:
-                anchors.append((i, num))
+    segments = []
+    anchors: List[Tuple[int, int]] = []
 
-        numbers = _restore_sequence(anchors, len(segments))
+    for i, match in enumerate(matches):
+        # num = _extract_number(match.group(0))
+        num = _extract_number(match.group("number"))
+        start = match.end()
+        end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+        content = text[start:end].strip()
+        segments.append(content)
 
-        return {num: seg for num, seg in zip(numbers, segments)}
+        if num % 5 == 0:
+            anchors.append((i, num))
 
-    return {1: text.strip()}
+    numbers = _restore_sequence(anchors, len(segments))
+
+    return {num: seg for num, seg in zip(numbers, segments)}
+
+    # return {1: text.strip()}
 
 def choose_pattern(text: str):
     patterns = {
-        "paren_both": r"\(\s*\d+(?:\s*[-–—]\s*\d+)?\s*\)",  # (12) (12-15)
-        "paren_right": r"\d+(?:\s*[-–—]\s*\d+)?\s*\)",  # 12) 12-15)
-        "quote_right": r"\d+(?:\s*[-–—]\s*\d+)?\s*'",  # 12' 12-15'
-        "plain": r"\b\s*\d+(?:\s*[-–—]\s*\d+)?\s*\b"  # 12 12-15
+#         "paren_both": r"\(\s*(?:(?P<start>\d+)\s*[-–—]\s*(?P<end>\d+)|[-–—]\s*(?P<only_end>\d+)|(?P<number>\d+))\s*\)"
+# ,  # (12) (12-15)
+#         "paren_right": r"(?:(?P<start>\d+)\s*[-–—]\s*(?P<end>\d+)|[-–—]\s*(?P<only_end>\d+)|(?P<number>\d+))\s*\)"
+# ,  # 12) 12-15)
+#         "quote_right": r"(?:(?P<start>\d+)\s*[-–—]\s*(?P<end>\d+)|[-–—]\s*(?P<only_end>\d+)|(?P<number>\d+))'"
+# ,  # 12' 12-15 -15'
+        "plain": r"(?:(?P<start>\d+)\s*[-–—]\s*(?P<end>\d+)|[-–—]\s*(?P<only_end>\d+)|(?P<number>\d+))"
+  # 12 12-15
     }
 
+    # def detect_numbering_style(text):
+    #     counts = {}
+    #
+    #     for name, pat in patterns.items():
+    #         matches = re.findall(pat, text)
+    #         counts[name] = len(matches)
+    #
+    #     return counts
+    #
+    # counts = detect_numbering_style(text)
+    # style = max(counts, key=counts.get)
+    # pattern = patterns[style]
+    # return pattern
     def detect_numbering_style(text):
         counts = {}
-
         for name, pat in patterns.items():
             matches = re.findall(pat, text)
             counts[name] = len(matches)
-
         return counts
 
     counts = detect_numbering_style(text)
     style = max(counts, key=counts.get)
+
+    # ❌ если совпадений < 3 → перевода нет
+    if counts[style] < 3:
+        return None, "no_translate_less_3"
+
     pattern = patterns[style]
-    return pattern
+    compiled = re.compile(pattern)
+
+    # --- извлекаем диапазоны ---
+    ranges = []
+
+    for m in compiled.finditer(text):
+        if m.group("start") and m.group("end"):
+            a = int(m.group("start"))
+            b = int(m.group("end"))
+        # elif m.group("only_end"):
+        #     a = b = int(m.group("only_end"))
+        # else:
+        #     a = b = int(m.group("number"))
+
+        # if a > b:
+        #     a, b = b, a
+            if b > a:
+                ranges.append((a, b))
+
+    if not ranges:
+        return None, "no_translate_not_ranges"
+
+    # сортируем диапазоны
+    ranges.sort()
+
+    # # --- проверяем последовательность ---
+    # last_end = ranges[0][1]
+    #
+    # for start, end in ranges[1:]:
+    #     gap = start - last_end
+    #
+    #     # допускается:
+    #     # 0  → перекрытие (7 и 7)
+    #     # 1  → нормальная последовательность
+    #     # 2  → пропущено одно число
+    #     if abs(gap) > 2:
+    #         return None, "no_translate_big_distance"
+    #
+    #     # last_end = max(last_end, end)
+    #     last_end = end
+
+    return pattern, "is_translate"
 
 
 def normalize_akkadian_determinatives(text: str) -> str:

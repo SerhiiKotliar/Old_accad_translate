@@ -979,38 +979,39 @@ def clear_from_ocr_for_text_last(text: str) -> str:
             left = m.group("start")
             right = m.group("end")
             word = m.group(4)
+            if int(right) - int(left) > 10:
+                # если правая часть длиннее
+                if len(right) > len(left):
+                    # отрезаем излишек
+                    main_right = right[:len(left)]
+                    # излишек
+                    extra = right[len(left):]
 
-            # если правая часть длиннее
-            if (len(right) > len(left) and len(left) == 1 and right[:1] == "1") or (len(right) > len(left) and len(left) > 1):
-                # отрезаем излишек
-                main_right = right[:len(left)]
-                # излишек
-                extra = right[len(left):]
+                    # смотрим что идёт после всего совпадения
+                    rest = text[m.end():]
 
-                # смотрим что идёт после всего совпадения
-                rest = text[m.end():]
+                    #  если справа дробь или число → удаляем extra
+                    if re.match(r'\s*?\d+(?:\s*/\s*\d+)?', rest):
+                        return f"{left}-{main_right} "
 
-                #  если справа дробь или число → удаляем extra
-                if re.match(r'\s*?\d+(?:\s*/\s*\d+)?', rest):
-                    return f"{left}-{main_right} "
+                    #  если справа слово (захваченное)
+                    if word:
+                        if word[0].islower():
+                            extra_conv = (
+                                extra.replace('1', 'I')
+                                     .replace('0', 'O')
+                                     .replace('5', 'S')
+                                     .replace('4', 'A')
+                            )
+                            return f"{left}-{main_right} {extra_conv}{word}"
 
-                #  если справа слово (захваченное)
-                if word:
-                    if word[0].islower():
-                        extra_conv = (
-                            extra.replace('1', 'I')
-                                 .replace('0', 'O')
-                                 .replace('5', 'S')
-                                 .replace('4', 'A')
-                        )
-                        return f"{left}-{main_right} {extra_conv}{word}"
-
-                #  иначе просто удаляем extra
-                return f"{left}-{main_right} {word}"
+                    #  иначе просто удаляем extra
+                    return f"{left}-{main_right} {word}"
 
         return m.group(0)
 
     text = pattern.sub(range_repl, text)
+    text = re.sub(r'\s*i0\s*', r' 10 ', text)
     text = re.sub(r'\s+', ' ', text).strip()
     # # ----------------------------------------------------
     # # последовательная сортировка диапазонов
@@ -1115,6 +1116,7 @@ def cleaning_from_ocr_prelim(text: str) -> str:
         (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])1\s', r'\g<1>i '),
         (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü]),(\d)', r'\g<1> \g<2>'),
         (r'\s[iI]\s?(\d+)', r'1\g<1>'),
+        (r'(?<![A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])l\s*(\d)', r' 1\g<1>'),
         (r'(?<=\d)o', '0'),
         (r'(?<=\d)°', '0'),
         (r'S([-–—])(\d)', r'5\g<1>\g<2>'),
@@ -1146,6 +1148,8 @@ def cleaning_from_ocr_prelim(text: str) -> str:
         (r'K Ù\.', r'KÙ\.'),
         (r'\"\'\"', ''),
         (r'^(\d+\.)\r?\n?', r'\g<1>'),
+        (r'\s[ÖO](?=[A-ZÀ-ÖØİŞĞÇÜ])', r'0 '),
+        # (r'\s*i0\s*', r' 10 '),
         # (r'(?<=[^\W_]):(?=[^\W_])', ' '),
         # (r'\b\d{1,3}\s*[-–—-]\s*\d{1,3}\b', ''),
         # (r'§', 'S'),
@@ -1277,6 +1281,7 @@ def cleaning_from_ocr(text: str, trlit: bool = True) -> str:
             (r'(.)\,(.)', r'\g<1>\g<2>'),
             (r'\,\n', ''),
             (r'\\', ''),
+            (r'\s*i0\s*', r' 10 '),
             #(r'(?<=[^\W_]):(?=[^\W_])', ' '),
             # (r'\b\d{1,3}\s*[-–—-]\s*\d{1,3}\b', ''),
             # (r'§', 'S'),
@@ -1312,6 +1317,7 @@ def cleaning_from_ocr(text: str, trlit: bool = True) -> str:
             (r'(\d)S([A-Z])', r'\g<1>5\g<2>'),
             (r'\s4([a-zа-яà-öø-ÿ])', r' h\g<1>'),
             (r'(\d)\s*/\s*(\d)', r'\g<1>/\g<2>'),
+            (r'\s*i0\s*', r' 10 '),
             # (r'([^\d\s])(\d+[\s\-–—]?\d+)([^\d\s])', r'\g<1> \g<2> \g<3>'),
             # (r'(\d+[\s\-–—]?\d+)([^\d\s])', r'\g<1> \g<2>'),
             # (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])(\d+\s*[-–—]?\s*\d+)([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r'\g<1> \g<2> \g<3>'),
@@ -1424,6 +1430,31 @@ def choose_pattern(text: str):
 
     # сортируем диапазоны
     ranges.sort()
+    del_item = []
+    # i = 0
+    for i, rang in enumerate(ranges):
+        start = rang[0]
+        end = rang[1]
+        diap = end - start
+        if diap > 10:
+            if len(str(end)) > len(str(start)):
+                str_end = str(end)
+                str_end = str_end[:-1]
+                if len(str_end) > len(str(start)):
+                    del_item.append(i)
+                else:
+                    if int(str_end) - int(start) > 10:
+                        del_item.append(i)
+            else:
+                del_item.append(i)
+        # i += 1
+
+    if len(del_item) > 0:
+        ranges = [rang for i, rang in enumerate(ranges) if i not in del_item]
+    if len(ranges) == 0:
+        return None, "no_translate_not_ranges"
+    if len(ranges) < 3:
+        return None, "no_translate_less_3"
 
     # # --- проверяем последовательность ---
     # last_end = ranges[0][1]
@@ -2604,8 +2635,8 @@ def split_accad_and_translate(csv_lines, marker="<sent>"):
 
 
 # Завантаження даних з CSV-файлу
-# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
-thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
+# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
 # ----------------------------------------
@@ -2666,7 +2697,7 @@ for i in idx:
     print(f"{num + 1} пару блоков начинаем искать.\n")
     print(f"Index = {i}\n")
     # if i == 74880:
-    if i == 5173:
+    if i == 17522:
     #     не печатает переводы
     # if i == 25:
     # if i == 130319:
