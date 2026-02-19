@@ -18,7 +18,10 @@ except LookupError:
 from nltk.tokenize import sent_tokenize
 
 Unfin_Data: dict = {"number":"", "trlit":"", "perevod":""}
-Pattern_search = ""
+Pattern_search_translate = ""
+Pattern_search_trlit = ""
+Pattern_search_translate_end = ""
+Pattern_search_trlit_end = ""
 
 DETERMINATIVE_MAP = {
     # боги
@@ -434,6 +437,23 @@ AKKADIAN_FUNCTION_WORDS = {
     "ištu", "ištu", "ultu", "adi", "u", "šaṭru"
 }
 
+patterns_akt2 = {
+        "paren_both": r"\(\s*(?:(?P<start>\d+)\s*[-–—]\s*(?P<end>\d+)|[-–—]\s*(?P<only_end>\d+)|(?P<number>\d+))\s*\)"
+,  # (12) (12-15)
+        "paren_right": r"(?:(?P<start>\d+)\s*[-–—]\s*(?P<end>\d+)|[-–—]\s*(?P<only_end>\d+)|(?P<number>\d+))\s*\)"
+,  # 12) 12-15)
+        "quote_right": r"(?:(?P<start>\d+)\s*[-–—]\s*(?P<end>\d+)|[-–—]\s*(?P<only_end>\d+)|(?P<number>\d+))'"
+,  # 12' 12-15 -15'
+        "plain": r"(?:(?P<start>\d+)\s*[-–—]\s*(?P<end>\d+)|[-–—]\s*(?P<only_end>\d+)|(?P<number>\d+))"
+  # 12 12-15
+    }
+patterns_akt = {
+        "paren_digit_dot_digit": r'\((?:[A-Za-z]{1,2}\.\s)?\d{1,2}\)',  # (Az. 37)
+        "plain": r'\s\d{1,2}\s*[-–—]\s*\d{1,2}\s*:\s',  # 1-12:
+        "paren_both": r'\(\s*(\d{1,3})\s*[-–—]\s*(\d{1,3})\s*\)|\(\s*(\d{1,3})\s*\)',  # (3) (12-15)
+        "para_quote": r'\s\"' # "
+    }
+
 
 def extract_transliteration(text) -> list:
     """
@@ -760,7 +780,7 @@ def clear_from_ocr_for_text(text: str) -> str:
     """Упорядочивает последовательно значения диапазонов
     и оборачивает в круглые скобки"""
     # --- 1. OCR-мусор: " 3A" → "3-A"
-    global Pattern_search
+    global Pattern_search_translate
     # text = re.sub(r'(\s\d)\s*(\d\w)', r'\1-\2', text)
 
     # token_pattern = re.compile(
@@ -769,7 +789,7 @@ def clear_from_ocr_for_text(text: str) -> str:
     #     r'|(?<!\d)[–—-]\s*\d{1,3}'
     #     r'|\b\d{1,3}\b'    # шаблон отдельного числа
     # )
-    token_pattern = re.compile(Pattern_search)
+    token_pattern = re.compile(Pattern_search_translate)
     tokens = []
     for m in token_pattern.finditer(text):
         # # пропуск чисел без признаков нумерации
@@ -950,12 +970,12 @@ def clear_from_ocr_for_text(text: str) -> str:
 
 def clear_from_ocr_for_text_last(text: str) -> str:
     """Окончательно чистит мусор и форматирует по пробелам диапазоны"""
-    global Pattern_search
+    global Pattern_search_translate
     # pattern = re.compile(
     #     r'\(?(\d+)\s*-\s*(\d+)\)?(\s+([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü]+))?'
     #     r'|[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü.\s](\d{1,2})\s?\r?\n?[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü]'
     # )
-    pattern = re.compile(Pattern_search)
+    pattern = re.compile(Pattern_search_translate)
 
     def range_repl(m):
 
@@ -1367,31 +1387,8 @@ def process_text(text, trlit: bool = True):
     processed_lines = [cleaning_from_ocr(line, trlit) for line in lines]
     return ''.join(processed_lines)
 
-def choose_pattern(text: str):
-    patterns = {
-        "paren_both": r"\(\s*(?:(?P<start>\d+)\s*[-–—]\s*(?P<end>\d+)|[-–—]\s*(?P<only_end>\d+)|(?P<number>\d+))\s*\)"
-,  # (12) (12-15)
-        "paren_right": r"(?:(?P<start>\d+)\s*[-–—]\s*(?P<end>\d+)|[-–—]\s*(?P<only_end>\d+)|(?P<number>\d+))\s*\)"
-,  # 12) 12-15)
-        "quote_right": r"(?:(?P<start>\d+)\s*[-–—]\s*(?P<end>\d+)|[-–—]\s*(?P<only_end>\d+)|(?P<number>\d+))'"
-,  # 12' 12-15 -15'
-        "plain": r"(?:(?P<start>\d+)\s*[-–—]\s*(?P<end>\d+)|[-–—]\s*(?P<only_end>\d+)|(?P<number>\d+))"
-  # 12 12-15
-    }
+def choose_pattern(text: str, patterns: str):
 
-    # def detect_numbering_style(text):
-    #     counts = {}
-    #
-    #     for name, pat in patterns.items():
-    #         matches = re.findall(pat, text)
-    #         counts[name] = len(matches)
-    #
-    #     return counts
-    #
-    # counts = detect_numbering_style(text)
-    # style = max(counts, key=counts.get)
-    # pattern = patterns[style]
-    # return pattern
     def detect_numbering_style(text):
         counts = {}
         for name, pat in patterns.items():
@@ -1401,10 +1398,13 @@ def choose_pattern(text: str):
 
     counts = detect_numbering_style(text)
     style = max(counts, key=counts.get)
+    max_keys = [k for k, v in counts.items() if v == counts[style]]
+    if "para_quote" in max_keys:
+        style = "para_quote"
 
-    # ❌ если совпадений < 3 → перевода нет
-    if counts[style] < 3:
-        return None, "no_translate_less_3"
+    # # ❌ если совпадений < 3 → перевода нет
+    # if counts[style] < 3:
+    #     return None, "no_translate_less_3"
 
     pattern = patterns[style]
     compiled = re.compile(pattern)
@@ -1413,16 +1413,14 @@ def choose_pattern(text: str):
     ranges = []
 
     for m in compiled.finditer(text):
-        if m.group("start") and m.group("end"):
-            a = int(m.group("start"))
-            b = int(m.group("end"))
-        # elif m.group("only_end"):
-        #     a = b = int(m.group("only_end"))
-        # else:
-        #     a = b = int(m.group("number"))
-
-        # if a > b:
-        #     a, b = b, a
+        # if m.group("start") and m.group("end"):
+        #     a = int(m.group("start"))
+        #     b = int(m.group("end"))
+        #     if b > a:
+        #         ranges.append((a, b))
+        if m.span()[0] and m.span()[1]:
+            a = int(m.span()[0])
+            b = int(m.span()[1])
             if b > a:
                 ranges.append((a, b))
 
@@ -1432,7 +1430,6 @@ def choose_pattern(text: str):
     # сортируем диапазоны
     ranges.sort()
     del_item = []
-    # i = 0
     for i, rang in enumerate(ranges):
         start = rang[0]
         end = rang[1]
@@ -1448,7 +1445,6 @@ def choose_pattern(text: str):
                         del_item.append(i)
             else:
                 del_item.append(i)
-        # i += 1
 
     if len(del_item) > 0:
         ranges = [rang for i, rang in enumerate(ranges) if i not in del_item]
@@ -1456,29 +1452,12 @@ def choose_pattern(text: str):
         return None, "no_translate_not_ranges"
     if len(ranges) < 3:
         return None, "no_translate_less_3"
-
-    # # --- проверяем последовательность ---
-    # last_end = ranges[0][1]
-    #
-    # for start, end in ranges[1:]:
-    #     gap = start - last_end
-    #
-    #     # допускается:
-    #     # 0  → перекрытие (7 и 7)
-    #     # 1  → нормальная последовательность
-    #     # 2  → пропущено одно число
-    #     if abs(gap) > 2:
-    #         return None, "no_translate_big_distance"
-    #
-    #     # last_end = max(last_end, end)
-    #     last_end = end
-
     return pattern, "is_translate"
 
 
 def search_for_extract_ankara(text: str):
     # ------------------------------------------------
-    global Pattern_search
+    global Pattern_search_translate
     text_translate = ""
     text_transliterate = ""
     pos_end_translate = int
@@ -1494,9 +1473,9 @@ def search_for_extract_ankara(text: str):
     flag_vyp = False
     pos_start_translates = []
     # поиск шаблона нумерации предложений в переводе
-    Pattern_search, status_translate = choose_pattern(text)
-    if Pattern_search is not None:
-        pos_start_translates_all = re.finditer(Pattern_search, text, flags=re.MULTILINE)
+    Pattern_search_translate, status_translate = choose_pattern(text, patterns_akt2)
+    if Pattern_search_translate is not None:
+        pos_start_translates_all = re.finditer(Pattern_search_translate, text, flags=re.MULTILINE)
         # позиции начала перевода поиск диапазонов
         # pos_start_translates_all = re.finditer(r'\(?[^\S\n]*(\d{1,3})[^\S\n]*[-–—][^\S\n]*(\d{1,3})[^\S\n]*\)?(?=[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', text, flags=re.MULTILINE)
         # есть ли диапазоны
@@ -1689,7 +1668,7 @@ def renumber_trust_source(text: str) -> Dict[int, str]:
     Если строка не содержит номера,
     номер восстанавливается по ближайшим якорям.
     """
-    global Pattern_search
+    global Pattern_search_translate
     if not text.strip():
         return {}
 
@@ -1699,7 +1678,7 @@ def renumber_trust_source(text: str) -> Dict[int, str]:
     #     r'(\d+)\)',
     #     r'(\d+)\'',
     # ]
-    inline_pattern = Pattern_search
+    inline_pattern = Pattern_search_translate
 
 
     lines = text.splitlines()
@@ -1784,7 +1763,7 @@ def renumber_trust_source(text: str) -> Dict[int, str]:
 def process_text_last(text: str, lines_dict: Dict[int, str]) -> Tuple[List[str], List[str]]:
     # очистка от мусора текста
     # text = process_text(text, False)
-    global Pattern_search
+    global Pattern_search_translate
     # форматирует диапазоны пробелами
     text = clear_from_ocr_for_text_last(text)
     print("форматирует диапазоны пробелами")
@@ -1796,7 +1775,7 @@ def process_text_last(text: str, lines_dict: Dict[int, str]) -> Tuple[List[str],
 
     # range_pattern = re.compile(r'(\d{1,3})(?:\s*[-–—]\s*(\d{1,3}))?')
     # шаблон диапазона
-    range_pattern = re.compile(Pattern_search)
+    range_pattern = re.compile(Pattern_search_translate)
     # range_pattern = re.compile(r'\b(\d{1,3})\s*[-–—]\s*(\d{1,3})\b|(?<!\d)[-–—]\s*(\d{1,3})\b')
     # разделение текста по диапазонам
     matches = list(range_pattern.finditer(text))
@@ -2140,28 +2119,30 @@ def extract_ankara_next(text: str, start_pos: int, pattern: str):
         return None, None, len(text)
     print(f"Найден поисковый якорь Ankara: {match.group()}")
     text = text[match.end():]
+    # шаблон поиска перевода
+    Pattern_search_translate, status_trlat = choose_pattern(text, patterns_akt)
     # if any(Unfin_Data.values()):
     #     number_pred = Unfin_Data['number']
     #     trlit_pred = Unfin_Data['trlit']
     #     perevod_pred = Unfin_Data['perevod']
     # предварительная очистка
     text = cleaning_from_ocr_prelim(text)
-    pattern_start_trl = r'\((?:[A-Za-z]{1,2}\.\s)?\d{1,2}\)'
-    pattern_start_trl = re.compile(pattern_start_trl)
+    # pattern_start_trl = r'\((?:[A-Za-z]{1,2}\.\s)?\d{1,2}\)'
+    # pattern_start_trl = re.compile(pattern_start_trl)
 
-    pattern_start_trl_1 = r'\s\d{1,2}-\d{1,2}\s*:\s'
-    pattern_start_trl_1 = re.compile(pattern_start_trl_1)
-    pattern_end_trl_1 = r'\s\"'
-    pattern_end_trl_1 = re.compile(pattern_end_trl_1)
+    # pattern_start_trl_1 = r'\s\d{1,2}-\d{1,2}\s*:\s'
+    # pattern_start_trl_1 = re.compile(pattern_start_trl_1)
+    # pattern_end_trl_1 = r'\s\"'
+    # pattern_end_trl_1 = re.compile(pattern_end_trl_1)
     # pattern_end_translate_1 = найти закрывающие двойные кавыччки
 
-    pattern_start_trl_2 = r'\(\s*(\d{1,3})\s*[-–—]\s*(\d{1,3})\s*\)|\(\s*(\d{1,3})\s*\)'
-    pattern_start_trl_2 = re.compile(pattern_start_trl_2)
+    # pattern_start_trl_2 = r'\(\s*(\d{1,3})\s*[-–—]\s*(\d{1,3})\s*\)|\(\s*(\d{1,3})\s*\)'
+    # pattern_start_trl_2 = re.compile(pattern_start_trl_2)
     pattern_end_trl_2 = r'\(\s*(\d{1,3})\s*[-–—]\s*(\d{1,3})\s*\)|\(\s*(\d{1,3})\s*\)'
     pattern_end_trl_2 = re.compile(pattern_end_trl_2)
 
-    patterns_start_trl = [pattern_start_trl_1, pattern_start_trl_2]
-    patterns_end_trl = [pattern_end_trl_1, pattern_end_trl_2]
+    # patterns_start_trl = [pattern_start_trl_1, pattern_start_trl_2]
+    # patterns_end_trl = [pattern_end_trl_1, pattern_end_trl_2]
 
     pattern_end_translate_2 = r'\.\n[A-Za-z]{1,2}\.\s*\d{1,2}:'
     pattern_end_translate_2 = re.compile(pattern_end_translate_2)
@@ -2170,26 +2151,21 @@ def extract_ankara_next(text: str, start_pos: int, pattern: str):
     pattern_end_translate_2_2 = re.compile(pattern_end_translate_2_2)
     patterns_end_translate = [pattern_end_translate_2, pattern_end_translate_2_2]
 
-    matches_start_trl = [pattern.search(text) for pattern in patterns_start_trl]
-    for i, mach_start in enumerate(matches_start_trl):
-        if mach_start:
-            match_start_trl_main = matches_start_trl[i]
-    matches_end_trl = [pattern.search(text) for pattern in patterns_end_trl]
-    for i, mach_end in enumerate(matches_end_trl):
-        if mach_end:
-            match_end_trl_main = mach_end
-    matches_end_translate = [pattern.search(text) for pattern in patterns_end_translate]
-    for i, mach_end_t in enumerate(matches_end_translate):
-        if mach_end_t:
-            match_end_translate_main = mach_end_t
-    # match_start_trl = pattern_start_trl.search(text)
-    # match_start_trl_1 = pattern_start_trl_1.search(text)
-    # match_start_trl_2 = pattern_start_trl_2.search(text)
-    # match_end_trl_main = any(matches_end_trl)
-    # match_start_trl_main = any(matches_start_trl)
+    # matches_start_trl = [pattern.search(text) for pattern in patterns_start_trl]
+    # for i, mach_start in enumerate(matches_start_trl):
+    #     if mach_start:
+    #         match_start_trl_main = matches_start_trl[i]
+    match_start_trl_main = Pattern_search_translate
+    # matches_end_trl = [pattern.search(text) for pattern in patterns_end_trl]
+    # for i, mach_end in enumerate(matches_end_trl):
+    #     if mach_end:
+    #         match_end_trl_main = mach_end
+    # matches_end_translate = [pattern.search(text) for pattern in patterns_end_translate]
+    # for i, mach_end_t in enumerate(matches_end_translate):
+    #     if mach_end_t:
+    #         match_end_translate_main = mach_end_t
     if match_start_trl_main:
         pos_start_trlit = match_start_trl_main.end()
-        # match_end_trl_main = any(matches_end_trl)
         if match_end_trl_main:
             pos_end_trlit = match_end_trl_main.start()
         else:
@@ -2713,8 +2689,8 @@ def split_accad_and_translate(csv_lines, marker="<sent>"):
 
 
 # Завантаження даних з CSV-файлу
-# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
-thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
+# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
 # ----------------------------------------

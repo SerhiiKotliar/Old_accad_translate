@@ -10,7 +10,7 @@ except LookupError:
 # nltk.download('punkt')
 # nltk.download('punkt_tab')
 from nltk.tokenize import sent_tokenize
-Pattern_search = r"(?:(?P<start>\d+)\s*[-–—]\s*(?P<end>\d+)|[-–—]\s*(?P<only_end>\d+)|(?P<number>\d+))"
+Pattern_search_translate = r"(?:(?P<start>\d+)\s*[-–—]\s*(?P<end>\d+)|[-–—]\s*(?P<only_end>\d+)|(?P<number>\d+))"
 
 
 DETERMINATIVE_MAP = {
@@ -108,7 +108,7 @@ def clear_from_ocr_for_text(text: str) -> str:
     """Упорядочивает последовательно значения диапазонов
     и оборачивает в круглые скобки"""
     # --- 1. OCR-мусор: " 3A" → "3-A"
-    global Pattern_search
+    global Pattern_search_translate
     # text = re.sub(r'(\s\d)\s*(\d\w)', r'\1-\2', text)
 
     # token_pattern = re.compile(
@@ -306,7 +306,7 @@ def clear_from_ocr_for_text(text: str) -> str:
 
 def clear_from_ocr_for_text_last(text: str) -> str:
     """Окончательно чистит мусор и форматирует по пробелам диапазоны"""
-    global Pattern_search
+    global Pattern_search_translate
     # pattern = re.compile(
     #     r'\(?(\d+)\s*-\s*(\d+)\)?(\s+([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü]+))?'
     #     r'|[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü.\s](\d{1,2})\s?\r?\n?[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü]'
@@ -828,7 +828,7 @@ def renumber_trust_source(text: str) -> Dict[int, str]:
     Если строка не содержит номера,
     номер восстанавливается по ближайшим якорям.
     """
-    global Pattern_search
+    global Pattern_search_translate
     if not text.strip():
         return {}
 
