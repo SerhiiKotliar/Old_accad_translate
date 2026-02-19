@@ -858,13 +858,18 @@ def clear_from_ocr_for_text(text: str) -> str:
     for i, item in enumerate(parsed):
         is_del = False
         if last_range is None:
+            if item["type"] == "broken":
+                item["a"] = "1"
+                item["type"] = "range"
+            elif item["type"] == "single":
+                item["b"] = item["a"]
+                item["type"] = "range"
             last_range = item
             continue
         if item["type"] != "broken":
             diff = int(item["a"]) - int(last_range["b"])
         if item["type"] == "range":
             # ----------------------------------------------------
-            # is_del = False
             if diff == 0:
                 if int(last_range["b"]) - int(last_range["a"]) > 0:
                     last_range["b"] = str(int(item["a"]) - 1)
@@ -876,8 +881,6 @@ def clear_from_ocr_for_text(text: str) -> str:
                     if abs(diff) > 1:
                         del_items.append(i)
                         is_del = True
-                        # i += 1
-                        # continue
                     else:
                         item["a"] = str(int(last_range["b"]) + 1)
                         item["b"] = item["a"]
@@ -890,27 +893,17 @@ def clear_from_ocr_for_text(text: str) -> str:
                     if diff > 1:
                         del_items.append(i)
                         is_del = True
-                        # i += 1
-                        # continue
                 else:
                     item["a"] = str(int(last_range["b"])  + 1)
         elif item["type"] == "broken": # and last_range:
             item["a"] = str(int(last_range["b"]) + 1)
             item["type"] = "range"
         elif item["type"] == "single":
-            # is_del = False
             if len(item["a"]) > 2 or diff> 1 or diff < -1:
-                # item["b"] = item["a"]
                 del_items.append(i)
                 is_del = True
-            # if diff> 1 or diff < -1:
-            #     item["b"] = item["a"]
-            #     del_items.append(i)
-                # is_del = True
             elif diff == -1 or diff == 0:
                 item["a"] = str(int(last_range["b"]) + 1)
-            # if is_del:
-            #     continue
             item["type"] = "range"
             item["b"] = item["a"]
         merged.append(last_range)
@@ -926,7 +919,7 @@ def clear_from_ocr_for_text(text: str) -> str:
 
     for item in reversed(parsed):
         if item["type"] == "range":
-            repl = f" {item['a']}-{item['b']} "
+            repl = f"{item['a']}-{item['b']}"
         # учитывает отдельные числа
         # elif item["type"] == "single":
         #     repl = str(item["n"])
@@ -1149,6 +1142,7 @@ def cleaning_from_ocr_prelim(text: str) -> str:
         (r'\"\'\"', ''),
         (r'^(\d+\.)\r?\n?', r'\g<1>'),
         (r'\s[ÖO](?=[A-ZÀ-ÖØİŞĞÇÜ])', r'0 '),
+        (r'(\d{1,2}\s*)\'(\s*\d{1,2})', r'\g<1>-\g<2>'),
         # (r'\s*i0\s*', r' 10 '),
         # (r'(?<=[^\W_]):(?=[^\W_])', ' '),
         # (r'\b\d{1,3}\s*[-–—-]\s*\d{1,3}\b', ''),
@@ -1271,7 +1265,13 @@ def cleaning_from_ocr(text: str, trlit: bool = True) -> str:
             # (r'S-9', '5-9'),
             # (r'‰', ''),
             # (r'™', ''),
-            (r':', ' '),
+            (r'\:', ' '),
+            (r'\!', ''),
+            (r'\?', ''),
+            (r'\/', ''),
+            (r"\'", ''),
+            (r'\"', ''),
+            (r"\'\'", ''),
             (r'<([^<>]+)>', r'\g<1>'),
             (r'^.\d{1,}\n', ''),
             (r'^.\.?\s?y\.\s?\r?\n?', ''),
@@ -1318,6 +1318,7 @@ def cleaning_from_ocr(text: str, trlit: bool = True) -> str:
             (r'\s4([a-zа-яà-öø-ÿ])', r' h\g<1>'),
             (r'(\d)\s*/\s*(\d)', r'\g<1>/\g<2>'),
             (r'\s*i0\s*', r' 10 '),
+            (r'(\d{1,2}\s*)\'(\s*\d{1,2})', r'\g<1>-\g<2>'),
             # (r'([^\d\s])(\d+[\s\-–—]?\d+)([^\d\s])', r'\g<1> \g<2> \g<3>'),
             # (r'(\d+[\s\-–—]?\d+)([^\d\s])', r'\g<1> \g<2>'),
             # (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])(\d+\s*[-–—]?\s*\d+)([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r'\g<1> \g<2> \g<3>'),
@@ -1748,9 +1749,11 @@ def renumber_trust_source(text: str) -> Dict[int, str]:
     #     return {num: seg for num, seg in zip(numbers, segments)}
 
     # for pat in inline_patterns:
+    if inline_pattern == r"(?:(?P<start>\d+)\s*[-–—]\s*(?P<end>\d+)|[-–—]\s*(?P<only_end>\d+)|(?P<number>\d+))":
+        return {1: text.strip()}
     compiled = re.compile(inline_pattern)
-    # matches = list(compiled.finditer(text))
-    matches = [m.group("number") for m in compiled.finditer(text) if m.group("number")]
+    matches = list(compiled.finditer(text))
+    # matches = [m.group("number") for m in compiled.finditer(text) if m.group("number")]
 
     if not matches:
         return {1: text.strip()}
@@ -2119,13 +2122,18 @@ def extract_ankara_next(text: str, start_pos: int, pattern: str):
     perevod_pred = ""
     pos_start_trlit = 0
     pos_end_trlit = 0
+    pos_start_translate = 0
     pos_end_translate = 0
     text_transliterate = ""
     text_translate = ""
+    flag_vyp = False
+    match_start_trl_main = None
+    match_end_trl_main = None
+    match_end_translate_main = None
     if start_pos < 0 or start_pos >= len(text):
         return None, None, start_pos
     end_pos = len(text)
-    # text = text.replace('TABLETLERİ u', 'TABLETLERİ II')
+    text = text.replace('TABLETLERİ!', 'TABLETLERİi')
     pattern = re.compile(pattern)
     match = pattern.search(text, start_pos)
     if not match:
@@ -2140,61 +2148,131 @@ def extract_ankara_next(text: str, start_pos: int, pattern: str):
     text = cleaning_from_ocr_prelim(text)
     pattern_start_trl = r'\((?:[A-Za-z]{1,2}\.\s)?\d{1,2}\)'
     pattern_start_trl = re.compile(pattern_start_trl)
-    pattern_start_trl_1 = r'\s\d{1,2}-\d{1,2}\s:\s'
+
+    pattern_start_trl_1 = r'\s\d{1,2}-\d{1,2}\s*:\s'
     pattern_start_trl_1 = re.compile(pattern_start_trl_1)
-    pattern_end_trl = r'\(?\s*(\d{1,3})\s*[-–—]\s*(\d{1,3})\s*\)?'
-    pattern_end_trl = re.compile(pattern_end_trl)
-    pattern_end_translate = r'[A-Za-z]{1,2}\.\s\d{1,2}:'
-    pattern_end_translate = re.compile(pattern_end_translate)
-    match_start_trl = pattern_start_trl.search(text)
-    match_start_trl_1 = pattern_start_trl_1.search(text)
-    if match_start_trl or match_start_trl_1:
-        pos_start_trlit = match_start_trl.start() if match_start_trl else match_start_trl_1.end()
-        if match_start_trl:
-            match_end_trl = pattern_end_trl.search(text, pos_start_trlit)
-            if match_end_trl:
-                pos_end_trlit = match_end_trl.start()
-            else:
-                pos_end_trlit = len(text)
-        elif match_start_trl_1:
-            pos_end_trlit = find_double_quote(text, pos_start_trlit)
+    pattern_end_trl_1 = r'\s\"'
+    pattern_end_trl_1 = re.compile(pattern_end_trl_1)
+    # pattern_end_translate_1 = найти закрывающие двойные кавыччки
+
+    pattern_start_trl_2 = r'\(\s*(\d{1,3})\s*[-–—]\s*(\d{1,3})\s*\)|\(\s*(\d{1,3})\s*\)'
+    pattern_start_trl_2 = re.compile(pattern_start_trl_2)
+    pattern_end_trl_2 = r'\(\s*(\d{1,3})\s*[-–—]\s*(\d{1,3})\s*\)|\(\s*(\d{1,3})\s*\)'
+    pattern_end_trl_2 = re.compile(pattern_end_trl_2)
+
+    patterns_start_trl = [pattern_start_trl_1, pattern_start_trl_2]
+    patterns_end_trl = [pattern_end_trl_1, pattern_end_trl_2]
+
+    pattern_end_translate_2 = r'\.\n[A-Za-z]{1,2}\.\s*\d{1,2}:'
+    pattern_end_translate_2 = re.compile(pattern_end_translate_2)
+    pos_end_translate_2_1 = len(text)
+    pattern_end_translate_2_2 = r'\.\r?\n?Zarf\r?\n?'
+    pattern_end_translate_2_2 = re.compile(pattern_end_translate_2_2)
+    patterns_end_translate = [pattern_end_translate_2, pattern_end_translate_2_2]
+
+    matches_start_trl = [pattern.search(text) for pattern in patterns_start_trl]
+    for i, mach_start in enumerate(matches_start_trl):
+        if mach_start:
+            match_start_trl_main = matches_start_trl[i]
+    matches_end_trl = [pattern.search(text) for pattern in patterns_end_trl]
+    for i, mach_end in enumerate(matches_end_trl):
+        if mach_end:
+            match_end_trl_main = mach_end
+    matches_end_translate = [pattern.search(text) for pattern in patterns_end_translate]
+    for i, mach_end_t in enumerate(matches_end_translate):
+        if mach_end_t:
+            match_end_translate_main = mach_end_t
+    # match_start_trl = pattern_start_trl.search(text)
+    # match_start_trl_1 = pattern_start_trl_1.search(text)
+    # match_start_trl_2 = pattern_start_trl_2.search(text)
+    # match_end_trl_main = any(matches_end_trl)
+    # match_start_trl_main = any(matches_start_trl)
+    if match_start_trl_main:
+        pos_start_trlit = match_start_trl_main.end()
+        # match_end_trl_main = any(matches_end_trl)
+        if match_end_trl_main:
+            pos_end_trlit = match_end_trl_main.start()
+        else:
+            pos_end_trlit = len(text)
         if pos_end_trlit <= 0:
             pos_end_trlit = len(text)
         text_transliterate = text[pos_start_trlit:pos_end_trlit]
-        pos_start_translate = pos_end_trlit
-        match_end_translate = pattern_end_translate.search(text, pos_start_translate)
-        if match_end_translate:
-            # pos_end_translate = text.find("\n", match_end_translate.start(), pos_start_translate)
-            pos_end_translate = text.rfind("\n", pos_start_translate, match_end_translate.start())
-
-        else:
-            pos_end_translate = find_double_quote(text, pos_start_translate, False)
-        if pos_end_translate > 0:
-            text_translate = text[pos_start_translate:pos_end_translate]
-        else:
-            text_translate = ""
-    else:
-        if Unfin_Data['trlit'] != "":
-            text_transliterate = Unfin_Data['trlit']
-        match_start_translate = pattern_end_trl.search(text, 0)
-        if match_start_translate:
-            pos_start_translate = match_start_translate.start()
-        else:
-            pos_start_translate = find_double_quote(text, 0)
-        if pos_start_translate <= 0:
-            text_translate = ""
-        else:
-            match_end_translate = pattern_end_translate.search(text, pos_start_translate)
-            if match_end_translate:
-                # pos_end_translate = text.find("\n", match_end_translate.start(), pos_start_translate)
-                pos_end_translate = text.rfind("\n", pos_start_translate, match_end_translate.start())
+        if pos_end_trlit < len(text):
+            pos_start_translate = match_end_trl_main.end()
+            # match_end_translate_main = any(matches_end_translate)
+            if match_end_translate_main:
+                pos_end_translate = match_end_translate_main.start()
             else:
                 pos_end_translate = find_double_quote(text, pos_start_translate, False)
+                if pos_end_translate <= 0:
+                    pos_end_translate = len(text)
             if pos_end_translate > 0:
                 text_translate = text[pos_start_translate:pos_end_translate]
             else:
                 text_translate = ""
-    # -----------------------------------------------------------------------
+    # if match_start_trl or match_start_trl_1 or match_start_trl_2:
+    #     pos_start_trlit = match_start_trl.start() if match_start_trl else match_start_trl_1.end()
+    #     if match_start_trl:
+    #         match_end_trl = pattern_end_trl.search(text, pos_start_trlit)
+    #         if match_end_trl:
+    #             pos_end_trlit = match_end_trl.start()
+    #         else:
+    #             pos_end_trlit = len(text)
+    #     elif match_start_trl_1:
+    #         pos_end_trlit = find_double_quote(text, pos_start_trlit)
+    #     if pos_end_trlit <= 0:
+    #         pos_end_trlit = len(text)
+    #     text_transliterate = text[pos_start_trlit:pos_end_trlit]
+    #     pos_start_translate = pos_end_trlit
+    #     match_end_translate = pattern_end_translate.search(text, pos_start_translate)
+    #     if match_end_translate:
+    #         # pos_end_translate = text.find("\n", match_end_translate.start(), pos_start_translate)
+    #         pos_end_translate = text.rfind("\n", pos_start_translate, match_end_translate.start())
+    #
+    #     else:
+    #         pos_end_translate = find_double_quote(text, pos_start_translate, False)
+    #     if pos_end_translate > 0:
+    #         text_translate = text[pos_start_translate:pos_end_translate]
+    #     else:
+    #         text_translate = ""
+    else:
+        if Unfin_Data['trlit'] != "":
+            text_transliterate = Unfin_Data['trlit']
+        if match_end_trl_main:
+            pos_start_translate = match_end_trl_main.end()
+            match_end_translate_main = any(matches_end_translate)
+            if match_end_translate_main:
+                pos_end_translate = match_end_translate_main.start()
+            else:
+                pos_end_translate = find_double_quote(text, pos_start_translate, False)
+                if pos_end_translate <= 0:
+                    pos_end_translate = len(text)
+            if pos_end_translate > 0:
+                text_translate = text[pos_start_translate:pos_end_translate]
+            else:
+                text_translate = ""
+
+
+
+    #     # match_start_translate = pattern_end_trl.search(text, 0)
+    #     if match_start_translate:
+    #         pos_start_translate = match_start_translate.start()
+    #     else:
+    #         pos_start_translate = find_double_quote(text, 0)
+    #     if pos_start_translate <= 0:
+    #         text_translate = ""
+    #     else:
+    #         match_end_translate = pattern_end_translate.search(text, pos_start_translate)
+    #         if match_end_translate:
+    #             # pos_end_translate = text.find("\n", match_end_translate.start(), pos_start_translate)
+    #             pos_end_translate = text.rfind("\n", pos_start_translate, match_end_translate.start())
+    #         else:
+    #             pos_end_translate = find_double_quote(text, pos_start_translate, False)
+    #         if pos_end_translate > 0:
+    #             text_translate = text[pos_start_translate:pos_end_translate]
+    #         else:
+    #             text_translate = ""
+    # # -----------------------------------------------------------------------
     # if trlit_pred != "":
     #     pos_start_trlit = pos_first_translite(text, 0)
     # else:
@@ -2236,19 +2314,19 @@ def extract_ankara_next(text: str, start_pos: int, pattern: str):
         text_translate = process_text(text_translate, False)
         if not detect_translate(text_translate, pos_start_translate):
             return ("", ""), False, end_pos
-        if not pos_end_translate:
+        if pos_end_translate < 0:
             Unfin_Data['perevod'] = text_translate
     if text_transliterate != "":
         # очистка от мусора транслитерации
         text_transliterate = process_text(text_transliterate)
         # словарь с ключами номерами и строками транслитерации
-        result1 = renumber_trust_source(text_transliterate)
+        text_transliterate = renumber_trust_source(text_transliterate)
         # result1 = parse_numbered_fragments(text_transliterate)
     if text_translate != "" or text_transliterate != "":
         flag_vyp =True
     #     # очищенный от мусора текст и словарь транслитерации,
     #     # флаг выполнения, позиция конца перевода
-    return (text_translate, result1), flag_vyp, pos_end_translate
+    return (text_translate, text_transliterate), flag_vyp, pos_end_translate
 
 def extract_after_ankara_next(text_dict_tr: tuple, pos_s: int):
     text_translate = text_dict_tr[0]
@@ -2635,8 +2713,8 @@ def split_accad_and_translate(csv_lines, marker="<sent>"):
 
 
 # Завантаження даних з CSV-файлу
-thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
-# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
+thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
 # ----------------------------------------
@@ -2697,7 +2775,7 @@ for i in idx:
     print(f"{num + 1} пару блоков начинаем искать.\n")
     print(f"Index = {i}\n")
     # if i == 74880:
-    if i == 17522:
+    if i == 17524:
     #     не печатает переводы
     # if i == 25:
     # if i == 130319:
