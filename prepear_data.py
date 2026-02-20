@@ -448,10 +448,14 @@ patterns_akt2 = {
   # 12 12-15
     }
 patterns_akt2_trl_s = {
-        "start_trl": r"^[ÖG~]\.\s*y\.\r?\n"  # Ö. y.
+        "start_trl": r"^[ÖG~]\.\s*y\.\r?\n",  # Ö. y.
+        "paren_right": r"(?:|(?P<number>\d+))\s*\)",  # 12) 12-15)
+
     }
 patterns_akt2_per_s = {
-        "plain": r"(?:(?P<start>\d+)\s*[-–—]\s*(?P<end>\d+)|[-–—]\s*(?P<only_end>\d+))"  # 12 12-15
+        "plain": r"(?:(?P<start>\d+)\s*[-–—]\s*(?P<end>\d+)|[-–—]\s*(?P<only_end>\d+))",  # 12 12-15
+        "paren_both": r"\(\s*(?:(?P<start>\d+)\s*[-–—]\s*(?P<end>\d+)|[-–—]\s*(?P<only_end>\d+))\s*\)"
+,  # (12) (12-15)
     }
 patterns_akt2_per_e = {
         "plain": r"(?:(?P<start>\d+)\s*[-–—]\s*(?P<end>\d+)|[-–—]\s*(?P<only_end>\d+)|(?P<number>\d+))"  # 12 12-15
@@ -860,6 +864,8 @@ def clear_from_ocr_for_text(text: str) -> str:
         #     # "text": token
         # })
     parsed = tokens
+    if len(tokens) == 0:
+        return text
     # --- 2. Разбираем токены в диапазоны
     # parsed = []
     # for t in tokens:
@@ -947,13 +953,13 @@ def clear_from_ocr_for_text(text: str) -> str:
     chars = list(text)
 
     for item in reversed(parsed):
-        if item["type"] == "range":
-            repl = f"{item['a']}-{item['b']}"
+        # if item["type"] == "range":
+        repl = f"{item['a']}-{item['b']}"
         # учитывает отдельные числа
         # elif item["type"] == "single":
         #     repl = str(item["n"])
-        else:
-            continue
+        # else:
+        #     continue
 
         chars[item["start"]:item["end"]] = repl
     result = "".join(chars)
@@ -1408,7 +1414,7 @@ def process_text(text, trlit: bool = True):
     processed_lines = [cleaning_from_ocr(line, trlit) for line in lines]
     return ''.join(processed_lines)
 
-def choose_pattern(text: str, patterns: str):
+def choose_pattern(text: str, patterns: dict[str, str]):
 
     def detect_numbering_style(text):
         counts = {}
@@ -1475,6 +1481,20 @@ def choose_pattern(text: str, patterns: str):
         return pattern, "no_translate_less_3"
     return pattern, "is_translate"
 
+def merge_if_consecutive(d1: dict, d2: dict):
+    """складывает словари транслитераций"""
+    if not d1 or not d2:
+        return d2  # если первый пуст — просто вернуть второй
+
+    max1 = max(d1)
+    min2 = min(d2)
+
+    if min2 == max1 + 1:
+        merged = {**d1, **d2}
+        return dict(sorted(merged.items()))
+    else:
+        return d2  # первый удаляется
+
 
 def search_for_extract_ankara(text: str):
     # ------------------------------------------------
@@ -1484,6 +1504,7 @@ def search_for_extract_ankara(text: str):
     global patterns_akt2_trl_s
     text_translate = ""
     text_transliterate = ""
+    text_transliterate_prev = ""
     pos_end_translate = int
     pos_start_translate = None
     pos_start_translates = []
@@ -1498,11 +1519,6 @@ def search_for_extract_ankara(text: str):
     pos_start_tr = 0
     flag_vyp = False
     pos_start_translates = []
-    if  Unfin_Data['trlit'] != "":
-        text_transliterate = Unfin_Data['trlit']
-        Unfin_Data['trlit'] = ""
-        # далее проверить предыдущую нумерацию и сравнить с нынешней
-        # при совпадении соединить, в противном случае прошлую удалить
     # поиск шаблона нумерации предложений в переводе и транслитерации
     Pattern_search_translate, status_translate = choose_pattern(text, patterns_akt2_per_s)
     if status_translate == "is_translate":
@@ -1695,18 +1711,26 @@ def search_for_extract_ankara(text: str):
     #     #         pos_end = len(text)
     #     #     else:
     #     #         pos_end = pos_end_translate
-
+    if Unfin_Data['trlit'] != "":
+        text_transliterate_prev = Unfin_Data['trlit']
+        Unfin_Data['trlit'] = ""
+        # text_transliterate = merge_if_consecutive(text_transliterate_prev, text_transliterate)
     if text_transliterate != "":
         # очистка от мусора(уже очищено при поиске)
         text_transliterate = process_text(text_transliterate)
         # словарь транслитерации ключ номер строки и значение строка
         text_transliterate = renumber_trust_source(text_transliterate)
-        if text_translate == "":
-            # перевода нет, возможно он будет в следующем тексте
-            # и понадобится эта транслитерация для него
-            Unfin_Data['trlit'] = text_transliterate
-            text_transliterate = ""
-            pos_end = pos_end_tr
+        text_transliterate = merge_if_consecutive(text_transliterate_prev, text_transliterate)
+    else:
+        text_transliterate = text_transliterate_prev
+            # далее проверить предыдущую нумерацию и сравнить с нынешней
+            # при совпадении соединить, в противном случае прошлую удалить
+    if text_translate == "" and text_transliterate != "":
+        # перевода нет, возможно он будет в следующем тексте
+        # и понадобится эта транслитерация для него
+        Unfin_Data['trlit'] = text_transliterate
+        text_transliterate = ""
+        pos_end = pos_end_tr
     if text_translate != "":
         # # очистка от мусора текста
         text_translate = process_text(text_translate, False)
@@ -2668,15 +2692,15 @@ def process_text_and_build_csv_rows(text: str):
     pattern3 = r'ANKARA KÜLTEPE TABLETLERİ II\n'
     pattern4 = r'ANKARA KÜLTEPE TABLETLERi\n'
     # список списков шаблонов поиска первого блока
-    all_patterns = [pattern1, pattern2, pattern3, pattern4]
+    all_patterns = [pattern1, pattern2, pattern3]
     len_arr = len(all_patterns)
     # len_arr = 1
     # список функций поиска первого блока соответствует списку списков шаблонов
-    extract_function_1 = [extract_quoted_substring, extract_letter_space_digit_colon_space, extract_ankara, extract_ankara_next]
-    # extract_function_1 = [extract_ankara]
+    extract_function_1 = [extract_quoted_substring, extract_letter_space_digit_colon_space, extract_ankara]
+    # extract_function_1 = [extract_ankara_next]
     # список функций поиска второго блока соответствует списку функций поиска первого блока
-    extract_function_2 = [extract_parenthesized_substring, extract_single_quotes, extract_after_ankara, extract_after_ankara_next]
-    # extract_function_2 = [extract_after_ankara]
+    extract_function_2 = [extract_parenthesized_substring, extract_single_quotes, extract_after_ankara]
+    # extract_function_2 = [extract_after_ankara_next]
     str_txt = [""] * len_arr
     str_txt_1 = [""] * len_arr
 
@@ -2854,8 +2878,8 @@ def split_accad_and_translate(csv_lines, marker="<sent>"):
 
 
 # Завантаження даних з CSV-файлу
-# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
-thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
+# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
 # ----------------------------------------
@@ -2916,7 +2940,7 @@ for i in idx:
     print(f"{num + 1} пару блоков начинаем искать.\n")
     print(f"Index = {i}\n")
     # if i == 74880:
-    if i == 17524:
+    if i == 5240:
     #     не печатает переводы
     # if i == 25:
     # if i == 130319:
