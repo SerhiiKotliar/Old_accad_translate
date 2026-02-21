@@ -590,6 +590,13 @@ def extract_transliteration(text) -> list:
         # мало дефисов в строке
         if (num_div > 0 and len(line) / num_div - 1 > 16) or num_div == 0 and not has_basic_format:
             is_transliteration = False
+        # проверка количества цифр в строке
+        def more_than_half_digits(line_trimmed):
+            digits = sum(ch.isdigit() for ch in line_trimmed)
+            return digits > len(line_trimmed) / 2
+
+        if more_than_half_digits(line_trimmed):
+            is_transliteration = False
 
         if is_transliteration:
             current.append(line_trimmed)
@@ -629,7 +636,7 @@ def find_translit_by_rows(text: str, pos: int=0, n_dop: int=2):
             # сборная транслитерация
             result += "\n".join(line_trl) + "\n"
             end_translit = pos_end_of_line
-            pos_start_trlit = pos_end_of_line - len(n_l)
+            pos_start_trlit = pos_end_of_line - len(n_l) - 1
             # строка
             n_l, pos_end_of_line = get_next_line(text, pos_end_of_line)
             if pos_end_of_line == -1:
@@ -693,7 +700,7 @@ def get_next_line(text: str, start_pos: int):
         return text[pos:end], end
     # позиция старта совпадает с переводом строки
     if pos == end and pos < len(text):
-        return text[pos:end+1], end+1
+        # return text[pos:end+1], end+1
         pos = end + 1
         end = text.find('\n', pos)
         if end == -1 and pos <= len(text):
@@ -707,7 +714,7 @@ def get_next_line(text: str, start_pos: int):
     # достигнут конец текста
     if end == pos and pos >= len(text):
         return "", len(text)
-    str_line = text[pos:end+1]
+    str_line = text[pos:end]
     # str_line = re.sub(
     #     r'^\s*(?:[SK]\.|S\. K\.|v|\. v)\s*(?:\r?\n|$)',
     #     '',
@@ -743,22 +750,7 @@ def detect_translate(text: str, start_pos: int):
     str_line = text[pos:end]
     # уборка мусора
     str_line = cleaning_from_ocr(str_line)
-    # subs = [
-    #     (r'ı\s+ı', '11'),
-    #     (r'ı\s+', '1'),
-    #     (r'ı', '1'),
-    #     (r'5([A-Za-zА-Яа-я])', r'S\1'),
-    #     (r'A1', 'Ai'),
-    #     (r'([A-Za-zА-Яа-я])1\b', r'\1i'),
-    #     (r'([A-Za-zА-Яа-я]),(\d)', r'\1 \2'),
-    #     (r'\s(\d)\s(\d)\s', r' \1-\2 '),
-    #     (r'(?<=\d)o', '0'),
-    #     # (r'\b\d{1,3}\s*[-–—-]\s*\d{1,3}\b', ''),
-    # ]
-    #
-    # for pattern, repl in subs:
-    #     str_line = re.sub(pattern, repl, str_line)
-    # str_line = re.sub(r'\b\d{1,3}\s*[-–—-]\s*\d{1,3}\b', '', str_line)
+
     # шаблон диапазона страниц
     pattern = r'\b\d{1,3}\s*[-–—-]\s*\d{1,3}\b'
 
@@ -768,18 +760,6 @@ def detect_translate(text: str, start_pos: int):
     if count > 2 or is_translation(str_line, one_word):
         is_translate = True
     # print("Количество замен:", count)
-
-    # str_line = re.sub(
-    #     r'^\s*(?:[SK]\.|S\. K\.|v|\. v)\s*(?:\r?\n|$)',
-    #     '',
-    #     str_line,
-    #     flags=re.MULTILINE
-    # )
-    # str_line = re.sub(
-    #     r'(?m)^\s*\d{1,2}\.\s*',
-    #     '',
-    #     str_line
-    # )
 
     return is_translate, str_line
 
@@ -1141,6 +1121,7 @@ def cleaning_from_ocr_prelim(text: str) -> str:
         (r'4ssur', r'Assur'),
         (r'(\w)[-–—]1(\w)', r'\g<1>-i\g<2>'),
         (r'\s5([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r' S\g<1>'),
+        (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])15([-–—])', r' \g<1>lš\g<2>'),
         (r'\s0([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r' O\g<1>'),
         (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])0([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r' \g<1>O\g<2>'),
         (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])5([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r' \g<1>S\g<2>'),
@@ -1180,9 +1161,14 @@ def cleaning_from_ocr_prelim(text: str) -> str:
         (r'(\w)1(\w)', r'\g<1>i\g<2>'),
         (r'K Ù\.', r'KÙ\.'),
         (r'\"\'\"', ''),
+        (r'(\d)i(\d)', r'\g<1>1\g<2>'),
+        (r'^\d+\r?\n(?=Kt)', ''),
         (r'^(\d+\.)\r?\n?', r'\g<1>'),
         (r'\s[ÖO](?=[A-ZÀ-ÖØİŞĞÇÜ])', r'0 '),
         (r'(\d{1,2}\s*)\'(\s*\d{1,2})', r'\g<1>-\g<2>'),
+        # (r'^\s*\d+\.\s*Kt', 'Kt'),
+        # (r'^40.Kt', 'Kt'),
+        # (r'\A\d+\.\s*(?=Kt)', ''),
         # (r'\s*i0\s*', r' 10 '),
         # (r'(?<=[^\W_]):(?=[^\W_])', ' '),
         # (r'\b\d{1,3}\s*[-–—-]\s*\d{1,3}\b', ''),
@@ -2156,20 +2142,55 @@ def find_double_quote(text: str, start_pos: int, first: bool=True):
 
 #%%
 def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pattern: str):
+    """предполагается что переноса перевода с одного текста на следующий
+    или транслитерации нет"""
+    # # предварительная очистка
+    # text = cleaning_from_ocr_prelim(text)
     pattern = re.compile(pattern, re.MULTILINE)
     match = pattern.search(text, start_search_pos)
     if not match:
         return None, None, len(text)
     print(f"Найден поисковый якорь: {match.group()}")
+
     # ---------------------------------------------------
-    pos = match.end()
-    result, pos_end, pos_start = find_translit_by_rows(text, pos)
-    pos_end = len(text) if (pos_end == 0 or pos_end == -1) else pos_end
-    if result:
-        return result, True, pos_end
+    text_translate = ""
+    flag_vyp = False
+    # позиция начала поиска
+    pos = match.end() - 1
+    # транслитерация
+    text_transliterate, pos_end, pos_start = find_translit_by_rows(text, pos)
+    if text_transliterate != "":
+        # словарь транслитерации ключ номер строки и значение строка
+        text_transliterate = renumber_trust_source(text_transliterate)
     else:
-        return result, False, pos_end
-    # -----------------------------------------------
+        return (text_translate, text_transliterate), flag_vyp, len(text)
+    # ------------------------------------------------------------
+    if pos_end < len(text):
+        pos_start_translate = pos_end
+        match = pattern.search(text, pos_start_translate)
+        if not match:
+            pos_end_translate = len(text)
+        else:
+            pos_end_translate = match.start()
+        text_translate = text[pos_start_translate:pos_end_translate]
+        text_translate = process_text(text_translate)
+        if is_translation(text_translate) and looks_like_real_translation(text_translate) and text_transliterate != "":
+            flag_vyp = True
+        return (text_translate, text_transliterate), flag_vyp, pos_end_translate
+    return ("", text_transliterate), flag_vyp, len(text)
+
+    # # ---------------------------------------------------------------
+    # if text_transliterate != "":
+    #     return text_transliterate, True, pos_end
+    # else:
+    #     return text_transliterate, False, pos_end
+    # # -----------------------------------------------
+def extract_after_letter_space_digit_colon_space(text_dict_tr: tuple[str, dict[int, str]], pos_s: int) -> Tuple[Tuple[List:str, List:str], bool, int]:
+    # text_translate = text_dict_tr[0]
+    list_trl_transl = process_text_last(text_dict_tr[0], text_dict_tr[1])
+    # кортеж списков транслитерации и перевода, флаг, конец перевода
+    return list_trl_transl, True, pos_s
+
 
 #%%
 def extract_single_quotes(text: str, start_pos: int):
@@ -2688,21 +2709,23 @@ def process_text_and_build_csv_rows(text: str):
     """
     # списки шаблонов поиска якорей для разных вариантов пар первого и второго блоков
     pattern1 = r'\d{2,}:\s+(?:\d+-\d+[:,)]\s*[^"]{0,80}?\s)?"'
-    pattern2 = r'[A-Z][a-z]{3,} \d{4}[a-z]?: \d+(?:[–\-]\d+)?'
+    pattern2 = r'^[A-Z]{1,3}[a-z]{1,2}\s*(?:\d{1,3}/k|n/k|\d{1,2}\,)\s*\d{1,4}[a-z]?(?::\s*\d+[–\-]\d+)?\n'
     pattern3 = r'ANKARA KÜLTEPE TABLETLERİ II\n'
     pattern4 = r'ANKARA KÜLTEPE TABLETLERi\n'
     # список списков шаблонов поиска первого блока
-    all_patterns = [pattern1, pattern2, pattern3]
+    all_patterns = [pattern2]
     len_arr = len(all_patterns)
     # len_arr = 1
     # список функций поиска первого блока соответствует списку списков шаблонов
-    extract_function_1 = [extract_quoted_substring, extract_letter_space_digit_colon_space, extract_ankara]
-    # extract_function_1 = [extract_ankara_next]
+    # extract_function_1 = [extract_quoted_substring, extract_letter_space_digit_colon_space, extract_ankara]
+    extract_function_1 = [extract_letter_space_digit_colon_space]
     # список функций поиска второго блока соответствует списку функций поиска первого блока
-    extract_function_2 = [extract_parenthesized_substring, extract_single_quotes, extract_after_ankara]
-    # extract_function_2 = [extract_after_ankara_next]
+    # extract_function_2 = [extract_parenthesized_substring, extract_single_quotes, extract_after_ankara]
+    extract_function_2 = [extract_after_letter_space_digit_colon_space]
     str_txt = [""] * len_arr
     str_txt_1 = [""] * len_arr
+    # предварительная очистка
+    text = cleaning_from_ocr_prelim(text)
 
     i = 0
     csv_rows = []
@@ -2713,7 +2736,6 @@ def process_text_and_build_csv_rows(text: str):
         print(f"Работаем с {i + 1} группой шаблонов")
         work = True
         while work:
-            # поиск по двойным кавычкам потом по буквам пробелам цифрам
             str_txt[i % len_arr], flag, next_pos = extract_function_1[i % len_arr](text, start_pos, pattern)
 
             if flag:
@@ -2940,7 +2962,7 @@ for i in idx:
     print(f"{num + 1} пару блоков начинаем искать.\n")
     print(f"Index = {i}\n")
     # if i == 74880:
-    if i == 5240:
+    if i == 14671:
     #     не печатает переводы
     # if i == 25:
     # if i == 130319:
