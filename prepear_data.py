@@ -466,7 +466,11 @@ patterns_akt = {
         "paren_both": r'\(\s*(\d{1,3})\s*[-–—]\s*(\d{1,3})\s*\)|\(\s*(\d{1,3})\s*\)',  # (3) (12-15)
         "para_quote": r'\s\"' # "
     }
-
+# r'^[A-Z]{1}[a-z]{2,8}\s*\d{1,4}:\s*(?:\d+[–\-]\d+|\d{1,4})\n'
+patterns_withaut_diapason = {
+        "start_trl": r'^[A-Z]{1,3}[a-z]{0,2}\s*(?:\d{1,3}/k|n/k|\d{1,2},)\s*\d{1,4}[a-z]{0,2}(?::\s*(?:\d+[–\-]\d+|:|\d{1,5}))?\n',
+        "start_trl_sooname": r'^[A-Z]{1}[a-z]{2,8}\s*\d{1,4}:\s*(?:\d+[–\-]\d+|\d{1,4})\n'
+}
 
 def extract_transliteration(text) -> list:
     """
@@ -1102,14 +1106,11 @@ def clear_from_ocr_for_text_last(text: str) -> str:
 
 def cleaning_from_ocr_prelim(text: str) -> str:
     text = re.sub(
-        # r'^\s*(?:[SK]\.|S\. K\.|S\.K\.|K\.\s*\d|\n|v|\. v)\s*$',
-        # r'^\s*(?:[SK]\.|S\. ?K\.|K\.\s*\d+|v|\. v)\s*\r?\n?',
         r'^\s*(?:S\.(?:\s*K\.)?|K\.(?:\s*)?|v|\. v)\s*',
         '',
         text,
         flags=re.MULTILINE
     )
-    # text = re.sub(r'^K\.\s*(\d+)', '\g<1>', text, flags=re.MULTILINE)
     text = re.sub(r'^\w\.\s*K\.\s*\w+', '', text, flags=re.MULTILINE)
     subs = [
         (r'([a-z])ı\s*', r'\g<1>i'),
@@ -1119,7 +1120,7 @@ def cleaning_from_ocr_prelim(text: str) -> str:
         (r'o', '0'),
         (r'ı', '1'),
         (r'4ssur', r'Assur'),
-        (r'(\w)[-–—]1(\w)', r'\g<1>-i\g<2>'),
+        (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])[-–—]1([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r'\g<1>-i\g<2>'),
         (r'\s5([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r' S\g<1>'),
         (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])15([-–—])', r' \g<1>lš\g<2>'),
         (r'\s0([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r' O\g<1>'),
@@ -1141,20 +1142,14 @@ def cleaning_from_ocr_prelim(text: str) -> str:
         (r'(\s\d\s*)4([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r'\g<1>h\g<2>'),
         (r'(?<!\d)([^\W\d_])4(?=[-–—])', r'\g<1>h'),
         (r"r'", "r"),
-        (r'(\s\d)\s(\d[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r'\g<1>-\g<2>'),
-        (r'([^\d\s])(\d+[\s\-–—]?\d+)([^\d\s])', r'\g<1> \g<2> \g<3>'),
-        (r'(\d+[\s\-–—]?\d+)([^\d\s])', r'\g<1> \g<2>'),
+        (r'(\s\d+)\s(\d+)[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü]', r'\g<1>-\g<2> '),
+        (r'([^\d,\s])(\d+[\s\-–—]\d+)([^\d,:\n])', r'\g<1> \g<2> \g<3>'),
+        (r'(\d+[\s\-–—]\d+)([^\d,:\s*])', r'\g<1> \g<2>'),
         (r'(\d+)\s*-\s*(\d+)', r'\g<1>-\g<2>'),
         (r'^.\.?\s?y\.\s?\r?\n?', ''),
-        (r'(^\d)(\d{1,2})\s(\d{1,2})(^\d)', r'\g<1> \g<2>-\g<3> \g<4>'),
-        # (r'(\d\s*[-–—]?\s*)["“”«»„‟](\w)', r'\g<1>11\g<2>'),
-        # (r'([^\d])(\d{1,2})\s(\d{1,2})([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r'\g<1>\g<2>-\g<3>\g<4>'),
-        # (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])(\d+\s*[-–—]?\s*\d+)([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r'\g<1> \g<2> \g<3>'),
-        # (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])(\d+[\s*-–—\s*]\d+)([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r'\g<1>\s\g<2>\s\g<3>'),
-        # (r'.\,.', ''),
+        (r'(^\d,\s)(\d{1,2})\s(\d{1,2})(^\d\n)', r'\g<1> \g<2>-\g<3> \g<4>'),
         (r'\,\n', ''),
         (r'^\n', ''),
-        # (r'^\d+\n', ''),
         (r"(\d{1,2})'[-–—]\s*(\d{1,2})",r'\g<1>1-\g<2>'),
         (r"[-–—]'(\d{1,2})", r'-\g<1>'),
         (r"\s'(\d)\s*[-–—]", r' 1\g<1>-'),
@@ -1163,25 +1158,16 @@ def cleaning_from_ocr_prelim(text: str) -> str:
         (r'\"\'\"', ''),
         (r'(\d)i(\d)', r'\g<1>1\g<2>'),
         (r'^\d+\r?\n(?=Kt)', ''),
-        (r'^(\d+\.)\r?\n?', r'\g<1>'),
+        # (r'^(\d+\.)\r?\n?', r'\g<1>'),
         (r'\s[ÖO](?=[A-ZÀ-ÖØİŞĞÇÜ])', r'0 '),
         (r'(\d{1,2}\s*)\'(\s*\d{1,2})', r'\g<1>-\g<2>'),
-        # (r'^\s*\d+\.\s*Kt', 'Kt'),
-        # (r'^40.Kt', 'Kt'),
-        # (r'\A\d+\.\s*(?=Kt)', ''),
-        # (r'\s*i0\s*', r' 10 '),
-        # (r'(?<=[^\W_]):(?=[^\W_])', ' '),
-        # (r'\b\d{1,3}\s*[-–—-]\s*\d{1,3}\b', ''),
-        # (r'§', 'S'),
-        # (r'\,', ' '),
-        # (r'^.\.y\.\s*', ''),
-        # (r'^.\.y\.\n', ''),
     ]
     for pattern, repl in subs:
         text = re.sub(pattern, repl, text, flags=re.MULTILINE)
+    # r'(\D\s*)(\d{1,2})\s+(\d{1,3})(\s*[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])'
+    PATTERN: re.Pattern[str] = re.compile(
+         r'(^\d,\s*)(\d{1,2})\s+(\d{1,3})(\s*[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])'
 
-    PATTERN: Pattern[str] = re.compile(
-         r'(\D\s*)(\d{1,2})\s+(\d{1,3})(\s*[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])'
     )
 
     def transform_last_char(char: str) -> str:
@@ -1203,7 +1189,7 @@ def cleaning_from_ocr_prelim(text: str) -> str:
             return ""  # why: other digits must be removed
         return char
 
-    def conditional_replace(match: Match[str]) -> str:
+    def conditional_replace(match: re.Match[str]) -> str:
         len_left = len(match.group(2))
         len_right = len(match.group(3))
         right_out = len_right - len_left
@@ -1226,16 +1212,16 @@ def cleaning_from_ocr_prelim(text: str) -> str:
 
     text = replace_if_left_less(text)
 
-    PATTERN1: Pattern[str] = re.compile(
-        r'([^\d])(\d)\s(\d)-(\d{2})([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])'
+    PATTERN1: re.Pattern[str] = re.compile(
+        r'([^\d,\s])(\d)\s(\d)-(\d{2})([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])'
     )
 
-    def conditional_replace1(match: Match[str]) -> str:
+    def conditional_replace1(match: re.Match[str]) -> str:
         left: int = int(match.group(2) + match.group(3))
         right: int = int(match.group(4))
 
         if left < right:
-            return f"{match.group(1)}{left}-{right}{match.group(5)}"
+            return f"{match.group(1)} {left}-{right} {match.group(5)}"
 
         return match.group(0)  # why: preserve original if condition fails
 
@@ -1270,27 +1256,7 @@ def cleaning_from_ocr(text: str, trlit: bool = True) -> str:
         text = str(text)
    # уборка мусора
     if trlit:
-        # text = re.sub(
-        #     r'^\s*(?:[SK]\.|S\. K\.|S\.K\.|K\.\s*\d|\n|v|\. v)\s*$',
-        #     '',
-        #     text,
-        #     flags=re.MULTILINE
-        # )
         subs = [
-            # (r'([a-z])ı\s+', r'\1i '),
-            # (r'ı\s+ı', '11'),
-            # (r'ı\s+', '1'),
-            # (r'ı', '1'),
-            # (r'5([A-Za-zА-Яа-я])', r'S\1'),
-            # (r'A1', 'Ai'),
-            # (r'([A-Za-zА-Яа-я])1\b', r'\1i'),
-            # (r'([A-Za-zА-Яа-я]),(\d)', r'\1 \2'),
-            # (r'\s(\d)\s(\d)\s', r' \1-\2 '),
-            # (r'(?<=\d)o', '0'),
-            # (r'(?<=\d)°', '0'),
-            # (r'S-9', '5-9'),
-            # (r'‰', ''),
-            # (r'™', ''),
             (r'\:', ' '),
             (r'\!', ''),
             (r'\?', ''),
@@ -1308,55 +1274,29 @@ def cleaning_from_ocr(text: str, trlit: bool = True) -> str:
             (r'\,\n', ''),
             (r'\\', ''),
             (r'\s*i0\s*', r' 10 '),
-            #(r'(?<=[^\W_]):(?=[^\W_])', ' '),
-            # (r'\b\d{1,3}\s*[-–—-]\s*\d{1,3}\b', ''),
-            # (r'§', 'S'),
-            # (r'\,', ' '),
-            # (r'^.\.y\.\s*', ''),
-            # (r'^.\.y\.\n', ''),
         ]
     else:
         subs = [
-            # (r'([a-z])ı\s+', r'\1i '),
-            # (r'ı\s+ı', '11'),
-            # (r'ı\s+', '1'),
-            # (r'ı', '1'),
-            # (r'5([A-Za-zА-Яа-я])', r'S\1'),
-            # (r'A1', 'Ai'),
-            # (r'([A-Za-zА-Яа-я])1\b', r'\1i'),
-            # (r'([A-Za-zА-Яа-я]),(\d)', r'\1 \2'),
-            # (r'\s(\d)\s(\d)\s', r' \1-\2 '),
-            # (r'(?<=\d)o', '0'),
-            # (r'(?<=\d)°', '0'),
-            # (r'S-9', '5-9'),
-            # (r'‰', ''),
-            # (r'™', ''),
             (r':', ''),
             (r'§', 'S'),
             (r'\$', '9'),
             (r'\:', ' '),
             (r'\!', ''),
             (r'\?', ''),
-            # (r'\/', ''),
             (r"\'", ''),
             (r'\"', ''),
             (r"\'\'", ''),
-            # (r'([^\W\d_])4(-|[^\W\d_])', r'\g<1>h\g<2>'),
-            # (r'(?<!\d)([^\W\d_])4(?=[-–—])', r'\g<1>h'),
-            # (r'9([A-ZА-ЯÀ-ÖØ-Þ])([a-zа-яà-öø-ÿ])', r'\1\2'),
             (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])([-\s])9([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r'\g<1>\g<2>\g<3>'),
-            # (r'(\d{1,2}[-\s]\d{1,2})\$', r'\g<1>9'),
-            (r'(?<=[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])1(?=[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', 'i'),
+            (r'(?<=[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])1(?=[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r'i'),
             (r'(\d)S([A-Z])', r'\g<1>5\g<2>'),
             (r'\s4([a-zа-яà-öø-ÿ])', r' h\g<1>'),
             (r'(\d)\s*/\s*(\d)', r'\g<1>/\g<2>'),
             (r'\s*i0\s*', r' 10 '),
             (r'(\d{1,2}\s*)\'(\s*\d{1,2})', r'\g<1>-\g<2>'),
-            # (r'([^\d\s])(\d+[\s\-–—]?\d+)([^\d\s])', r'\g<1> \g<2> \g<3>'),
-            # (r'(\d+[\s\-–—]?\d+)([^\d\s])', r'\g<1> \g<2>'),
-            # (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])(\d+\s*[-–—]?\s*\d+)([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r'\g<1> \g<2> \g<3>'),
-            # (r"r'", "7"),
-            # (r'(\s\d)\s*(\d[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r'\g<1>-\g<2>'),
+            (r'(?<=[a-zø-ÿışğçü])0(?=[a-zø-ÿışğçü])', 'o'),
+            (r'(?<=[A-ZÀ-ÖİŞĞÇÜ])0(?=[A-ZÀ-ÖİŞĞÇÜ])', 'O'),
+            (r'(?<=[a-zø-ÿışğçü])0', 'o'),
+            (r'(?<=[A-ZÀ-ÖİŞĞÇÜ])0', 'O'),
             ]
     for pattern, repl in subs:
         text = re.sub(pattern, repl, text)
@@ -1400,7 +1340,7 @@ def process_text(text, trlit: bool = True):
     processed_lines = [cleaning_from_ocr(line, trlit) for line in lines]
     return ''.join(processed_lines)
 
-def choose_pattern(text: str, patterns: dict[str, str]):
+def choose_pattern(text: str, patterns: dict[str, str], no_diapason: bool = False):
 
     def detect_numbering_style(text):
         counts = {}
@@ -1420,6 +1360,8 @@ def choose_pattern(text: str, patterns: dict[str, str]):
     #     return None, "no_translate_less_3"
 
     pattern = patterns[style]
+    if no_diapason:
+        return pattern, "is_translate"
     compiled = re.compile(pattern)
 
     # --- извлекаем диапазоны ---
@@ -2026,8 +1968,8 @@ def extract_quoted_substring(text: str, start_pos: int, pattern: str):
     # подстрока между кавычками
     substring = text[quote_start : quote_end]
 
-    if extract_transliteration(substring):
-            return None, None, quote_end
+    # if extract_transliteration(substring):
+    #         return None, None, quote_end
 
     if len(substring) > 30:
         translate = True
@@ -2147,7 +2089,12 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
     # # предварительная очистка
     # text = cleaning_from_ocr_prelim(text)
     pattern = re.compile(pattern, re.MULTILINE)
-    match = pattern.search(text, start_search_pos)
+    match = pattern.search(text, 0)
+    if match:
+        Pattern_search_trlit, status_trlit = choose_pattern(text, patterns_withaut_diapason, True)
+        if status_trlit == "is_translate":
+            pattern = re.compile(Pattern_search_trlit, re.MULTILINE)
+            match = pattern.search(text, start_search_pos)
     if not match:
         return None, None, len(text)
     print(f"Найден поисковый якорь: {match.group()}")
@@ -2159,11 +2106,16 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
     pos = match.end() - 1
     # транслитерация
     text_transliterate, pos_end, pos_start = find_translit_by_rows(text, pos)
-    if text_transliterate != "":
-        # словарь транслитерации ключ номер строки и значение строка
-        text_transliterate = renumber_trust_source(text_transliterate)
+    if extract_transliteration(text_transliterate):
+        if text_transliterate != "":
+            # словарь транслитерации ключ номер строки и значение строка
+            text_transliterate = renumber_trust_source(text_transliterate)
+        else:
+            return (text_translate, text_transliterate), flag_vyp, len(text)
     else:
-        return (text_translate, text_transliterate), flag_vyp, len(text)
+        pos_start_translate = find_single_quote(text, pos)
+        pos_end_translate = find_single_quote(text, pos_start_translate+1, False)
+        text_translate =text[pos_start_translate:pos_end_translate]
     # ------------------------------------------------------------
     if pos_end < len(text):
         pos_start_translate = pos_end
@@ -2173,22 +2125,17 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
         else:
             pos_end_translate = match.start()
         text_translate = text[pos_start_translate:pos_end_translate]
-        text_translate = process_text(text_translate)
+        text_translate = process_text(text_translate, False)
         if is_translation(text_translate) and looks_like_real_translation(text_translate) and text_transliterate != "":
             flag_vyp = True
         return (text_translate, text_transliterate), flag_vyp, pos_end_translate
     return ("", text_transliterate), flag_vyp, len(text)
 
-    # # ---------------------------------------------------------------
-    # if text_transliterate != "":
-    #     return text_transliterate, True, pos_end
-    # else:
-    #     return text_transliterate, False, pos_end
-    # # -----------------------------------------------
 def extract_after_letter_space_digit_colon_space(text_dict_tr: tuple[str, dict[int, str]], pos_s: int) -> Tuple[Tuple[List:str, List:str], bool, int]:
     # text_translate = text_dict_tr[0]
-    list_trl_transl = process_text_last(text_dict_tr[0], text_dict_tr[1])
-    # кортеж списков транслитерации и перевода, флаг, конец перевода
+    # list_trl_transl = process_text_last(text_dict_tr[0], text_dict_tr[1])
+    list_trl_transl = [text_dict_tr[0]], [text_dict_tr[1][1]]
+    # кортеж списков перевода и транслитерации, флаг, конец перевода
     return list_trl_transl, True, pos_s
 
 
@@ -2227,8 +2174,8 @@ def extract_ankara(text: str, start_pos: int, pattern: str):
     if not match:
         return None, None, len(text)
     print(f"Найден поисковый якорь Ankara: {match.group()}")
-    # предварительная очистка
-    text = cleaning_from_ocr_prelim(text)
+    # # предварительная очистка
+    # text = cleaning_from_ocr_prelim(text)
     # pos_end = len(text)
 
     flag_vyp, (perevod, dict_trlit), pos_end = search_for_extract_ankara(text)
@@ -2708,20 +2655,21 @@ def process_text_and_build_csv_rows(text: str):
     (без заголовка)
     """
     # списки шаблонов поиска якорей для разных вариантов пар первого и второго блоков
-    pattern1 = r'\d{2,}:\s+(?:\d+-\d+[:,)]\s*[^"]{0,80}?\s)?"'
-    pattern2 = r'^[A-Z]{1,3}[a-z]{1,2}\s*(?:\d{1,3}/k|n/k|\d{1,2}\,)\s*\d{1,4}[a-z]?(?::\s*\d+[–\-]\d+)?\n'
+    pattern1 = r'\d{2,}:\s*(?:\d+[-–—]\d+\s*[:,)]\,?\s*[\s\S]{0,80}?)?\s*"'
+    # pattern1 = r'\d{2,}:\s*(?:\d+[-–—]\d+[:,)]\s*[^"]{0,80}?)?\s*"'
+    pattern2 = r'^'
     pattern3 = r'ANKARA KÜLTEPE TABLETLERİ II\n'
     pattern4 = r'ANKARA KÜLTEPE TABLETLERi\n'
     # список списков шаблонов поиска первого блока
-    all_patterns = [pattern2]
+    all_patterns = [pattern1, pattern2]
     len_arr = len(all_patterns)
     # len_arr = 1
     # список функций поиска первого блока соответствует списку списков шаблонов
     # extract_function_1 = [extract_quoted_substring, extract_letter_space_digit_colon_space, extract_ankara]
-    extract_function_1 = [extract_letter_space_digit_colon_space]
+    extract_function_1 = [extract_quoted_substring, extract_letter_space_digit_colon_space]
     # список функций поиска второго блока соответствует списку функций поиска первого блока
     # extract_function_2 = [extract_parenthesized_substring, extract_single_quotes, extract_after_ankara]
-    extract_function_2 = [extract_after_letter_space_digit_colon_space]
+    extract_function_2 = [extract_parenthesized_substring, extract_after_letter_space_digit_colon_space]
     str_txt = [""] * len_arr
     str_txt_1 = [""] * len_arr
     # предварительная очистка
@@ -2755,8 +2703,8 @@ def process_text_and_build_csv_rows(text: str):
                             accad_str_arr = str_txt_1[i % len_arr]
                         case 1:
                             if isinstance(str_txt_1[i % len_arr], tuple):
-                                accad_str_arr = str_txt_1[i % len_arr][0]
-                                translate_str_arr = str_txt_1[i % len_arr][1]
+                                accad_str_arr = str_txt_1[i % len_arr][1]
+                                translate_str_arr = str_txt_1[i % len_arr][0]
                             else:
                                 translate_str_arr = str_txt_1[i % len_arr]
                                 accad_str_arr = str_txt[i % len_arr]
@@ -2923,9 +2871,12 @@ df_trnl.loc[idx, df_trnl.columns[2]] = (
     .str.replace("\\n", "\n", regex=False)
 )
 # --------------------------------------------------------------------
-# text = "Starke 1985: 68"
-# pattern = re.compile(re.escape(text), re.IGNORECASE)
-#
+# pattern = r"Starke 1985: 68"
+# pattern = re.compile(pattern, re.MULTILINE)
+# match = pattern.search(df_trnl.columns[2], 0)
+# if match:
+#     print(idx)
+#     sys.exit()
 # matches = []
 #
 # with open(csv_file_path, encoding='utf-8', errors='ignore') as f:
@@ -2962,7 +2913,7 @@ for i in idx:
     print(f"{num + 1} пару блоков начинаем искать.\n")
     print(f"Index = {i}\n")
     # if i == 74880:
-    if i == 14671:
+    if i == 41:
     #     не печатает переводы
     # if i == 25:
     # if i == 130319:

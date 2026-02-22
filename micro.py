@@ -90,14 +90,11 @@ SEPARATOR_RE = re.compile(r'^-+$')
 
 def cleaning_from_ocr_prelim(text: str) -> str:
     text = re.sub(
-        # r'^\s*(?:[SK]\.|S\. K\.|S\.K\.|K\.\s*\d|\n|v|\. v)\s*$',
-        # r'^\s*(?:[SK]\.|S\. ?K\.|K\.\s*\d+|v|\. v)\s*\r?\n?',
         r'^\s*(?:S\.(?:\s*K\.)?|K\.(?:\s*)?|v|\. v)\s*',
         '',
         text,
         flags=re.MULTILINE
     )
-    # text = re.sub(r'^K\.\s*(\d+)', '\g<1>', text, flags=re.MULTILINE)
     text = re.sub(r'^\w\.\s*K\.\s*\w+', '', text, flags=re.MULTILINE)
     subs = [
         (r'([a-z])ı\s*', r'\g<1>i'),
@@ -107,7 +104,7 @@ def cleaning_from_ocr_prelim(text: str) -> str:
         (r'o', '0'),
         (r'ı', '1'),
         (r'4ssur', r'Assur'),
-        (r'(\w)[-–—]1(\w)', r'\g<1>-i\g<2>'),
+        (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])[-–—]1([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r'\g<1>-i\g<2>'),
         (r'\s5([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r' S\g<1>'),
         (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])15([-–—])', r' \g<1>lš\g<2>'),
         (r'\s0([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r' O\g<1>'),
@@ -129,42 +126,32 @@ def cleaning_from_ocr_prelim(text: str) -> str:
         (r'(\s\d\s*)4([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r'\g<1>h\g<2>'),
         (r'(?<!\d)([^\W\d_])4(?=[-–—])', r'\g<1>h'),
         (r"r'", "r"),
-        (r'(\s\d)\s(\d[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r'\g<1>-\g<2>'),
-        (r'([^\d\s])(\d+[\s\-–—]?\d+)([^\d\s])', r'\g<1> \g<2> \g<3>'),
-        (r'(\d+[\s\-–—]?\d+)([^\d\s])', r'\g<1> \g<2>'),
+        (r'(\s\d+)\s(\d+)[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü]', r'\g<1>-\g<2> '),
+        (r'([^\d,\s])(\d+[\s\-–—]\d+)([^\d,:\n])', r'\g<1> \g<2> \g<3>'),
+        (r'(\d+[\s\-–—]\d+)([^\d,:\s*])', r'\g<1> \g<2>'),
         (r'(\d+)\s*-\s*(\d+)', r'\g<1>-\g<2>'),
         (r'^.\.?\s?y\.\s?\r?\n?', ''),
-        (r'(^\d)(\d{1,2})\s(\d{1,2})(^\d)', r'\g<1> \g<2>-\g<3> \g<4>'),
-        # (r'(\d\s*[-–—]?\s*)["“”«»„‟](\w)', r'\g<1>11\g<2>'),
-        # (r'([^\d])(\d{1,2})\s(\d{1,2})([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r'\g<1>\g<2>-\g<3>\g<4>'),
-        # (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])(\d+\s*[-–—]?\s*\d+)([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r'\g<1> \g<2> \g<3>'),
-        # (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])(\d+[\s*-–—\s*]\d+)([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r'\g<1>\s\g<2>\s\g<3>'),
-        # (r'.\,.', ''),
+        (r'(^\d,\s)(\d{1,2})\s(\d{1,2})(^\d\n)', r'\g<1> \g<2>-\g<3> \g<4>'),
         (r'\,\n', ''),
         (r'^\n', ''),
-        # (r'^\d+\n', ''),
         (r"(\d{1,2})'[-–—]\s*(\d{1,2})",r'\g<1>1-\g<2>'),
         (r"[-–—]'(\d{1,2})", r'-\g<1>'),
         (r"\s'(\d)\s*[-–—]", r' 1\g<1>-'),
         (r'(\w)1(\w)', r'\g<1>i\g<2>'),
         (r'K Ù\.', r'KÙ\.'),
         (r'\"\'\"', ''),
-        (r'^(\d+\.)\r?\n?', r'\g<1>'),
+        (r'(\d)i(\d)', r'\g<1>1\g<2>'),
+        (r'^\d+\r?\n(?=Kt)', ''),
+        # (r'^(\d+\.)\r?\n?', r'\g<1>'),
         (r'\s[ÖO](?=[A-ZÀ-ÖØİŞĞÇÜ])', r'0 '),
         (r'(\d{1,2}\s*)\'(\s*\d{1,2})', r'\g<1>-\g<2>'),
-        # (r'\s*i0\s*', r' 10 '),
-        # (r'(?<=[^\W_]):(?=[^\W_])', ' '),
-        # (r'\b\d{1,3}\s*[-–—-]\s*\d{1,3}\b', ''),
-        # (r'§', 'S'),
-        # (r'\,', ' '),
-        # (r'^.\.y\.\s*', ''),
-        # (r'^.\.y\.\n', ''),
     ]
     for pattern, repl in subs:
         text = re.sub(pattern, repl, text, flags=re.MULTILINE)
-
+    # r'(\D\s*)(\d{1,2})\s+(\d{1,3})(\s*[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])'
     PATTERN: re.Pattern[str] = re.compile(
-         r'(\D\s*)(\d{1,2})\s+(\d{1,3})(\s*[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])'
+         r'(^\d,\s*)(\d{1,2})\s+(\d{1,3})(\s*[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])'
+
     )
 
     def transform_last_char(char: str) -> str:
@@ -210,7 +197,7 @@ def cleaning_from_ocr_prelim(text: str) -> str:
     text = replace_if_left_less(text)
 
     PATTERN1: re.Pattern[str] = re.compile(
-        r'([^\d])(\d)\s(\d)-(\d{2})([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])'
+        r'([^\d,\s])(\d)\s(\d)-(\d{2})([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])'
     )
 
     def conditional_replace1(match: re.Match[str]) -> str:
@@ -218,7 +205,7 @@ def cleaning_from_ocr_prelim(text: str) -> str:
         right: int = int(match.group(4))
 
         if left < right:
-            return f"{match.group(1)}{left}-{right}{match.group(5)}"
+            return f"{match.group(1)} {left}-{right} {match.group(5)}"
 
         return match.group(0)  # why: preserve original if condition fails
 
@@ -615,102 +602,49 @@ def process_text(text, trlit: bool = True):
     return ''.join(processed_lines)
 
 
-text ="""Appendix 1:
-Appendix 1.1
-Selected references to guides (rādium)
-Kt 87/k 479: 4-10
-Ú-lu-ma-il5 ra-dí-ú-um ša GAL sí-ki-tim
-a-mì-ša-am i-la-kam ak-lam ma-la ù šé-ni-šu
-ša-ki-il5-šu
-Ulumail, the guide of the rabi sikkitim will
-go there, pay him food a few times
-Kt 94/k 628: 4-7
-ŠÀ.BA 30 ku-ta-ni a-na Šu-pu-nu-ma-an ni-
-dí-in 5 TÚG a-na ra-dí-im Iš-hi-a-ni-tí-im
-Thereof, we gave 30 kutānu-textiles to
-Šupunuman. 5 to the guide from Išhianit.
-Kt 94/k 760: 10-22
-2 1/2 GÍN ig-ru-šu a-na ra-dí-im ša Ha-tim
-ni-dí-in
-His wages were 2 1/2 shekels for the guide
-from Hattum (PN).
-Kt 94/k 1126: 4-8
-mì-šu ša [a]-na-kam ra-dí-ú e-ta-wu-ú um-
-ma šu-nu-ma ṣú-ha-ru-kà ú-ṭá-tám a-ba-kam
-lá i-mu-ú
-Why is it that the guides have been arguing
-here, saying: ‘Your servants refuse to ship
-the grain.’
-AKT 1, 39b: 14-16
-IGI Lu-ùh-ra-ah-šu ra-dí-ú ša Ha-ra-áš-tal)
-Witness: Luhrahšu, the guide of Haraštal.
-AKT 2, 24: 13-16
-3 TÚG.HI.A ša 10 GÍN.TA a-na a-wi-il-tim
-dí-na-ma ra-dí-e lu tù-lá-bi4-iš.
-Give 3 textiles, worth 10 shekels each, to the
-lady so she can dress the guide.
-BIN 4, 203: 12-14
-1/2 GÍN ší-im ki-ri-im ša a-na ra-dí-im.
-Half a shekel (of silver was) the price of the
-jar that was for the guide.
-BIN 6, 122
-lu ku-ta-nam [x x] lu ša a-ki-dí-e [(x x)]
-ma-ma-an lá il5-t[a-na-qé] ú a-na ra-dí-im ú
-DUB.SAR TÚG.HI.A iš-[té-e]t ú AN.NA 1
-ma-na lá ta-da-na a-wa-at É-GAL-lim da-
-[na].
-Nobody is to take any kutānu-textiles, any
-[…] or any Akkadian textiles, and you (pl.)
-should not give a single piece of textile or a
-single mina of tin to the guide or the scribe.
-The orders from the palace are strict.
-C 16
-12 TÚG ku-ta-ni ša Puzur4-A-šur e-zi-ba-
-ku-ni TÚG.HI.A a-na En-na-nim DUMU
-A-bi4-a pí-qí-id-ma ù šu-ut a-na ra-dí-e li-dí-
-nu-šu-ma lu-ub-lu-nim.
-The twelve kutānu-textiles that Puzur-Aššur
-left behind with you – assign those textiles
-to Ennam-Anum, son of Abia, so that he
-personally can give them to the guide and
-they can bring them here.
-CCT 1, 29
-[1/]3 ma-na 2 GÍN KÙ.BABBAR ší-im [1
-TÚG] ku-ta-nim ša a-ra-dí-im ni-dí-nu.
-22 shekels of silver, the price of the kutānu-
-textile that we gave to the guide.
-CCT 2, 19b
-ki-ma ší-lá-tám lá i-šu-ú É.GAL-lúm ra-dí-šu
-a-na pá-tí iš-pu-ra-ma a-na Wa-ah-šu-ša-na
-a-tù-ar. (Collations by M. Trolle Larsen).
-Since he did nothing wrong, the palace wrote
-to its guide at the frontier and I will return to
-Wahšušana
-CCT 5, 3b
-té-er-ta-kà a-na Za-al-pá i-li-kà-ni um-ma
-a-ta-ma a-ma-kam lá wa-áš-ba-tí ra-dí-ú
-a-ma-kam e-mu-ru-kà-ma i-a-um a-na-kam
-li-bi e am-ra-aṣ a-na Té-ga-r[a-ma] e-tí-iq-
-ma i-na Té-ga-ra-ma lu wa-áš-ba-tí
-Your message reached Zalpa, in which you
-said: ‘You should not stay there. The guides
-will see you there, and I refuse to worry here.
-Go to Tegarama and stay in Tegarama!’
-Kt c/k 204
-2/3 GÍN KÙ.BABBAR a-na 2 ki-re-en a-na
-ra-dí-e ša iš-tí-a i-li-ku-<ni> áš-qúl
-I paid 2/3 shekels for two jars for the guides
-who went with me.
-Kt c/k 441
-4 qá-tí a-na ra-dí-e ... mì-ma a-nim i-na Bur-
-hi-im a-dí-in
-Four … to the guides … all this I gave in
-Burhum
+text ="""17. With the exception of ownership of investments in
+joint-stock funds; see further below.
+18. See for instance AKT 2, 57: 5-14, a letter to a lady in
+Assur from her brother in Anatolia, where he writes: "My
+dear sister, my dear lady, if there is any silver there of our
+father's house, then satisfy Idaya's son. If you do not wish to
+(do that), then let Pilah-Assur sell my house there to pay off my
+creditor" (a-ha-ti a-ti be-el-ti a-ti a-ma-kam i-na KU.BABBAR
+s"a E a-bi4-ni su-ma i-ba-si DUMU I-da-a-a tà-i-bi4 su-ma la
+li-bi4-ki a-[ma]-kam É-ti-a Pi-la-ah-A-sùr li-di-ma tam-kà-ri
+lu-sa-bi4). The situation seems to indicate that the father was
+dead, and the request to spend money available in his house
+may have been somewhat irregular, since noone could know,
+presumably, to whom the money belonged. The very rare ref-
+erences to debts of the paternal house (see for instance BIN 4,
+83: 33-37) are probably in all instances to be placed in the
+context of inheritance problems.
+19. See Larsen (2002,168: 3-7), where Assur-nada writes
+to the lady Abaya: "In accordance with the missive I sent to
+you Innaya has here discussed-with the customers in your
+name and in the name of your father's house" (a-ma-la
+na-as-pè-er-tim sa as-pu ra-ki-ni a-na-kam I-na-a a s"u ma ki it a-na
+su-mi É a-bi-ki tam-kà-ri e-ta-uru; kt 94/k 1742: 26-29: "I also
+entrusted 40 minas of refined silver that was in the name
+of my father's house to Pilah-Istar" (u a-ha-ma 40 ma-na
+KU.BABBAR sa-ru-pa-am sa a-na su-mi É a-bi4-a a-na
+Pl-/
+la-ah-Is\ [tar] ap-qi-id);orkt
+a/k 1030: 1-5: "Out of Idin-Suen's
+copper Tab-Assur received 13 talents 20 minas of poor copper
+on behalf of his father's house and Alili" (i-na URUDU sa
+I-di-Su-in 13 GU 20 ma-na URUDU la-mu-nam DU 10-A-sur ki-ma
+É a-bi-su ù [A] li li il5 qe).
+trader's possibility to function independently in
+the commercial system. It was the contractual
+foundation for an arrangement where a group of
 
 """
 
+text = cleaning_from_ocr_prelim(text)
+pattern1 = r'\d{2,}:\s*(?:\d+[-–—]\d+[:,)]\s*[\s\S]{0,80}?)?\s*"'
 
-pattern1 = re.compile(pattern, re.MULTILINE)
+pattern1 = re.compile(pattern1, re.MULTILINE)
 match = pattern1.search(text, 0)
 # предварительная очистка
 # text = cleaning_from_ocr_prelim(text)
