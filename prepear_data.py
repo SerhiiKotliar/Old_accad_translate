@@ -1274,6 +1274,20 @@ def cleaning_from_ocr_prelim(text: str) -> str:
 
     text = pattern2.sub(replace_func2, text)
 
+    pattern4 = re.compile(r'(?<![,])(\d+)\s*[-–—]\s*(\d+)(?!:)')
+    def replace_func4(match):
+        left = int(match.group(1))
+        right = int(match.group(2))
+        if left <= 9 and len(match.group(2)) > len(match.group(1)):
+            ext = len(match.group(2)) - len(match.group(1))
+            last_right = match.group(2)[:-ext]
+            if int(last_right) > left and int(last_right) - left <= 10:
+                return f" {left}-{last_right} {ext}"
+        # first = re.sub(r'\s+', '', match.group(1))
+        return f" {left}-{right} "
+
+    text = pattern4.sub(replace_func4, text)
+
     return text
 
 
@@ -1501,7 +1515,9 @@ def search_for_extract_ankara(text: str, pos_start: int):
             pos_start_translate = pos_start_translate_match.start()
             if pos_start_translate < 50:
                 pos_start_translate = pos_start
-            pos_end_translate_match = re.search(r'^(?:\d{1,2},)?(?:\d{1,2},)?(\d{1,2}|\d+\s*[-–—]\s*\d+):', text, flags=re.MULTILINE)
+            # pos_end_translate_match = re.search(r'^(?:\d{1,2},)?(?:\d{1,2},)?(\d{1,2}|\d+\s*[-–—]\s*\d+):', text, flags=re.MULTILINE)
+            pattern_end_translate = re.compile(r'^(?:\d{1,2},)?(?:\d{1,2},)?(\d{1,2}|\d+\s*[-–—]\s*\d+):', flags=re.MULTILINE)
+            pos_end_translate_match = pattern_end_translate.search(text, pos=pos_start_translate)
             if pos_end_translate_match is not None:
                 pos_end_translate = pos_end_translate_match.start()
             else:
@@ -1515,10 +1531,10 @@ def search_for_extract_ankara(text: str, pos_start: int):
                         text_translate = Unfin_Data["perevod"] + text_translate
                         Unfin_Data["perevod"] = ""
                         transl_from_past = True
-                        if Unfin_Data["trlit"] != "":
-                            text_transliterate = Unfin_Data["trlit"]
-                            Unfin_Data["trlit"] = ""
-                            trlit_from_past = True
+                        # if Unfin_Data["trlit"] != "":
+                        #     text_transliterate = Unfin_Data["trlit"]
+                        #     Unfin_Data["trlit"] = ""
+                        #     trlit_from_past = True
     if text_transliterate == "":
         Pattern_search_trlit, style, status_trlit = choose_pattern(text, patterns_akt2_trl_s)
         if status_trlit == "is_translate":
@@ -2762,8 +2778,8 @@ def split_accad_and_translate(csv_lines, marker="<sent>"):
 
 
 # Завантаження даних з CSV-файлу
-# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
-thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
+# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
 # ----------------------------------------
