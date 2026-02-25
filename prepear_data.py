@@ -453,7 +453,7 @@ patterns_akt2 = {
 patterns_akt2_trl_s = {
         "start_trl": r"^[ÖG~]\.\s*y\.\r?\n",  # Ö. y.
         "start_trl_paren_right": r"\d+\s*\)",  # 12)
-        "start_trl_dot": r"\d+\s*\.",  # 12.
+        "start_trl_dot": r"^\d+\s*\.",  # 12.
         "start_trl_paren_both": r'\(\s*(\d{1,3})\s*\)' # (34)
 
     }
@@ -694,8 +694,15 @@ def is_translation(text: str, one_word: bool=False) -> bool:
         if len(short_tokens) / len(tokens) > 0.6:
             return False
 
-    # Частотные служебные слова аккадского
-    if sum(1 for t in tokens if t in AKKADIAN_FUNCTION_WORDS) >= 2:
+    # # Частотные служебные слова аккадского
+    # if sum(1 for t in tokens if t in AKKADIAN_FUNCTION_WORDS) >= 2:
+    #     return False
+    # якоря начала перевода, служебные пометки номеров каталогов
+    all_anchors = []
+    for key, value in patterns_withaut_diapason_s.items():
+        anchors = re.findall(value, text)
+        all_anchors.extend(anchors)
+    if len(all_anchors) > 0:
         return False
 
     return True
@@ -751,29 +758,31 @@ def count_words(text):
 def detect_translate(text: str, start_pos: int):
     """подтверждает что  очищенная строка есть перевод
     выводит флаг и строку"""
+    global Pattern_search_translate
     is_translate = False
     one_word = False
-    # начало строки поиска
-    pos = None if start_pos == len(text) else start_pos
-    if pos  is None:
-        return is_translate, ""
-    # конец строки поиска
-    end = text.find('\n', pos)
-    if end == -1 and pos < len(text):
-        end = len(text)
-    # if end == -1:
-    #     return is_translate, text[pos:end]
-    str_line = text[pos:end]
+    # # начало строки поиска
+    # pos = None if start_pos == len(text) else start_pos
+    # if pos  is None:
+    #     return is_translate, ""
+    # # конец строки поиска
+    # end = text.find('\n', pos)
+    # if end == -1 and pos < len(text):
+    #     end = len(text)
+    # # if end == -1:
+    # #     return is_translate, text[pos:end]
+    # str_line = text[pos:end]
     # уборка мусора
+    str_line = text
     str_line = cleaning_from_ocr(str_line)
 
     # шаблон диапазона страниц
-    pattern = r'\b\d{1,3}\s*[-–—-]\s*\d{1,3}\b'
+    # pattern = r'\b\d{1,3}\s*[-–—-]\s*\d{1,3}\b'
 
-    str_line, count = re.subn(pattern, '', str_line)
+    str_line, count = re.subn(Pattern_search_translate, '', str_line)
     if count_words(str_line) == 1:
         one_word = True
-    if count > 2 or is_translation(str_line, one_word):
+    if count > 2 and is_translation(str_line, one_word):
         is_translate = True
     # print("Количество замен:", count)
 
@@ -1475,20 +1484,12 @@ def search_for_extract_ankara(text: str, pos_start: int):
     text_transliterate_prev = ""
     pos_end_translate = 0
     pos_start_translate = None
-    # pos_start_translates = []
-    # pos_st_trla_more_end_trl = []
-    # pos_st_trla_less_start_trl = []
-    # pos_end_translate_arr_after_trl = []
-    # pos_end_translate_arr_before_trl = []
-    # pos_start_trlit = []
-    # text_transliterates = []
     pos_end = len(text)
     pos_end_tr = 0
     pos_start_tr = 0
     flag_vyp = False
     transl_from_past = False
     trlit_from_past = False
-    # pos_start_translates = []
     # поиск шаблона нумерации предложений в переводе и транслитерации
     Pattern_search_translate, style, status_translate = choose_pattern(text, patterns_akt2_per_s)
     if status_translate == "is_translate":
@@ -1523,7 +1524,10 @@ def search_for_extract_ankara(text: str, pos_start: int):
             else:
                 pos_end_translate = len(text)
             text_translate = text[pos_start_translate:pos_end_translate]
-            if pos_end_translate == len(text):
+            # if detect_translate(text_translate, 0) == False:
+            if is_translation(text_translate, 0) == False:
+                text_translate = ""
+            if text_translate != "" and pos_end_translate == len(text):
                 Unfin_Data["perevod"] = text_translate
             else:
                 if pos_start_translate == pos_start:
@@ -1531,10 +1535,6 @@ def search_for_extract_ankara(text: str, pos_start: int):
                         text_translate = Unfin_Data["perevod"] + text_translate
                         Unfin_Data["perevod"] = ""
                         transl_from_past = True
-                        # if Unfin_Data["trlit"] != "":
-                        #     text_transliterate = Unfin_Data["trlit"]
-                        #     Unfin_Data["trlit"] = ""
-                        #     trlit_from_past = True
     if text_transliterate == "":
         Pattern_search_trlit, style, status_trlit = choose_pattern(text, patterns_akt2_trl_s)
         if status_trlit == "is_translate":
@@ -1542,20 +1542,22 @@ def search_for_extract_ankara(text: str, pos_start: int):
             if pos_start_tr_match:
                 pos_start_tr = pos_start_tr_match.start()
                 if pos_start_tr < 150:
-                    pos_start_tr = 0
+                    pos_start_tr = pos_start
                     text_transliterate, pos_end_tr, pos_start_tr = find_translit_by_rows(text, pos_start_tr, len(text))
                 if pos_start_translate is not None:
-                    text_transliterate = text[pos_start_tr:pos_start_translate]
+                    # text_transliterate = text[pos_start_tr:pos_start_translate]
+                    text_transliterate, pos_end_tr, pos_start_tr = find_translit_by_rows(text, pos_start_tr, len(text))
                     pos_end_tr = pos_start_translate
                 if text_transliterate == "":
                     text_transliterate, pos_end_tr, pos_start_tr = find_translit_by_rows(text, pos_start, len(text))
         else:
             text_transliterate, pos_end_tr, pos_start_tr = find_translit_by_rows(text, pos_start, len(text))
     if Unfin_Data['trlit'] != "":
-        text_transliterate_prev = Unfin_Data['trlit']
+        if pos_start_tr == pos_start:
+            text_transliterate_prev = Unfin_Data['trlit']
+            trlit_from_past = True
+            text_transliterate = merge_if_consecutive(text_transliterate_prev, text_transliterate)
         Unfin_Data['trlit'] = ""
-        trlit_from_past = True
-        text_transliterate = merge_if_consecutive(text_transliterate_prev, text_transliterate)
     if text_transliterate != "":
         # очистка от мусора(уже очищено при поиске)
         text_transliterate = process_text(text_transliterate)
@@ -1574,7 +1576,7 @@ def search_for_extract_ankara(text: str, pos_start: int):
         pos_end = pos_end_tr
     if text_translate != "":
         # # очистка от мусора текста
-        text_translate = process_text(text_translate, False)
+        # text_translate = process_text(text_translate, False)
         if not looks_like_real_translation(text_translate):
             text_translate = ""
     if text_transliterate != "" or text_translate != "":
@@ -2120,6 +2122,8 @@ def extract_ankara(text: str, start_pos: int, pattern: str):
 
 def extract_after_ankara(text_dict_tr: tuple[str, dict[int, str]], pos_s: int) -> Tuple[Tuple[List:str, List:str], bool, int]:
     # text_translate = text_dict_tr[0]
+    if text_dict_tr[1] == "":
+        return (text_dict_tr[0], text_dict_tr[1]), False, pos_s
     list_trl_transl = process_text_last(text_dict_tr[0], text_dict_tr[1])
     # кортеж списков транслитерации и перевода, флаг, конец перевода
     return list_trl_transl, True, pos_s
@@ -2778,8 +2782,8 @@ def split_accad_and_translate(csv_lines, marker="<sent>"):
 
 
 # Завантаження даних з CSV-файлу
-thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
-# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
+thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
 # ----------------------------------------
@@ -2843,7 +2847,7 @@ for i in idx:
     print(f"{num + 1} пару блоков начинаем искать.\n")
     print(f"Index = {i}\n")
     # if i == 74880:
-    if i == 17915:
+    if i == 5185:
     #     не печатает переводы
     # if i == 25:
     # if i == 130319:
