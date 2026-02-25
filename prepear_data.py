@@ -2895,7 +2895,7 @@ for i in idx:
     print(f"Index = {i}\n")
     # if i == 74880:
     if i == 5140:
-    #     не печатает переводы
+    #не печатает переводы
     # if i == 25:
     # if i == 130319:
         print("PROVERKA")
