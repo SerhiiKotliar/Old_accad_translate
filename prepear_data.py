@@ -856,16 +856,6 @@ def clear_from_ocr_for_text(text: str) -> str:
     token_pattern = re.compile(Pattern_search_translate)
     tokens = []
     for m in token_pattern.finditer(text):
-        # # пропуск чисел без признаков нумерации
-        # if not m.group().startswith("(") and not m.group().endswith(")") and not m.group().endswith("'"):
-        #     continue
-        # token = m.group()
-        # # если найдено (N) → превратить в (N-N)
-        # if (token.startswith("(") and token.endswith(")")) or (token.endswith(")"))  or (token.endswith("'")):
-        # inner = token[1:-1].strip()
-        # if inner.isdigit():
-        #     token = f"({inner}-{inner})"
-        # if m:
         if m.group("start"):
             # print("полный диапазон")
             # print(m.group("start"), m.group("end"))
@@ -875,8 +865,6 @@ def clear_from_ocr_for_text(text: str) -> str:
                 "b": m.group("end"),
                 "start": m.span()[0],
                 "end": m.span()[1],
-                # "text": m.group()
-                # "text": token
             })
 
         elif m.group("only_end"):
@@ -887,8 +875,6 @@ def clear_from_ocr_for_text(text: str) -> str:
                 "b": m.group("only_end"),
                 "start": m.span()[0],
                 "end": m.span()[1],
-                # "text": m.group()
-                # "text": token
             })
 
         else:
@@ -899,21 +885,7 @@ def clear_from_ocr_for_text(text: str) -> str:
                 "a": m.group("number"),
                 "start": m.span()[0],
                 "end": m.span()[1],
-                # "text": m.group()
-                # "text": token
             })
-        # tokens.append({
-        #     "start": m.start(),
-        #     "end": m.end(),
-        #     # "text": m.group()
-        #     "text": token
-        # })
-        # tokens.append({
-        #     "start": m.group("start"),
-        #     "end": m.group("end"),
-        #     # "text": m.group()
-        #     # "text": token
-        # })
     parsed = tokens
     if len(tokens) == 0:
         return text
@@ -1037,22 +1009,9 @@ def clear_from_ocr_for_text(text: str) -> str:
 def clear_from_ocr_for_text_last(text: str) -> str:
     """Окончательно чистит мусор и форматирует по пробелам диапазоны"""
     global Pattern_search_translate
-    # pattern = re.compile(
-    #     r'\(?(\d+)\s*-\s*(\d+)\)?(\s+([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü]+))?'
-    #     r'|[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü.\s](\d{1,2})\s?\r?\n?[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü]'
-    # )
     pattern = re.compile(Pattern_search_translate)
 
     def range_repl(m):
-
-        # count = sum(x is not None for x in m.groups())
-        # if count == 1:
-        #     gr_not_None = next(x for x in m.groups() if x is not None)
-        #     # оставляем только цифры
-        #     digits_only = re.sub(r'\D', '', gr_not_None)
-        #     return f"{digits_only}-{digits_only} "
-        # # -------------------------------------------------
-        # if m and m.group("start"):
         if m and m.span()[0]:
             # if not m.group("start"):
             #     return m.group(0)
@@ -1097,77 +1056,6 @@ def clear_from_ocr_for_text_last(text: str) -> str:
     text = re.sub(r'\s*i0\s*', r' 10 ', text)
     text = re.sub(r'\s+', ' ', text).strip()
     # # ----------------------------------------------------
-    # # последовательная сортировка диапазонов
-    #
-    # pattern = re.compile(r'\(?(\d+)-(\d+)\)?')
-    #
-    # def merge_ranges(text: str) -> str:
-    #     matches = list(pattern.finditer(text))
-    #     if not matches:
-    #         return text
-    #
-    #     merged = []
-    #     last = None
-    #
-    #     for m in matches:
-    #         a = int(m.group(1))
-    #         b = int(m.group(2))
-    #
-    #         if last is None:
-    #             last = [a, b]
-    #             continue
-    #
-    #         diff = a - last[1]
-    #
-    #         if diff == 0:
-    #             if last[1] - last[0] > 0:
-    #                 last[1] = a - 1
-    #             else:
-    #                 a += 1
-    #
-    #         elif diff < 0:
-    #             a = last[1] - diff + 1
-    #
-    #         elif diff >= 2:
-    #             last[1] = a - 1
-    #
-    #         merged.append(tuple(last))
-    #         last = [a, b]
-    #
-    #     merged.append(tuple(last))
-    #
-    #     # 🔹 заменяем диапазоны на новые, сохраняя текст
-    #     result = text
-    #     for m, (a, b) in zip(reversed(matches), reversed(merged)):
-    #         result = result[:m.start()] + f"({a}-{b})" + result[m.end():]
-    #
-    #     return result
-    # text = merge_ranges(text)
-
-    # # если не обёрнуты, оборачивает в скобки
-    # # pattern = re.compile(r'\(?(\d+)-(\d+)\)?'r'|\b\d{1,3}\b')
-    # pattern = re.compile(r'\(?(\d+)-(\d+)\)?')
-    # # last_range = None
-    # def wrap_if_no_parentheses(match: re.Match) -> str:
-    #     # nonlocal last_range
-    #     full = match.group(0)  # всё совпадение
-    #     a = match.group(1)
-    #     b = match.group(2)
-    #     # if last_range:
-    #     #     diff = int(a) - int(last_range["b"])
-    #     #     if diff > 2 or diff < -1:
-    #     #         return full
-    #     #     elif diff == 2:
-    #     #         a = int(last_range["b"]) + 1
-    #     #
-    #     # last_range = {"b": b, "a": a}
-    #
-    #     if full.startswith("(") and full.endswith(")"):
-    #         return full  # уже в скобках — оставить как есть
-    #     else:
-    #         return f"({a}-{b})"  # обернуть
-    #
-    # text = pattern.sub(wrap_if_no_parentheses, text)
     return text
 
 
@@ -2051,8 +1939,6 @@ def find_double_quote(text: str, start_pos: int, first: bool=True):
 def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pattern: str):
     """предполагается что переноса перевода с одного текста на следующий
     или транслитерации нет"""
-    # # предварительная очистка
-    # text = cleaning_from_ocr_prelim(text)
     text_translate = ""
     flag_vyp = False
     global Pattern_search_translate, Pattern_search_trlit
@@ -2158,7 +2044,7 @@ def extract_single_quotes(text: str, start_pos: int):
 def extract_ankara(text: str, start_pos: int, pattern: str):
     if start_pos < 0 or start_pos >= len(text):
         return None, None, start_pos
-    text = text.replace('TABLETLERİ u', 'TABLETLERİ II')
+    text = text.replace('TABLETLER[İI] u', 'TABLETLERI II')
     pattern = re.compile(pattern, re.MULTILINE)
     match = pattern.search(text, start_pos)
     if not match:
@@ -2247,7 +2133,7 @@ def extract_ankara_next(text: str, start_pos: int, pattern: str):
     if start_pos < 0 or start_pos >= len(text):
         return None, None, start_pos
     end_pos = len(text)
-    text = text.replace('TABLETLERİ!', 'TABLETLERİi')
+    text = text.replace('TABLETLE[RB][!İÏi]', 'TABLETLERI')
     pattern = re.compile(pattern)
     match = pattern.search(text, start_pos)
     if not match:
@@ -2261,7 +2147,7 @@ def extract_ankara_next(text: str, start_pos: int, pattern: str):
     #     trlit_pred = Unfin_Data['trlit']
     #     perevod_pred = Unfin_Data['perevod']
     # предварительная очистка
-    text = cleaning_from_ocr_prelim(text)
+    # text = cleaning_from_ocr_prelim(text)
     # pattern_start_trl = r'\((?:[A-Za-z]{1,2}\.\s)?\d{1,2}\)'
     # pattern_start_trl = re.compile(pattern_start_trl)
 
@@ -2639,8 +2525,8 @@ def process_text_and_build_csv_rows(text: str):
     # транслитерация, перевод и наоборот
     pattern2 = r'^'
     # и то и другое а потом выбирать
-    pattern3 = r'ANKARA KÜLTEPE TABLETLER[İI] II\n'
-    pattern4 = r'ANKARA KÜLTEPE TABLETLER[İIi]\n'
+    pattern3 = r'TABLETLER[İI] II\n'
+    pattern4 = r'TABLETLER[İIi]\n'
     # список списков шаблонов поиска первого блока
     all_patterns = [pattern1, pattern2, pattern3]
     len_arr = len(all_patterns)
@@ -2829,8 +2715,8 @@ def split_accad_and_translate(csv_lines, marker="<sent>"):
 
 
 # Завантаження даних з CSV-файлу
-# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
-thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
+# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
 # ----------------------------------------
