@@ -1571,7 +1571,8 @@ def search_for_extract_ankara(text: str, pos_start: int):
                 pos_end_translate = len(text)
             text_translate = text[pos_start_translate:pos_end_translate]
             # if detect_translate(text_translate, 0) == False:
-            if is_translation(text_translate, 0) == False:
+            # if is_translation(text_translate, 0) == False:
+            if is_clean_akkadian_translation(text_translate) == False:
                 text_translate = ""
             if text_translate != "" and pos_end_translate == len(text):
                 Unfin_Data["perevod"] = text_translate
@@ -2893,7 +2894,7 @@ for i in idx:
     print(f"{num + 1} пару блоков начинаем искать.\n")
     print(f"Index = {i}\n")
     # if i == 74880:
-    if i == 5185:
+    if i == 5140:
     #     не печатает переводы
     # if i == 25:
     # if i == 130319:
