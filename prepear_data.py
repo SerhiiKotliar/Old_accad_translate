@@ -708,6 +708,52 @@ def is_translation(text: str, one_word: bool=False) -> bool:
     return True
 
 
+import re
+
+def is_clean_akkadian_translation(text: str) -> bool:
+    """
+    Возвращает True, если текст похож на чистый перевод с аккадского
+    без транслитерации и научных комментариев.
+    """
+
+    if not text or not text.strip():
+        return False
+
+    # 1. Признаки аккадской транслитерации
+    transliteration_patterns = [
+        r'\b[a-z]+-[a-z]+\b',           # a-na, i-na, ša-ma
+        r'[ŠšḪḫṬṭṢṣĀāĒēĪīŪū]',          # диакритика
+        r'\b[A-Z]+\.[A-Z.]+\b',         # KÙ.BABBAR
+    ]
+
+    for pattern in transliteration_patterns:
+        if re.search(pattern, text):
+            return False
+
+    # 2. Научные ссылки
+    scholarly_patterns = [
+        r'\b\d{4}\b',                   # год (1985)
+        r'\b(cf\.?|see|vgl\.?)\b',      # cf., see
+        r'\b[Kk][Tt]\s*n/?k\b',         # KT n/k
+        r'\b[Kk][Bb][Oo]\b',            # KBo
+    ]
+
+    for pattern in scholarly_patterns:
+        if re.search(pattern, text):
+            return False
+
+    # 3. Слишком много заглавных слов (как в каталогах)
+    uppercase_words = re.findall(r'\b[A-Z]{3,}\b', text)
+    if len(uppercase_words) > 3:
+        return False
+
+    # 4. Проверка что текст состоит в основном из букв и обычной пунктуации
+    allowed_ratio = len(re.findall(r'[A-Za-zА-Яа-я ,.\-–—?!:;()\n]', text)) / len(text)
+    if allowed_ratio < 0.85:
+        return False
+
+    return True
+
 
 def get_next_line(text: str, start_pos: int):
     """возвращает не пустую строку, следующую за назначенной позицией
