@@ -450,21 +450,22 @@ patterns_akt2 = {
         "plain": r"(?:(?P<start>\d+)\s*[-–—]\s*(?P<end>\d+)|[-–—]\s*(?P<only_end>\d+)|(?P<number>\d+))"
   # 12 12-15
     }
+# "start_trl_paren_right": r"\d+\s*\)",  # 12)
+# "start_trl_dot": r"^\d+\s*\.",  # 12.
+# "start_trl": r"^[ÖG~]\.\s*y\.\r?\n",  # Ö. y.
+# "start_trl_paren_both": r'\(\s*(\d{1,3})\s*\)', # (34)
 patterns_akt2_trl_s = {
-        "start_trl": r"^[ÖG~]\.\s*y\.\r?\n",  # Ö. y.
-        "start_trl_paren_right": r"\d+\s*\)",  # 12)
-        "start_trl_dot": r"^\d+\s*\.",  # 12.
-        "start_trl_paren_both": r'\(\s*(\d{1,3})\s*\)' # (34)
-
+        "start_trl_tablet": r'^Tablet\n\(1\)',
+        "start_trl_paren_both": r'\(\s*(\d{1,3})\s*\)', # (34)
     }
 patterns_akt2_per_s = {
         # "plain": r"(?:(?P<start>\d+)\s*[-–—]\s*(?P<end>\d+)|[-–—]\s*(?P<only_end>\d+))",  # 12 12-15
-        "plain": r'(?<![,])(?P<start>\b\d+)\s*[-–—]\s*(?P<end>\d+\b(?!:))|[-–—]\s*(?P<only_end>\d+\b(?!:))',
-        "paren_both": r"\(\s*(?:(?P<start>\d+)\s*[-–—]\s*(?P<end>\d+)|[-–—]\s*(?P<only_end>\d+))\s*\)"
-,  # (12) (12-15)
+        # "plain": r'(?<![,(])(?:(?P<start>\b\d+)\s*[-–—]\s*(?P<end>\d+)\b|[-–—]\s*(?P<only_end>\d+)\b)(?![:)])',
+        "paren_both": r"\(\s*(?:(?P<start>\d+)\s*[-–—]\s*(?P<end>\d+)|(?P<number>\d+))\s*\)",  # (12) (12-15)
     }
 patterns_akt2_per_e = {
-        "plain": r'^(?:\d{1,2},)?(?:\d{1,2},)?(\d{1,2}|\d+\s*[-–—]\s*\d+):'  # 1,2,12-15:
+        "plain": r'^(?:\d{1,2},)?(?:\d{1,2},)?(\d{1,2}|\d+\s*[-–—]\s*\d+):',  # 1,2,12-15:
+        "zarf": r'^(?:Zarf\n|Zarf parçasi\n|Zarfin |St\.(?:\s\d,)?\s(?:\d+(?:[-–—]\d+)?):)'
     }
 patterns_akt = {
         "paren_digit_dot_digit": r'\((?:[A-Za-z]{1,2}\.\s)?\d{1,2}\)',  # (Az. 37)
@@ -476,7 +477,8 @@ patterns_akt = {
 patterns_withaut_diapason_s = {
         "start_trl": r'^[A-Z]{1,3}[a-z]{0,2}\s*(?:\d{1,3}/k|n/k|\d{1,2},)\s*\d{1,4}[a-z]{0,2}(?::\s*(?:\d+[–\-]\d+|:|\d{1,5}))?\n',
         "start_trl_sooname": r'^[A-Z]{1}[a-z]{2,8}\s*\d{1,4}:\s*(?:\d+[–\-]\d+|\d{1,4})\n',
-        "start_per_quote": r"^[A-Z]{1,3}[a-z]{0,2}\s*(?:\d{1,3}/k|n/k)\s*\d{1,4}[a-z]{0,2}:\s'"
+        "start_per_quote": r"^[A-Z]{1,3}[a-z]{0,2}\s*(?:\d{1,3}/k|n/k)\s*\d{1,4}[a-z]{0,2}:\s'",
+
 }
 patterns_withaut_diapason_per_e = {"end_per_quote": r"'\s\(\d"}
 
@@ -2141,7 +2143,22 @@ def extract_ankara_next(text: str, start_pos: int, pattern: str):
     print(f"Найден поисковый якорь Ankara: {match.group()}")
     text = text[match.end():]
     # шаблон поиска перевода
-    Pattern_search_translate, style, status_trlat = choose_pattern(text, patterns_akt)
+    Pattern_search_trlit, style, status_trlit = choose_pattern(text, patterns_akt2_trl_s)
+    Pattern_search_trlit = re.compile(Pattern_search_trlit)
+    match_trlit = Pattern_search_trlit.search(text, start_pos)
+    pos_start_trlit = match_trlit.start()
+    Pattern_search_translate, style, status_trlat = choose_pattern(text, patterns_akt2_per_s)
+    Pattern_search_translate = re.compile(Pattern_search_translate)
+    match_translate = Pattern_search_translate.search(text, pos_start_trlit)
+    pos_end_trlit = match_translate.start()
+    text_transliterate = text[pos_start_trlit:pos_end_trlit]
+    pos_start_translate = match_translate.end()
+    Pattern_search_translate_end, style, status_trlat = choose_pattern(text, patterns_akt2_per_e)
+    Pattern_search_translate_end = re.compile(Pattern_search_translate_end)
+    match_translate_end = Pattern_search_translate_end.search(text, pos_start_translate)
+    pos_end_translate = match_translate_end.start()
+    text_translate = text[pos_start_translate:pos_end_translate]
+
     # if any(Unfin_Data.values()):
     #     number_pred = Unfin_Data['number']
     #     trlit_pred = Unfin_Data['trlit']
@@ -2528,15 +2545,15 @@ def process_text_and_build_csv_rows(text: str):
     pattern3 = r'TABLETLER[İI] II\n'
     pattern4 = r'TABLETLER[İIi]\n'
     # список списков шаблонов поиска первого блока
-    all_patterns = [pattern1, pattern2, pattern3]
+    all_patterns = [pattern1, pattern2, pattern3, pattern4]
     len_arr = len(all_patterns)
     # len_arr = 1
     # список функций поиска первого блока соответствует списку списков шаблонов
     # extract_function_1 = [extract_quoted_substring, extract_letter_space_digit_colon_space, extract_ankara]
-    extract_function_1 = [extract_quoted_substring, extract_letter_space_digit_colon_space, extract_ankara]
+    extract_function_1 = [extract_quoted_substring, extract_letter_space_digit_colon_space, extract_ankara, extract_ankara_next]
     # список функций поиска второго блока соответствует списку функций поиска первого блока
     # extract_function_2 = [extract_parenthesized_substring, extract_single_quotes, extract_after_ankara]
-    extract_function_2 = [extract_parenthesized_substring, extract_after_letter_space_digit_colon_space, extract_after_ankara]
+    extract_function_2 = [extract_parenthesized_substring, extract_after_letter_space_digit_colon_space, extract_after_ankara, extract_after_ankara_next]
     str_txt = [""] * len_arr
     str_txt_1 = [""] * len_arr
     # предварительная очистка
