@@ -455,17 +455,19 @@ patterns_akt2 = {
 # "start_trl": r"^[ÖG~]\.\s*y\.\r?\n",  # Ö. y.
 # "start_trl_paren_both": r'\(\s*(\d{1,3})\s*\)', # (34)
 patterns_akt2_trl_s = {
-        "start_trl_tablet": r'^Tablet\n\(1\)',
-        "start_trl_paren_both": r'\(\s*(\d{1,3})\s*\)', # (34)
+        # "start_trl_tablet": r'^Tablet\n\(1\)',
+        # "start_trl_paren_both": r'^[^\d\(]*\(\s*\d{1,3}\s*\)', # (34)
+        "start_trl_tablet_or_paren": r'^(?:Tablet\n\(1\)|\(\s*\d{1,3}\s*\))'
     }
 patterns_akt2_per_s = {
         # "plain": r"(?:(?P<start>\d+)\s*[-–—]\s*(?P<end>\d+)|[-–—]\s*(?P<only_end>\d+))",  # 12 12-15
         # "plain": r'(?<![,(])(?:(?P<start>\b\d+)\s*[-–—]\s*(?P<end>\d+)\b|[-–—]\s*(?P<only_end>\d+)\b)(?![:)])',
-        "paren_both": r"\(\s*(?:(?P<start>\d+)\s*[-–—]\s*(?P<end>\d+)|(?P<number>\d+))\s*\)",  # (12) (12-15)
+        "paren_both": r"^(\(\s*(?:(?P<start>\d+)\s*[-–—]\s*(?P<end>\d+)|(?P<number>\d+))\s*\))"  # (12) (12-15)
     }
 patterns_akt2_per_e = {
-        "plain": r'^(?:\d{1,2},)?(?:\d{1,2},)?(\d{1,2}|\d+\s*[-–—]\s*\d+):',  # 1,2,12-15:
-        "zarf": r'^(?:Zarf\n|Zarf parçasi\n|Zarfin |St\.(?:\s\d,)?\s(?:\d+(?:[-–—]\d+)?):)'
+        # "plain": r'^(?:\d{1,2},)?(?:\d{1,2},)?(\d{1,2}|\d+\s*[-–—]\s*\d+):',  # 1,2,12-15:
+        # "zarf": r'^(?:Zarf\n|Zarf parçasi\n|Zarfin |St\.(?:\s\d,)?\s(?:\d+(?:[-–—]\d+)?):)'
+        "zarf": r'^(?:Zarf\r?\n|Zarf par[çc]as[ıi]\r?\n|Zarfin\s|St\.(?:\s\d{1,3},)?\s\d+(?:[-–—]\d+)?:)'
     }
 patterns_akt = {
         "paren_digit_dot_digit": r'\((?:[A-Za-z]{1,2}\.\s)?\d{1,2}\)',  # (Az. 37)
@@ -2143,18 +2145,23 @@ def extract_ankara_next(text: str, start_pos: int, pattern: str):
     print(f"Найден поисковый якорь Ankara: {match.group()}")
     text = text[match.end():]
     # шаблон поиска перевода
-    Pattern_search_trlit, style, status_trlit = choose_pattern(text, patterns_akt2_trl_s)
-    Pattern_search_trlit = re.compile(Pattern_search_trlit)
+    # Pattern_search_trlit, style, status_patterns_akt2_trl_slit = choose_pattern(text, patterns_akt2_trl_s)
+    Pattern_search_trlit = patterns_akt2_trl_s["start_trl_tablet_or_paren"]
+    Pattern_search_trlit = re.compile(Pattern_search_trlit, re.MULTILINE)
     match_trlit = Pattern_search_trlit.search(text, start_pos)
     pos_start_trlit = match_trlit.start()
-    Pattern_search_translate, style, status_trlat = choose_pattern(text, patterns_akt2_per_s)
-    Pattern_search_translate = re.compile(Pattern_search_translate)
+    text_transliterate, pos_end_trlit, pos_start_trlit = find_translit_by_rows(text, pos_start_trlit, len(text))
+    # text_transliterate = extract_transliteration(text[pos_start_trlit:])
+    # Pattern_search_translate, style, status_trlat = choose_pattern(text, patterns_akt2_per_s)
+    Pattern_search_translate = patterns_akt2_per_s
+    Pattern_search_translate = re.compile(Pattern_search_translate["paren_both"], re.MULTILINE)
     match_translate = Pattern_search_translate.search(text, pos_start_trlit)
     pos_end_trlit = match_translate.start()
     text_transliterate = text[pos_start_trlit:pos_end_trlit]
     pos_start_translate = match_translate.end()
-    Pattern_search_translate_end, style, status_trlat = choose_pattern(text, patterns_akt2_per_e)
-    Pattern_search_translate_end = re.compile(Pattern_search_translate_end)
+    # Pattern_search_translate_end, style, status_trlat = choose_pattern(text, patterns_akt2_per_e)
+    Pattern_search_translate_end = patterns_akt2_per_e["zarf"]
+    Pattern_search_translate_end = re.compile(Pattern_search_translate_end, re.MULTILINE)
     match_translate_end = Pattern_search_translate_end.search(text, pos_start_translate)
     pos_end_translate = match_translate_end.start()
     text_translate = text[pos_start_translate:pos_end_translate]
