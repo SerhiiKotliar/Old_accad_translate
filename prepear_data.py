@@ -640,6 +640,7 @@ def find_translit_by_rows(text: str, pos: int=0, n_dop: int=2):
     result = ""
     num_row = 0
     while pos < len(text):
+    # if pos < len(text):
         # строка от её первой позиции и позиция конца строки
         n_l, pos_end_of_line = get_next_line(text, pos)
         # прекращение поиска транслитерации после 2 ложных строк
@@ -648,16 +649,20 @@ def find_translit_by_rows(text: str, pos: int=0, n_dop: int=2):
         line_trl = []
         if n_l:
             line_trl = extract_transliteration(n_l)
-        end_translit = 0
+        if line_trl:
+            pos_start_transliteration = pos
+            end_translit = pos_end_of_line
+        # end_translit = 0
         while line_trl:
+            # pos_start_transliteration = pos
             # сборная транслитерация
             result += "\n".join(line_trl) + "\n"
             end_translit = pos_end_of_line
-            if (pos_end_of_line - len(n_l) - 1) > 0 and pos_start_trlit == start_detect:
-                pos_start_transliteration = pos_end_of_line - len(n_l) - 1
-                pos_start_trlit = pos_start_transliteration
-            else:
-                pos_start_trlit = pos_end_of_line - len(n_l) - 1
+            # if (pos_end_of_line - len(n_l) - 1) > 0 and pos_start_trlit == start_detect:
+            #     pos_start_transliteration = pos_end_of_line - len(n_l) - 1
+            #     pos_start_trlit = pos_start_transliteration
+            # else:
+            pos_start_trlit = pos_end_of_line - len(n_l) - 1
             # строка
             n_l, pos_end_of_line = get_next_line(text, pos_end_of_line)
             if pos_end_of_line == -1:
@@ -666,6 +671,7 @@ def find_translit_by_rows(text: str, pos: int=0, n_dop: int=2):
                 line_trl = extract_transliteration(n_l)
             else:
                 line_trl = ""
+            # end_translit = pos_end_of_line
         num_row += 1
         pos = pos_end_of_line
         if result:
@@ -2155,10 +2161,10 @@ def extract_ankara_next(text: str, start_pos: int, pattern: str):
     # Pattern_search_translate, style, status_trlat = choose_pattern(text, patterns_akt2_per_s)
     Pattern_search_translate = patterns_akt2_per_s
     Pattern_search_translate = re.compile(Pattern_search_translate["paren_both"], re.MULTILINE)
-    match_translate = Pattern_search_translate.search(text, pos_start_trlit)
-    pos_end_trlit = match_translate.start()
-    text_transliterate = text[pos_start_trlit:pos_end_trlit]
-    pos_start_translate = match_translate.end()
+    match_translate = Pattern_search_translate.search(text, pos_end_trlit)
+    # pos_end_trlit = match_translate.start()
+    # text_transliterate = text[pos_start_trlit:pos_end_trlit]
+    pos_start_translate = match_translate.start()
     # Pattern_search_translate_end, style, status_trlat = choose_pattern(text, patterns_akt2_per_e)
     Pattern_search_translate_end = patterns_akt2_per_e["zarf"]
     Pattern_search_translate_end = re.compile(Pattern_search_translate_end, re.MULTILINE)
