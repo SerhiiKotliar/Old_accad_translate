@@ -2434,20 +2434,20 @@ def process_text_and_build_csv_rows(text: str):
     pattern1 = r'\d{2,}:\s*(?:\d+[-–—]\d+\s*[:,)]\,?\s*[\s\S]{0,80}?)?\s*"'
     # pattern1 = r'\d{2,}:\s*(?:\d+[-–—]\d+[:,)]\s*[^"]{0,80}?)?\s*"'
     # транслитерация, перевод и наоборот
-    pattern2 = r'^'
+    pattern4 = r'^'
     # и то и другое а потом выбирать
-    pattern3 = r'TABLETLER[İI] II\n'
-    pattern4 = r'TABLETLER[İIi]\n'
+    pattern2 = r'TABLETLER[İI] II\n'
+    pattern3 = r'TABLETLER[İIi]\n'
     # список списков шаблонов поиска первого блока
     all_patterns = [pattern1, pattern2, pattern3, pattern4]
     len_arr = len(all_patterns)
     # len_arr = 1
     # список функций поиска первого блока соответствует списку списков шаблонов
     # extract_function_1 = [extract_quoted_substring, extract_letter_space_digit_colon_space, extract_ankara]
-    extract_function_1 = [extract_quoted_substring, extract_letter_space_digit_colon_space, extract_ankara, extract_ankara_next]
+    extract_function_1 = [extract_quoted_substring, extract_ankara, extract_ankara_next, extract_letter_space_digit_colon_space]
     # список функций поиска второго блока соответствует списку функций поиска первого блока
     # extract_function_2 = [extract_parenthesized_substring, extract_single_quotes, extract_after_ankara]
-    extract_function_2 = [extract_parenthesized_substring, extract_after_letter_space_digit_colon_space, extract_after_ankara, extract_after_ankara_next]
+    extract_function_2 = [extract_parenthesized_substring, extract_after_ankara, extract_after_ankara_next, extract_after_letter_space_digit_colon_space]
     str_txt = [""] * len_arr
     str_txt_1 = [""] * len_arr
     # предварительная очистка
