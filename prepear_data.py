@@ -476,7 +476,8 @@ patterns_akt = {
         "para_quote": r'\s\"' # "
     }
 patterns_akt_trl_s = {"start_trl": r"^[ÖO0G~]\.\s*y\.\r?\n",}  # Ö. y.
-patterns_akt_per_s = {"plain": r'\s*\d{1,2}\s*[-–—]\s*\d{1,2}\s*',}  # 1-12
+# patterns_akt_per_s = {"plain": r'\s*\d{1,2}\s*[-–—]\s*\d{1,2}\s*',}  # 1-12
+patterns_akt_per_s = {"plain": r"(?:(?P<start>\d+)\s*[-–—]\s*(?P<end>\d+)|[-–—]\s*(?P<only_end>\d+))",}  # 12 12-15
 patterns_akt_per_e = {"plain": r'^(?:\d{1,2},)?(?:\d{1,2},)?(\d{1,2}|\d+\s*[-–—]\s*\d+):',}  # 1,2,12-15:
 # r'^[A-Z]{1}[a-z]{2,8}\s*\d{1,4}:\s*(?:\d+[–\-]\d+|\d{1,4})\n'
 patterns_withaut_diapason_s = {
@@ -1002,22 +1003,22 @@ def clear_from_ocr_for_text(text: str) -> str:
 
         chars[item["start"]:item["end"]] = repl
     result = "".join(chars)
-    # # ----------------------------------------------------
-    # # если не обёрнуты, оборачивает в скобки
-    # # pattern = re.compile(r'\(?(\d+)-(\d+)\)?'r'|\b\d{1,3}\b')
-    # pattern = re.compile(r'\(?(\d+)-(\d+)\)?')
-    #
-    # def wrap_if_no_parentheses(match: re.Match) -> str:
-    #     full = match.group(0)  # всё совпадение
-    #     a = match.group(1)
-    #     b = match.group(2)
-    #
-    #     if full.startswith("(") and full.endswith(")"):
-    #         return full  # уже в скобках — оставить как есть
-    #     else:
-    #         return f"({a}-{b})"  # обернуть
-    #
-    # result = pattern.sub(wrap_if_no_parentheses, result)
+    # ----------------------------------------------------
+    # если не обёрнуты, оборачивает в скобки
+    # pattern = re.compile(r'\(?(\d+)-(\d+)\)?'r'|\b\d{1,3}\b')
+    pattern = re.compile(r'\(?(\d+)-(\d+)\)?')
+
+    def wrap_if_no_parentheses(match: re.Match) -> str:
+        full = match.group(0)  # всё совпадение
+        a = match.group(1)
+        b = match.group(2)
+
+        if full.startswith("(") and full.endswith(")"):
+            return full  # уже в скобках — оставить как есть
+        else:
+            return f"({a}-{b})"  # обернуть
+
+    result = pattern.sub(wrap_if_no_parentheses, result)
     return result
 
 
@@ -1071,8 +1072,6 @@ def clear_from_ocr_for_text_last(text: str) -> str:
     text = pattern.sub(range_repl, text)
     text = re.sub(r'\s*i0\s*', r' 10 ', text)
     text = re.sub(r'\s+', ' ', text).strip()
-    # text = re.sub(r'\(\s*(\d+)\s*\)', r'\(\g<1>\)', text)
-    # text = re.sub(r'\(\s*(\d+\s*)(?:[-–—]\s*\d+)?\s*\)', r'\(\g<1>\)', text)
     text = re.sub(r'\(\s*(\d+)\s*[-–—]?\s*(\d+)?\s*\)',
                   lambda m: f"({m.group(1)}-{m.group(2)})" if m.group(2) else f"({m.group(1)})",
                   text)
@@ -2807,8 +2806,8 @@ def split_accad_and_translate(csv_lines, marker="<sent>"):
 
 
 # Завантаження даних з CSV-файлу
-thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
-# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
+thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
 # ----------------------------------------
@@ -2872,7 +2871,7 @@ for i in idx:
     print(f"{num + 1} пару блоков начинаем искать.\n")
     print(f"Index = {i}\n")
     # if i == 74880:
-    if i == 5140:  #17542
+    if i == 206345:  #17542
     #не печатает переводы
     # if i == 25:
     # if i == 130319:
