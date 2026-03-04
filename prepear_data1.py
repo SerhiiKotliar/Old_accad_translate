@@ -666,6 +666,7 @@ def find_translit_by_rows(text: str, pos: int=0, n_dop: int=2):
     # if pos < len(text):
         # строка от её первой позиции и позиция конца строки
         n_l, pos_end_of_line = get_next_line(text, pos)
+        # конец транслитерации
         match_nl = re.compile(pattern_end).search(n_l)
         if match_nl:
             return result, end_translit, pos_start_transliteration
@@ -691,6 +692,7 @@ def find_translit_by_rows(text: str, pos: int=0, n_dop: int=2):
             pos_start_trlit = pos_end_of_line - len(n_l) - 1
             # строка
             n_l, pos_end_of_line = get_next_line(text, pos_end_of_line)
+            # конец транслитерации
             match_nl = re.compile(pattern_end).search(n_l)
             if match_nl:
                 return result, end_translit, pos_start_transliteration
