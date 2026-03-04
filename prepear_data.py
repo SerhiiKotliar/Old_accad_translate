@@ -492,7 +492,7 @@ patterns_withaut_diapason_per_s = {"start_per_quote": r"^[A-Z]{1,3}[a-z]{0,2}\s*
 patterns_withaut_diapason_per_e = {"end_per_quote": r"'\s\(\d"}
 
 patterns_numbs_and_diapsones_s = {"start_numb_trl": r'^(?:(F\.)|(\(\d+\)))'}
-patterns_numbs_and_diapsones_per_s = {"start_numb_per": r'^\s*\(?(?P<start>\d+)(?:\s*[-–—]\s*(?P<end>\d+))?\)?'}   # 12 12-15 (3) (12-15)
+patterns_numbs_and_diapsones_per_s = {"start_numb_per": r'^\s*\(?(?P<start>\d+)(?:\s*[-–—]\s*(?P<end>\d+))?\)?'}
 patterns_numbs_and_diapsones_per_e = {"end_numb_per": r'^(NOTES\s*:\n|St\.\s*\d+:)'}
 
 def extract_transliteration(text) -> list:
