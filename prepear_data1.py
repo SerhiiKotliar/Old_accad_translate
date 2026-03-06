@@ -1574,7 +1574,9 @@ def search_for_extract_ankara(text: str, pos_start: int, ind: int):
         pos_start_trlit = match_trlit.start()
         text_transliterate, pos_end_trlit, pos_start_trlit = find_translit_by_rows(text, pos_start_trlit, len(text))
     else:
-        text_transliterate, pos_end_trlit, pos_start_trlit = find_translit_by_rows(text, pos_start, len(text))
+        text_transliterate, pos_end_trlit, pos_start_trlit = find_translit_by_rows(text[:5], pos_start, len(text))
+        if text_transliterate != "":
+            text_transliterate, pos_end_trlit, pos_start_trlit = find_translit_by_rows(text, pos_start, len(text))
     if Unfin_Data['trlit'] != "":
         # if pos_start_trlit == pos_start:
         text_transliterate_prev = Unfin_Data['trlit']
@@ -1603,16 +1605,17 @@ def search_for_extract_ankara(text: str, pos_start: int, ind: int):
         # pos_end_trlit = match_translate.start()
         # text_transliterate = text[pos_start_trlit:pos_end_trlit]
         pos_start_translate = match_translate.start()
-        text_translate, pos_end_translate, pos_start_translate = find_translate_by_rows(text, pos_start_translate, len(text))
+        # text_translate, pos_end_translate, pos_start_translate = find_translate_by_rows(text, pos_start_translate, len(text))
         # Pattern_search_translate_end, style, status_trlat = choose_pattern(text, patterns_akt2_per_e)
         Pattern_search_translate_end = patterns_akt_per_e["plain"]
         Pattern_search_translate_end_re = re.compile(Pattern_search_translate_end, re.MULTILINE)
         match_translate_end = Pattern_search_translate_end_re.search(text, pos_start_translate)
         if match_translate_end:
             pos_end_translate = match_translate_end.start()
-        # else:
-        #     pos_end_translate = len(text)
-        text_translate, pos_end_translate, pos_start_translate = find_translate_by_rows(text, pos_start_translate,
+            text_translate = text[pos_start_translate:pos_end_translate]
+        else:
+            #     pos_end_translate = len(text)
+            text_translate, pos_end_translate, pos_start_translate = find_translate_by_rows(text, pos_start_translate,
                                                                                         len(text))
         # text_translate = text[pos_start_translate:pos_end_translate]
     else:
