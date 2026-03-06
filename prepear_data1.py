@@ -457,8 +457,9 @@ patterns_akt2 = {
 # "start_trl_dot": r"^\d+\s*\.",  # 12.
 # "start_trl": r"^[ÖG~]\.\s*y\.\r?\n",  # Ö. y.
 # "start_trl_paren_both": r'\(\s*(\d{1,3})\s*\)', # (34)
+# "start_trl": r'\d{2,}:\s*(?:\d+[-–—]\d+\s*[:,)]\,?\s*[\s\S]{0,80}?)?\s*"'
 
-patterns_individual_assirian = {"start_trl": r'\d{2,}:\s*(?:\d+[-–—]\d+\s*[:,)]\,?\s*[\s\S]{0,80}?)?\s*"'}
+patterns_individual_assirian = {"start_trl": r'\d{2,}:\s*(?:\d+[-–—])?(?:\d+\s*[:,)]\,?\s*[\s\S]{0,80}?)?\s*"'}
 
 patterns_akt2_trl_s = {
         # "start_trl_tablet": r'^Tablet\n\(1\)',
@@ -641,7 +642,7 @@ def extract_transliteration(text) -> list:
         # проверка количества цифр в строке
         def more_than_half_digits(line_trimmed):
             digits = sum(ch.isdigit() for ch in line_trimmed)
-            return digits > len(line_trimmed) / 2
+            return digits > len(line_trimmed) / 3
 
         if more_than_half_digits(line_trimmed):
             is_transliteration = False
@@ -1225,12 +1226,12 @@ def cleaning_from_ocr_prelim(text: str) -> str:
         (r'(\d)([-–—])S', r'\g<1>\g<2>5'),
         (r'‰', ''),
         (r'™', ''),
-        # (r'$', 's'),
         (r'¥', 'y'),
         (r'ª', 'a'),
         (r'#', 'h'),
         (r'\st\s*0\s', ' to '),
-        (r'^.*?(\d+)\s*[-–—]\s*(\d+):', r'\g<2>:'),
+        # (r'^.*?(\d+)\s*[-–—]\s*(\d+):', r'\g<2>:'),
+        (r'(\d+)\s*[-–—]\s*(\d+):', r'\g<2>:'),
         (r'([^\W\d_])4(-|[^\W\d_])', r'\g<1>h\g<2>'),
         (r'(\s\d\s*)4([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r'\g<1>h\g<2>'),
         (r'(\w)4([-–—]\w)', r'\g<1>h\g<2>'),
@@ -3053,8 +3054,8 @@ def split_accad_and_translate(csv_lines, marker="<sent>"):
 
 
 # Завантаження даних з CSV-файлу
-# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
-thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
+# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
 # ----------------------------------------
@@ -3118,7 +3119,7 @@ for i in idx:
     print(f"{num + 1} пару блоков начинаем искать.\n")
     print(f"Index = {i}\n")
     # if i == 74880:
-    if i == 25:        #206345:  #17542
+    if i == 5205:        #206345:  #17542
     #не печатает переводы
     # if i == 25:
     # if i == 130319:

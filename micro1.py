@@ -101,179 +101,213 @@ CHAR_MAP = {
     "–": "-", "—": "-",
 }
 
-
-def is_clean_akkadian_translation(text: str) -> bool:
-    """
-    Возвращает True, если текст похож на чистый перевод с аккадского
-    без транслитерации и научных комментариев.
-    """
-
-    if not text or not text.strip():
-        return False
-
-    # 1. Признаки аккадской транслитерации
-    transliteration_patterns = [
-        r'\b[a-z]+-[a-z]+\b',           # a-na, i-na, ša-ma
-        # r'[ŠšḪḫṬṭṢṣĀāĒēĪīŪū]',          # диакритика
-        r'\b[A-Z]+\.[A-Z.]+\b',         # KÙ.BABBAR
+def cleaning_from_ocr_prelim(text: str) -> str:
+    text = re.sub(
+        r'^\s*(?:S\.(?:\s*K\.)?|K\.(?:\s*)?|v|\. v)\s*',
+        '',
+        text,
+        flags=re.MULTILINE
+    )
+    text = re.sub(r'^\w\.\s*K\.\s*\w+', '', text, flags=re.MULTILINE)
+    subs = [
+        (r'(?<=[A-Za-z])6(?=(?:-[A-Za-z]))', 'b'),
+        (r'(\d+)([A-Za-z])', r'\g<1> \g<2>'),
+        (r'([a-z])ı\s*', r'\g<1>i'),
+        (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])ı([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r'\g<1>i\g<2> '),
+        (r'\s*ı\s*ı', ' 11'),
+        (r'\s*ı\s*(\d)', r' 1\g<1>'),
+        (r'o', '0'),
+        (r'ı', '1'),
+        (r'4ssur', r'Assur'),
+        (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])[-–—]1([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r'\g<1>-i\g<2>'),
+        (r'\s5([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r' S\g<1>'),
+        (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])15([-–—])', r' \g<1>lš\g<2>'),
+        (r'\s0([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r' O\g<1>'),
+        (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])0([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r' \g<1>o\g<2>'),
+        (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])5([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r' \g<1>s\g<2>'),
+        (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])1([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r' \g<1>i\g<2>'),
+        (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])6([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r' \g<1>b\g<2>'),
+        (r'A1', 'Ai'),
+        (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])1\s', r'\g<1>i '),
+        (r'([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü]),(\d)', r'\g<1> \g<2>'),
+        (r'\s[iI]\s?(\d+)', r'1\g<1>'),
+        (r'(?<![A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])l\s*(\d)', r' 1\g<1>'),
+        (r'(?<=\d)o', '0'),
+        (r'(?<=\d)°', '0'),
+        (r'S([-–—])(\d)', r'5\g<1>\g<2>'),
+        (r'(\d)([-–—])S', r'\g<1>\g<2>5'),
+        (r'‰', ''),
+        (r'™', ''),
+        (r'¥', 'y'),
+        (r'ª', 'a'),
+        (r'#', 'h'),
+        (r'\st\s*0\s', ' to '),
+        # (r'^.*?(\d+)\s*[-–—]\s*(\d+):', r'\g<2>:'),
+        (r'(\d+)\s*[-–—]\s*(\d+):', r'\g<2>:'),
+        (r'([^\W\d_])4(-|[^\W\d_])', r'\g<1>h\g<2>'),
+        (r'(\s\d\s*)4([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', r'\g<1>h\g<2>'),
+        (r'(\w)4([-–—]\w)', r'\g<1>h\g<2>'),
+        (r'(?<!\d)([^\W\d_])4(?=[-–—])', r'\g<1>h'),
+        (r"r'", "r"),
+        (r'(\s\d+)\s(\d+)[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü]', r'\g<1>-\g<2> '),
+        (r'([^\d,\s])(\d+[\s\-–—]\d+)([^\d,:\n])', r'\g<1> \g<2> \g<3>'),
+        (r'(\d+[\s\-–—]\d+)([^\d,:\s*])', r'\g<1> \g<2>'),
+        (r'(\d+)\s*-\s*(\d+)', r'\g<1>-\g<2>'),
+        (r'^.\.?\s?y\.\s?\r?\n?', ''),
+        (r'(^\d,\s)(\d{1,2})\s(\d{1,2})(^\d\n)', r'\g<1> \g<2>-\g<3> \g<4>'),
+        (r'\,\n', ''),
+        (r'^\n', ''),
+        (r"(\d{1,2})'[-–—]\s*(\d{1,2})",r'\g<1>1-\g<2>'),
+        (r"[-–—]'(\d{1,2})", r'-\g<1>'),
+        (r'(\d{1,2}\s*[-–—]\s*)IS', r'\g<1>18'),
+        (r"\s'(\d)\s*[-–—]", r' 1\g<1>-'),
+        (r'(\w)1(\w)', r'\g<1>i\g<2>'),
+        (r'K Ù\.', r'KÙ\.'),
+        (r'\"\'\"', ''),
+        (r'(\d)i(\d)', r'\g<1>1\g<2>'),
+        (r'^\d+\r?\n(?=Kt)', ''),
+        # (r'^(\d+\.)\r?\n?', r'\g<1>'),
+        (r'\s[ÖO](?=[A-ZÀ-ÖØİŞĞÇÜ])', r'0 '),
+        (r'(\d{1,2}\s*)\'(\s*\d{1,2})', r'\g<1>-\g<2>'),
+        (r'(\d+)\s*[-–—]\s*(\d+)', r' \g<1>-\g<2> '),
+        (r'(\d+)\s*`\s*(\d+)', r' \g<1>-\g<2> '),
+        (r'\s*(\d)\s*(\d)\s*[-–—]\s*(\d)\s*s', r' \g<1>\g<2>-\g<3>5 '),
+        (r'\s*(\d)\'\'\s*(\d+)\s*', r' \g<1>7-\g<2> '),
+        (r'\s*(l)\'\'\s*(\d+)\s*', r' 17-\g<2> '),
+        (r'\s*\'\'\s*(\d+)\s*', r' 7-\g<1> '),
+        (r'(\d)(^\d+)', r'\g<1> \g<2>'),
+        (r'^(\d)\s(\d)(\.)', r'\g<1>\g<2>\g<3>'),
+        (r'[-–—]\s*(\d)\s*(\d)\s*', r'-\g<1>\g<2> '),
     ]
+    for pattern, repl in subs:
+        text = re.sub(pattern, repl, text, flags=re.MULTILINE)
+    # r'(\D\s*)(\d{1,2})\s+(\d{1,3})(\s*[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])'
+    PATTERN: re.Pattern[str] = re.compile(
+         r'(^\d,\s*)(\d{1,2})\s+(\d{1,3})(\s*[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])'
 
-    for pattern in transliteration_patterns:
-        if re.search(pattern, text):
-            return False
+    )
 
-    # 2. Научные ссылки
-    scholarly_patterns = [
-        r'\b\d{4}\b',                   # год (1985)
-        r'\b(cf\.?|see|vgl\.?)\b',      # cf., see
-        r'\b[Kk][Tt]\s*n/?k\b',         # KT n/k
-        r'\b[Kk][Bb][Oo]\b',            # KBo
-    ]
+    def transform_last_char(char: str) -> str:
+        """
+        Transform trailing digit:
+            5 -> S
+            1 -> I
+            0 -> O
+            other digit -> removed
+            letter -> unchanged
+        """
+        if char.isdigit():
+            if char == "5":
+                return "S"
+            if char == "1":
+                return "I"
+            if char == "0":
+                return "O"
+            return ""  # why: other digits must be removed
+        return char
 
-    for pattern in scholarly_patterns:
-        if re.search(pattern, text):
-            return False
+    def conditional_replace(match: re.Match[str]) -> str:
+        len_left = len(match.group(2))
+        len_right = len(match.group(3))
+        right_out = len_right - len_left
+        last_char: str = ""
+        if right_out > 0:
+            right: int = int(match.group(3)[:-right_out])
+            last_char = transform_last_char(match.group(3)[-right_out:])
+        else:
+            right: int = int(match.group(3))
+        left: int = int(match.group(2))
+        next_str = match.group(4).strip()
 
-    # 3. Слишком много заглавных слов (как в каталогах)
-    uppercase_words = re.findall(r'\b[A-Z]{3,}\b', text)
-    if len(uppercase_words) > 3:
-        return False
+        return f"{match.group(1)} {left}-{right} {last_char}{next_str}"
 
-    # 4. Проверка что текст состоит в основном из букв и обычной пунктуации
-    allowed_ratio = len(re.findall(r'[A-Za-zА-Яа-я ,.\-–—?!:;()\n]', text)) / len(text)
-    if allowed_ratio < 0.85:
-        return False
+    def replace_if_left_less(text: str) -> str:
+        """
+        Replace space with dash only if left number < right number.
+        """
+        return PATTERN.sub(conditional_replace, text)
 
-    return True
+    text = replace_if_left_less(text)
 
+    PATTERN1: re.Pattern[str] = re.compile(
+        r'([^\d,\s])(\d)\s(\d)-(\d{2})([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])'
+    )
 
+    def conditional_replace1(match: re.Match[str]) -> str:
+        left: int = int(match.group(2) + match.group(3))
+        right: int = int(match.group(4))
 
-def get_next_line(text: str, start_pos: int):
-    """возвращает не пустую строку, следующую за назначенной позицией
-     и позицию конца строки"""
-    # начало строки поиска
-    pos = None if start_pos == len(text) else start_pos
-    if pos  is None:
-        return "", len(text)
-    # конец строки поиска
-    end = text.find('\n', pos)
-    if end == -1 and pos <= len(text):
-        end = len(text)
-        return text[pos:end], end
-    # позиция старта совпадает с переводом строки
-    if pos == end and pos < len(text):
-        # return text[pos:end+1], end+1
-        pos = end + 1
-        end = text.find('\n', pos)
-        if end == -1 and pos <= len(text):
-            end = len(text)
-            return text[pos:end], end
-    # if end == pos and pos < len(text):
-    #     pos = end + 1
-    #     end = text.find('\n', pos)
-    #     if end == -1 and pos <= len(text):
-    #         end = len(text)
-    # достигнут конец текста
-    if end == pos and pos >= len(text):
-        return "", len(text)
-    str_line = text[pos:end]
-    # str_line = re.sub(
-    #     r'^\s*(?:[SK]\.|S\. K\.|v|\. v)\s*(?:\r?\n|$)',
-    #     '',
-    #     str_line,
-    #     flags=re.MULTILINE
-    # )
-    # str_line = re.sub(
-    #     r'(?m)^\s*\d{1,2}\.\s*',
-    #     '',
-    #     str_line
-    # )
+        if left < right:
+            return f"{match.group(1)} {left}-{right} {match.group(5)}"
 
-    return str_line, end+1
+        return match.group(0)  # why: preserve original if condition fails
 
+    def process_text1(text: str) -> str:
+        return PATTERN1.sub(conditional_replace1, text)
+    text = process_text1(text)
 
+    pattern3 = re.compile(r'^(\d+)\n', re.MULTILINE)
 
-def find_translate_by_rows(text: str, pos: int=0, n_dop: int=2):
-    """поиск перевода начиная с позиции после якоря по строкам
-    возвращает транслитерацию или "" и её позиции конца и начала"""
-    pos_end_of_line = 0
-    pos_start_per = pos
-    # start_detect = pos_start_per
-    pos_start_translate = 0
-    end_translate = 0
-    result = ""
-    # pattern_end = r"^\d+\.\d+\.\s*(?:(?:\d+\.|[A-Za-z]*\.)?(?:e\.|r\.)|\d+(?:[’'])?)"
-    num_row = 0
-    while pos < len(text):
-    # if pos < len(text):
-        # строка от её первой позиции и позиция конца строки
-        n_l, pos_end_of_line = get_next_line(text, pos)
-        # конец транслитерации
-        # match_nl = re.compile(pattern_end).search(n_l)
-        # if match_nl:
-        #     return result, end_translit, pos_start_transliteration
-        # прекращение поиска транслитерации после 2 ложных строк
-        # if num_row > n_dop-1:
-        #     return "", pos_end_of_line, pos_start_per
-        # line_trl = []
-        # if n_l and is_clean_akkadian_translation(n_l):
-            # line_trl = extract_transliteration(n_l)
-        # if line_trl:
-        #     pos_start_translate = pos
-        #     end_translate = pos_end_of_line
-        # end_translit = 0
-        pos_start_translate = pos
-        while n_l and is_clean_akkadian_translation(n_l):
-            # pos_start_translate = pos
-            # end_translate = pos_end_of_line
-            # pos_start_transliteration = pos
-            # сборная транслитерация
-            # result += "\n".join(n_l) + "\n"
-            result += "".join(n_l)
-            end_translate = pos_end_of_line
-            # if (pos_end_of_line - len(n_l) - 1) > 0 and pos_start_trlit == start_detect:
-            #     pos_start_transliteration = pos_end_of_line - len(n_l) - 1
-            #     pos_start_trlit = pos_start_transliteration
-            # else:
-            pos_start_per = pos_end_of_line - len(n_l) - 1
-            # строка
-            n_l, pos_end_of_line = get_next_line(text, pos_end_of_line)
-            # конец транслитерации
-            # match_nl = re.compile(pattern_end).search(n_l)
-            # if match_nl:
-            #     return result, end_translit, pos_start_transliteration
-            if pos_end_of_line == -1:
-                return result, end_translate, pos_start_per
-            # if n_l:
-            #     line_trl = extract_transliteration(n_l)
-            # else:
-            #     line_trl = ""
-            # end_translit = pos_end_of_line
-        num_row += 1
-        pos = pos_end_of_line
-        if result:
-            return result, end_translate, pos_start_translate
+    def repl(match: re.Match) -> str:
+        num = int(match.group(1))
+        if num % 5 == 0 and num <= 40:
+            return f"{num}."
+        return ""  # иначе удаляем
 
+    text = pattern3.sub(repl, text)
 
-    return "", pos_end_of_line, pos_start_translate
+    pattern2 = re.compile(r'(\d\s*[-–—]?\s*)[\"“”«»„‟]([A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])')
 
+    def replace_func2(match):
+        # первая группа: убрать пробелы, оставить цифру и тире
+        first = re.sub(r'\s+', '', match.group(1))
+        return f"{first}11 {match.group(2)}"
 
+    text = pattern2.sub(replace_func2, text)
 
-text = """$í-ip-ri-ni
-li-sú-ha-am ú a-tù-nu
-lu e-mu-uq
-$í-ip-ri-n[i]
+    pattern4 = re.compile(r'(?<![,])(\d+)\s*[-–—]\s*(\d+)(?!:)')
+    def replace_func4(match):
+        left = int(match.group(1))
+        right = int(match.group(2))
+        if left <= 9 and len(match.group(2)) > len(match.group(1)):
+            ext = len(match.group(2)) - len(match.group(1))
+            last_right = match.group(2)[:-ext]
+            if int(last_right) > left and int(last_right) - left <= 10:
+                return f" {left}-{last_right} {ext}"
+        # first = re.sub(r'\s+', '', match.group(1))
+        return f" {left}-{right} "
 
-15
+    text = pattern4.sub(replace_func4, text)
 
-20
+    return text
 
-Extradite the man there together with §®p-
-I$tar, our messenger, and you
-must be the executive arm for our messen-
-ger.
+# -----------------------------------------------------------------------------------------
 
+text = """19. See Larsen (2002,168: 3-7), where Assur-nada writes
+to the lady Abaya: "In accordance with the missive I sent to
+you Innaya has here discussed-with the customers in your
+name and in the name of your father's house" (a-ma-la
+na-as-pè-er-tim sa as-pu ra-ki-ni a-na-kam I-na-a a s"u ma ki it a-na
+su-mi É a-bi-ki tam-kà-ri e-ta-uru; kt 94/k 1742: 26-29: "I also
+entrusted 40 minas of refined silver that was in the name
+of my father's house to Pilah-Istar" (u a-ha-ma 40 ma-na
+KU.BABBAR sa-ru-pa-am sa a-na su-mi É a-bi4-a a-na
+Pl-/
+la-ah-Is\ [tar] ap-qi-id);orkt
+a/k 1030: 1-5: "Out of Idin-Suen's
+copper Tab-Assur received 13 talents 20 minas of poor copper
+on behalf of his father's house and Alili" (i-na URUDU sa
+I-di-Su-in 13 GU 20 ma-na URUDU la-mu-nam DU 10-A-sur ki-ma
+É a-bi-su ù [A] li li il5 qe).
+trader's possibility to function independently in
+the commercial system. It was the contractual
+foundation for an arrangement where a group of
+financiers came together to invest in a capital fund
+that was entrusted to an individual to function
+as the basis for "carrying out trade" (makârum)
+during a specified number of years, probably
+always a period of at least ten years 20
 """
 
-txt = find_translate_by_rows(text)
-print(txt)
+
+print(cleaning_from_ocr_prelim(text))
