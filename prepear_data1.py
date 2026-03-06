@@ -493,10 +493,15 @@ patterns_withaut_diapason_s = {
 patterns_withaut_diapason_per_s = {"start_per_quote": r"^[A-Z]{1,3}[a-z]{0,2}\s*(?:\d{1,3}/k|n/k)\s*\d{1,4}[a-z]{0,2}:\s'"}
 patterns_withaut_diapason_per_e = {"end_per_quote": r"'\s\(\d"}
 
-patterns_numbs_and_diapasones_s = {"start_numb_trl": r'^(?:(F\.)|(\(\d+\)))'}
-patterns_numbs_and_diapasones_per_s = {"start_numb_per": r'^\s*\(?(?P<start>\d+)(?:\s*[-–—]\s*(?P<end>\d+))?\)?'}
+patterns_numbs_and_diapasones_s = {"start_numb_trl": r"^(?:F\.|\d+(?:[’'])?\.)"}
+patterns_numbs_and_diapasones_per_s = {"start_numb_per": r"^\s*(?P<start>\d+)(?:[’'])?\s*[-–—]\s*(?P<end>\d+)(?:[’'])?"}
 # patterns_numbs_and_diapasones_per_s = {"start_numb_per": r'^\s*\(?(?P<start>\d+)\s*[-–—]\s*(?P<end>\d+)\)?'}
-patterns_numbs_and_diapasones_per_e = {"end_numb_per": r'^(NOTES\s*:\n|St\.\s*\d+:)'}
+patterns_numbs_and_diapasones_per_e = {"end_numb_per": r'^(?:NOTES\s*:\n|St\.\s*\d+:)'}
+
+patterns_numbs_and_diapasones_paren_s = {"start_numb_trl": r'^\(\d+\)'}
+patterns_numbs_and_diapasones_paren_per_s = {"start_numb_per": r'^\s*\((?P<start>\d+)\s*[-–—]\s*(?P<end>\d+)\)'}
+# patterns_numbs_and_diapasones_per_s = {"start_numb_per": r'^\s*\(?(?P<start>\d+)\s*[-–—]\s*(?P<end>\d+)\)?'}
+patterns_numbs_and_diapasones_paren_per_e = {"end_numb_per": r'^St\.\s*\d+:'}
 
 patterns_salim_assur_s = {"salim_start_trl": r'^(?:\d+\s*[a-z]*?\.\s*kt\s*\d+\/k\s*\d+\n)'}
 patterns_salim_assur_per_s = {"salim_start_per": r"^\d+\.\d+\.\s*(?:(?:\d+\.|[A-Za-z]*\.)?(?:e\.|r\.)|\d+(?:[’'])?)\n"}
@@ -1535,7 +1540,7 @@ def merge_if_consecutive(d1: dict, d2: dict):
         return d2  # первый удаляется
 
 
-def search_for_extract_ankara(text: str, pos_start: int):
+def search_for_extract_ankara(text: str, pos_start: int, ind: int):
     # ------------------------------------------------
     global Pattern_search_translate
     global Pattern_search_trlit
@@ -1729,7 +1734,7 @@ def renumber_trust_source(text: str) -> Dict[int, str]:
     if not text.strip():
         return {}
 
-    pattern_line_start = re.compile(r'^\s*(\d+)\s*[.:]')
+    pattern_line_start = re.compile(r"^\s*(\d+)\s*[.:]'?")
     # inline_patterns = [
     #     r'\(([^)]*\d+[^)]*)\)',
     #     r'(\d+)\)',
@@ -1907,7 +1912,7 @@ def process_text_last(text: str, lines_dict: Dict[int, str]) -> Tuple[List[str],
 
 
 #%%
-def extract_quoted_substring(text: str, start_pos: int, pattern: str):
+def extract_quoted_substring(text: str, start_pos: int, pattern: str, ind: int):
     """
     Ищет в строке text, начиная С позиции start_pos,
     подстроку вида: ' "текст"'.
@@ -2052,7 +2057,7 @@ def find_double_quote(text: str, start_pos: int, first: bool=True):
     return quote_pos
 
 #%%
-def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pattern: str):
+def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pattern: str, ind: int):
     """предполагается что переноса перевода с одного текста на следующий
     или транслитерации нет"""
     text_translate = ""
@@ -2186,7 +2191,7 @@ def extract_single_quotes(text: str, start_pos: int):
     # print(f"Выбран перевод: {translate_txt}")
     return translate_txt, True, quote_pos
 
-def extract_ankara(text: str, start_pos: int, pattern: str):
+def extract_ankara(text: str, start_pos: int, pattern: str, ind: int):
     if start_pos < 0 or start_pos >= len(text):
         return None, None, start_pos
     # text = text.replace('TABLETLER[İI] u', 'TABLETLERI II')
@@ -2196,7 +2201,7 @@ def extract_ankara(text: str, start_pos: int, pattern: str):
         return None, None, len(text)
     print(f"Найден поисковый якорь Ankara: {match.group()}")
     text = text[match.end():]
-    (perevod, dict_trlit), flag_vyp, pos_end = search_for_extract_ankara(text, 0)
+    (perevod, dict_trlit), flag_vyp, pos_end = search_for_extract_ankara(text, start_pos, ind)
     return (perevod, dict_trlit), flag_vyp, pos_end
 
 def extract_after_ankara(text_dict_tr: tuple[str, dict[int, str]], pos_s: int) -> Tuple[Tuple[List:str, List:str], bool, int]:
@@ -2266,7 +2271,7 @@ def parse_numbered_fragments(text: str) -> Dict[int, str]:
 
 
 
-def extract_ankara_next(text: str, start_pos: int, pattern: str):
+def extract_ankara_next(text: str, start_pos: int, pattern: str, ind: int):
     text_translate = ""
     flag_vyp = False
     transl_from_past = False
@@ -2376,14 +2381,14 @@ def extract_after_ankara_next(text_dict_tr: tuple, pos_s: int):
     else:
         return ([], []), False, pos_s
 
-def extract_numbs_and_diapasons(text: str, start_pos: int, pattern: str):
+def extract_numbs_and_diapasons(text: str, start_pos: int, pattern: str, ind: int):
     text_translate = ""
     flag_vyp = False
     transl_from_past = False
     trlit_from_past = False
     trlit_to_past = False
     global Pattern_search_trlit, Pattern_search_trlit_re, Pattern_search_translate, Pattern_search_translate_re, Pattern_search_translate_end, Pattern_search_translate_end_re
-    global patterns_akt2_trl_s, patterns_akt2_per_s, patterns_akt2_per_e
+    global patterns_numbs_and_diapasones_s, patterns_numbs_and_diapasones_paren_s, patterns_numbs_and_diapasones_per_s, patterns_numbs_and_diapasones_paren_per_s, patterns_numbs_and_diapasones_per_e, patterns_numbs_and_diapasones_paren_per_e
     if start_pos < 0 or start_pos >= len(text):
         return None, None, start_pos
     end_pos = len(text)
@@ -2393,11 +2398,18 @@ def extract_numbs_and_diapasons(text: str, start_pos: int, pattern: str):
         return None, None, len(text)
     print(f"Найден поисковый якорь: {match.group()}")
     text = text[match.end():]
-    Pattern_search_trlit = patterns_numbs_and_diapasones_s["start_numb_trl"]
+    match ind:
+        case 4:
+            Pattern_search_trlit = patterns_numbs_and_diapasones_s["start_numb_trl"]
+        case 5:
+            Pattern_search_trlit = patterns_numbs_and_diapasones_paren_s["start_numb_trl"]
     Pattern_search_trlit_re = re.compile(Pattern_search_trlit, re.MULTILINE)
     match_trlit = Pattern_search_trlit_re.search(text, start_pos)
     if match_trlit:
-        pos_start_trlit = match_trlit.start()
+        if match_trlit.groups(0) != "F." and ind == 4:
+            pos_start_trlit = 0
+        else:
+            pos_start_trlit = match_trlit.start()
         text_transliterate, pos_end_trlit, pos_start_trlit = find_translit_by_rows(text, pos_start_trlit, len(text))
     else:
         text_transliterate, pos_end_trlit, pos_start_trlit = find_translit_by_rows(text, start_pos, len(text))
@@ -2408,8 +2420,11 @@ def extract_numbs_and_diapasons(text: str, start_pos: int, pattern: str):
         # очистка от мусора транслитерации
         text_transliterate = process_text(text_transliterate)
         # словарь с ключами номерами и строками транслитерации
-        # text_transliterate = renumber_trust_source(text_transliterate)
-        text_transliterate = parse_numbered_fragments(text_transliterate)
+        match ind:
+            case 4:
+                text_transliterate = renumber_trust_source(text_transliterate)
+            case 5:
+                text_transliterate = parse_numbered_fragments(text_transliterate)
         text_transliterate = merge_if_consecutive(text_transliterate_prev, text_transliterate)
         Unfin_Data['trlit'] = ""
     if pos_end_trlit == len(text) or pos_end_trlit == -1:
@@ -2418,11 +2433,18 @@ def extract_numbs_and_diapasons(text: str, start_pos: int, pattern: str):
             # очистка от мусора транслитерации
             text_transliterate = process_text(text_transliterate)
             # словарь с ключами номерами и строками транслитерации
-            # text_transliterate = renumber_trust_source(text_transliterate)
-            text_transliterate = parse_numbered_fragments(text_transliterate)
+            match ind:
+                case 4:
+                    text_transliterate = renumber_trust_source(text_transliterate)
+                case 5:
+                    text_transliterate = parse_numbered_fragments(text_transliterate)
             Unfin_Data['trlit'] = text_transliterate
             trlit_to_past = True
-    Pattern_search_translate = patterns_numbs_and_diapasones_per_s["start_numb_per"]
+    match ind:
+        case 4:
+            Pattern_search_translate = patterns_numbs_and_diapasones_per_s["start_numb_per"]
+        case 5:
+            Pattern_search_translate = patterns_numbs_and_diapasones_paren_per_s["start_numb_per"]
     Pattern_search_translate_re = re.compile(Pattern_search_translate, re.MULTILINE)
     match_translate = Pattern_search_translate_re.search(text, pos_end_trlit)
     if match_translate:
@@ -2432,16 +2454,20 @@ def extract_numbs_and_diapasons(text: str, start_pos: int, pattern: str):
         text_translate, pos_end_translate, pos_start_translate = find_translate_by_rows(text, pos_start_translate,
                                                                                         len(text))
         # Pattern_search_translate_end, style, status_trlat = choose_pattern(text, patterns_akt2_per_e)
-        Pattern_search_translate_end = patterns_numbs_and_diapasones_per_e["end_numb_per"]
+        match ind:
+            case 4:
+                Pattern_search_translate_end = patterns_numbs_and_diapasones_per_e["end_numb_per"]
+            case 5:
+                Pattern_search_translate_end = patterns_numbs_and_diapasones_paren_per_e["end_numb_per"]
         Pattern_search_translate_end_re = re.compile(Pattern_search_translate_end, re.MULTILINE)
         match_translate_end = Pattern_search_translate_end_re.search(text, pos_start_translate)
         if match_translate_end:
             pos_end_translate = match_translate_end.start()
         # else:
         #     pos_end_translate = len(text)
-        # text_translate = text[pos_start_translate:pos_end_translate]
-        text_translate, pos_end_translate, pos_start_translate = find_translate_by_rows(text, pos_start_translate,
-                                                                                        len(text))
+            text_translate = text[pos_start_translate:pos_end_translate]
+        # text_translate, pos_end_translate, pos_start_translate = find_translate_by_rows(text, pos_start_translate,
+        #                                                                                 len(text))
     else:
         pos_end_translate = len(text)
         if Unfin_Data["perevod"] != "":
@@ -2484,7 +2510,7 @@ def after_extract_numbs_and_diapasones(text_dict_tr: tuple, pos_s: int):
         return ([], []), False, pos_s
 
 
-def extract_salim_assur(text: str, start_pos: int, pattern: str):
+def extract_salim_assur(text: str, start_pos: int, pattern: str, ind: int):
     text_translate = ""
     flag_vyp = False
     transl_from_past = False
@@ -2788,20 +2814,21 @@ def process_text_and_build_csv_rows(text: str):
     # транслитерация, перевод и наоборот
     pattern4 = r'^'
     pattern5 = r'^'
-    pattern6 = r"^(?:Salim-Assur[’']s death|Sadaya[’']s son)"
+    pattern6 = r'^'
+    pattern7 = r"^(?:Salim-Assur[’']s death|Sadaya[’']s son)"
     # и то и другое а потом выбирать
     pattern2 = r'TABLETLERI II\n'
     pattern3 = r'TABLETLERI\n'
     # список списков шаблонов поиска первого блока
-    all_patterns = [pattern1, pattern2, pattern3, pattern4, pattern5, pattern6]
+    all_patterns = [pattern1, pattern2, pattern3, pattern4, pattern5, pattern6, pattern7]
     len_arr = len(all_patterns)
     # len_arr = 1
     # список функций поиска первого блока соответствует списку списков шаблонов
     # extract_function_1 = [extract_quoted_substring, extract_salim_assur]
-    extract_function_1 = [extract_quoted_substring, extract_ankara, extract_ankara_next, extract_letter_space_digit_colon_space, extract_numbs_and_diapasons, extract_salim_assur]
+    extract_function_1 = [extract_quoted_substring, extract_ankara, extract_ankara_next, extract_letter_space_digit_colon_space, extract_numbs_and_diapasons, extract_numbs_and_diapasons, extract_salim_assur]
     # список функций поиска второго блока соответствует списку функций поиска первого блока
     # extract_function_2 = [extract_parenthesized_substring, after_extract_salim_assur]
-    extract_function_2 = [extract_parenthesized_substring, extract_after_ankara, extract_after_ankara_next, extract_after_letter_space_digit_colon_space, after_extract_numbs_and_diapasones, after_extract_salim_assur]
+    extract_function_2 = [extract_parenthesized_substring, extract_after_ankara, extract_after_ankara_next, extract_after_letter_space_digit_colon_space, after_extract_numbs_and_diapasones, after_extract_numbs_and_diapasones, after_extract_salim_assur]
     str_txt = [""] * len_arr
     str_txt_1 = [""] * len_arr
     # предварительная очистка
@@ -2816,7 +2843,7 @@ def process_text_and_build_csv_rows(text: str):
         print(f"Работаем с {i + 1} группой шаблонов")
         work = True
         while work:
-            str_txt[i % len_arr], flag, next_pos = extract_function_1[i % len_arr](text, start_pos, pattern)
+            str_txt[i % len_arr], flag, next_pos = extract_function_1[i % len_arr](text, start_pos, pattern, i)
 
             if flag:
                 print("Найден 1 блок")
@@ -2994,8 +3021,8 @@ def split_accad_and_translate(csv_lines, marker="<sent>"):
 
 
 # Завантаження даних з CSV-файлу
-thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
-# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
+thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
 # ----------------------------------------
@@ -3059,7 +3086,7 @@ for i in idx:
     print(f"{num + 1} пару блоков начинаем искать.\n")
     print(f"Index = {i}\n")
     # if i == 74880:
-    if i == 55483:        #206345:  #17542
+    if i == 185460:        #206345:  #17542
     #не печатает переводы
     # if i == 25:
     # if i == 130319:
