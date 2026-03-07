@@ -2920,7 +2920,7 @@ def normalize_gaps(text: str) -> str:
 def normalize_for_mt(text: str) -> str:
     # 0. Базовая очистка (translate-таблица уже применяется снаружи)
     a = text
-    chars_to_remove = "!?/:.<>™‰˹˺[]⅁ᲟᲠᲢ"
+    chars_to_remove = "!?/:.<>™‰˹˺[]⅁ᲟᲠᲢ¥#"
     table = str.maketrans("", "", chars_to_remove)
     # удаление ненужных символов
     a = a.translate(table)
@@ -3280,13 +3280,18 @@ def split_accad_and_translate(csv_lines, marker="<sent>"):
 
         for accad, trans in zip(accad_sentences, translate_sentences):
             rows.append({
-                "id": global_id,
-                "accad_str": accad,
-                "translate": trans
+                "oare_id": global_id,
+                "transliteration": accad,
+                "translation": trans
             })
             global_id += 1
 
-    return pd.DataFrame(rows, columns=["id", "accad_str", "translate"])
+    df =  pd.DataFrame(rows, columns=["oare_id", "transliteration", "translation"])
+    # сохранение файла
+    df.to_csv("train_accad.csv", index=False, encoding="utf-8")
+
+    return df
+
 
 # def print_file_head(path, n=5, encoding="utf-8"):
 #     with open(path, "r", encoding=encoding) as f:
