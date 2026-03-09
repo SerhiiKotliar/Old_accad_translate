@@ -3185,13 +3185,13 @@ def process_text_and_build_csv_rows(text: str):
                         a = normalize_for_mt(a)
 
                         # # 3. Токенизация перевода
-                        t_sentences = sent_tokenize(t)
-                        # --------------------------------------------------------------
-                        # # # 3. Токенизация перевода
                         # t_sentences = sent_tokenize(t)
-                        # t_sentences = [sent for sent in t_sentences if looks_like_real_translation(sent)]
-                        # # определение языка и перевод на английский, если перевод не английский\n",
-                        # t_sentences = [translate_to_english(sent) if detect_language(sent) != 'en' else sent for sent in t_sentences]
+                        # --------------------------------------------------------------
+                        # # 3. Токенизация перевода
+                        t_sentences = sent_tokenize(t)
+                        t_sentences = [sent for sent in t_sentences if looks_like_real_translation(sent)]
+                        # определение языка и перевод на английский, если перевод не английский\n",
+                        t_sentences = [translate_to_english(sent) if detect_language(sent) != 'en' else sent for sent in t_sentences]
                         # ---------------------------------------------------------------------------
                         # 4. Выравнивание + маркеры
                         a = align_and_mark_sentences(a, t_sentences, marker="<sent>")
