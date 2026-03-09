@@ -169,7 +169,8 @@ def normalize_for_mt(text):
 
 # загрузка файла
 # df = pd.read_csv("train.csv")
-thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
+# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
+thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate"
 # thiscompteca = "C:/Users/arecs/Мій диск (2armnot@gmail.com)/Питон/Конкурси/Old_Assyrian/"
 df = pd.read_csv(thiscompteca+'/data/train.csv')
 # нормализация транслитерации

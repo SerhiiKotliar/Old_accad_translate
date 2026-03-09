@@ -3302,8 +3302,8 @@ def split_accad_and_translate(csv_lines, marker="<sent>"):
 
 
 # Завантаження даних з CSV-файлу
-thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
-# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
+thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
 # ----------------------------------------
