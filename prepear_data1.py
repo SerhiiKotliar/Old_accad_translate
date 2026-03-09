@@ -458,9 +458,23 @@ patterns_akt2 = {
 # "start_trl": r"^[ÖG~]\.\s*y\.\r?\n",  # Ö. y.
 # "start_trl_paren_both": r'\(\s*(\d{1,3})\s*\)', # (34)
 # "start_trl": r'\d{2,}:\s*(?:\d+[-–—]\d+\s*[:,)]\,?\s*[\s\S]{0,80}?)?\s*"'
-
+#1
 patterns_individual_assirian = {"start_trl": r'\d{2,}:\s*(?:\d+[-–—])?(?:\d+\s*[:,)]\,?\s*[\s\S]{0,80}?)?\s*"'}
 
+#2
+patterns_akt_trl_s = {"start_trl": r"^[ÖO0G~]\.\s*y\.\r?\n"}  # Ö. y.
+# patterns_akt_per_s = {"plain": r'\s*\d{1,2}\s*[-–—]\s*\d{1,2}\s*',}  # 1-12
+patterns_akt_per_s = {"plain": r"(?:(?P<start>\d+)\s*[-–—]\s*(?P<end>\d+)|[-–—]\s*(?P<only_end>\d+))"}  # 12 12-15
+# patterns_akt_per_s = {"plain": r"(?:(?P<start>\d+)\s*[-–—]\s*(?P<end>\d+))",}  # 12-15
+patterns_akt_per_e = {"plain": r'^(?:\d{1,2},)?(?:\d{1,2},)?(\d{1,2}|\d+\s*[-–—]\s*\d+):'}  # 1,2,12-15:
+# r'^[A-Z]{1}[a-z]{2,8}\s*\d{1,4}:\s*(?:\d+[–\-]\d+|\d{1,4})\n'
+patterns_akt = {
+        "paren_digit_dot_digit": r'\((?:[A-Za-z]{1,2}\.\s)?\d{1,2}\)',  # (Az. 37)
+        "plain": r'\s\d{1,2}\s*[-–—]\s*\d{1,2}\s*:\s',  # 1-12:
+        "paren_both": r'\(\s*(\d{1,3})\s*[-–—]\s*(\d{1,3})\s*\)|\(\s*(\d{1,3})\s*\)',  # (3) (12-15)
+        "para_quote": r'\s\"' # "
+    }
+#3
 patterns_akt2_trl_s = {
         # "start_trl_tablet": r'^Tablet\n\(1\)',
         # "start_trl_paren_both": r'^[^\d\(]*\(\s*\d{1,3}\s*\)', # (34)
@@ -477,18 +491,20 @@ patterns_akt2_per_e = {
         # "zarf": r'^(?:Zarf\n|Zarf parçasi\n|Zarfin |St\.(?:\s\d,)?\s(?:\d+(?:[-–—]\d+)?):)'
         "zarf": r'^(?:Zarf\r?\n|Zarf par[çc]as[ıi]\r?\n|Zarfin\s|St\.(?:\s\d{1,3},)?\s\d+(?:[-–—]\d+)?:)'
     }
-patterns_akt = {
-        "paren_digit_dot_digit": r'\((?:[A-Za-z]{1,2}\.\s)?\d{1,2}\)',  # (Az. 37)
-        "plain": r'\s\d{1,2}\s*[-–—]\s*\d{1,2}\s*:\s',  # 1-12:
-        "paren_both": r'\(\s*(\d{1,3})\s*[-–—]\s*(\d{1,3})\s*\)|\(\s*(\d{1,3})\s*\)',  # (3) (12-15)
-        "para_quote": r'\s\"' # "
-    }
-patterns_akt_trl_s = {"start_trl": r"^[ÖO0G~]\.\s*y\.\r?\n",}  # Ö. y.
-# patterns_akt_per_s = {"plain": r'\s*\d{1,2}\s*[-–—]\s*\d{1,2}\s*',}  # 1-12
-patterns_akt_per_s = {"plain": r"(?:(?P<start>\d+)\s*[-–—]\s*(?P<end>\d+)|[-–—]\s*(?P<only_end>\d+))",}  # 12 12-15
-# patterns_akt_per_s = {"plain": r"(?:(?P<start>\d+)\s*[-–—]\s*(?P<end>\d+))",}  # 12-15
-patterns_akt_per_e = {"plain": r'^(?:\d{1,2},)?(?:\d{1,2},)?(\d{1,2}|\d+\s*[-–—]\s*\d+):',}  # 1,2,12-15:
-# r'^[A-Z]{1}[a-z]{2,8}\s*\d{1,4}:\s*(?:\d+[–\-]\d+|\d{1,4})\n'
+
+#4
+patterns_numbs_and_diapasones_s = {"start_numb_trl": r"^(?:F\.|\d+(?:[’'])?\.|[ÖO0G~]\.\s*y\.\r?\n|Vs\.\n|\d+\n)"}
+patterns_numbs_and_diapasones_per_s = {"start_numb_per": r"^\s*(?P<start>\d+)(?:[’')])?\s*[-–—]\s*(?P<end>\d+)(?:[’')])?"}
+# patterns_numbs_and_diapasones_per_s = {"start_numb_per": r'^\s*\(?(?P<start>\d+)\s*[-–—]\s*(?P<end>\d+)\)?'}
+patterns_numbs_and_diapasones_per_e = {"end_numb_per": r'^(?:NOTES\s*:\n|(?:St\.\s*)?\d+:)'}
+
+#5
+patterns_numbs_and_diapasones_paren_s = {"start_numb_trl": r'^\(\d+\)'}
+patterns_numbs_and_diapasones_paren_per_s = {"start_numb_per": r'^\s*\((?P<start>\d+)\s*[-–—]\s*(?P<end>\d+)\)'}
+# patterns_numbs_and_diapasones_per_s = {"start_numb_per": r'^\s*\(?(?P<start>\d+)\s*[-–—]\s*(?P<end>\d+)\)?'}
+patterns_numbs_and_diapasones_paren_per_e = {"end_numb_per": r'^St\.\s*\d+:'}
+
+#6
 patterns_withaut_diapason_s = {
         "start_trl": r'^(?:[A-Z]{1,3}[a-z]{0,2}\s*(?:\d{1,3}/k|n/k|\d{1,2},)\s*\d{1,4}[a-z]{0,2}(?::\s*(?:\d+[–\-]\d+|:|\d{1,5}))?\n|[A-Z]{1}[a-z]{2,8}\s*\d{1,4}:\s*(?:\d+[–\-]\d+|\d{1,4})\n)',
         # "start_trl_sooname": r'^[A-Z]{1}[a-z]{2,8}\s*\d{1,4}:\s*(?:\d+[–\-]\d+|\d{1,4})\n',
@@ -497,19 +513,20 @@ patterns_withaut_diapason_s = {
 patterns_withaut_diapason_per_s = {"start_per_quote": r"^[A-Z]{1,3}[a-z]{0,2}\s*(?:\d{1,3}/k|n/k)\s*\d{1,4}[a-z]{0,2}:\s'"}
 patterns_withaut_diapason_per_e = {"end_per_quote": r"'\s\(\d"}
 
-patterns_numbs_and_diapasones_s = {"start_numb_trl": r"^(?:F\.|\d+(?:[’'])?\.|[ÖO0G~]\.\s*y\.\r?\n|Vs\.\n|\d+\n)"}
-patterns_numbs_and_diapasones_per_s = {"start_numb_per": r"^\s*(?P<start>\d+)(?:[’')])?\s*[-–—]\s*(?P<end>\d+)(?:[’')])?"}
-# patterns_numbs_and_diapasones_per_s = {"start_numb_per": r'^\s*\(?(?P<start>\d+)\s*[-–—]\s*(?P<end>\d+)\)?'}
-patterns_numbs_and_diapasones_per_e = {"end_numb_per": r'^(?:NOTES\s*:\n|(?:St\.\s*)?\d+:)'}
-
-patterns_numbs_and_diapasones_paren_s = {"start_numb_trl": r'^\(\d+\)'}
-patterns_numbs_and_diapasones_paren_per_s = {"start_numb_per": r'^\s*\((?P<start>\d+)\s*[-–—]\s*(?P<end>\d+)\)'}
-# patterns_numbs_and_diapasones_per_s = {"start_numb_per": r'^\s*\(?(?P<start>\d+)\s*[-–—]\s*(?P<end>\d+)\)?'}
-patterns_numbs_and_diapasones_paren_per_e = {"end_numb_per": r'^St\.\s*\d+:'}
-
+#7
 patterns_salim_assur_s = {"salim_start_trl": r'^(?:\d+\s*[a-z]*?\.\s*kt\s*\d+\/k\s*\d+\n)'}
 patterns_salim_assur_per_s = {"salim_start_per": r"^\d+\.\d+\.\s*(?:(?:\d+\.|[A-Za-z]*\.)?(?:e\.|r\.)|\d+(?:[’'])?)\n"}
 patterns_salim_assur_per_e = {"salim_end_per": r'^Notes:\n'}
+
+#8
+patterns_sebahattin_s = {"sebahat_start_trl": r''}
+patterns_sebahattin_per_s = {"sebahat_start_per": r'(?:(?P<start>\d+)\s*[-–—]\s*(?P<end>\d+))'}
+patterns_sebahattin_per_e = {"sebahat_end_per": r'^(?:No\.\s*\d+:\s*\d+\/k\s*\d+(?:\/[a-z]*)?|[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü]*:)\n'}
+
+#9
+patterns_kultepe_VII_s = {"VII_start_trl": r''}
+patterns_kultepe_VII_per_s = {"VII_start_per": r''}
+patterns_kultepe_VII_per_e = {"VII_end_per": r''}
 
 def extract_transliteration(text) -> list:
     """
@@ -1245,11 +1262,14 @@ def cleaning_from_ocr_prelim(text: str) -> str:
         (r'([^\d,\s])(\d+[\s\-–—]\d+)([^\d,:\n])', r'\g<1> \g<2> \g<3>'),
         (r'(\d+[\s\-–—]\d+)([^\d,:\s*])', r'\g<1> \g<2>'),
         (r'(\d+)\s*-\s*(\d+)', r'\g<1>-\g<2>'),
-        # (r'^.\.?\s?y\.\s?\r?\n?', ''),
+        (r'^\*Met.: tám', ''),
+        (r'^A\.\s?y\.\s?\r?\n?', ''),
+        (r'^S\.\s?K\.\s?\r?\n?', ''),
+        (r'^K\.\s?\r?\n?', ''),
         (r'(^\d,\s)(\d{1,2})\s(\d{1,2})(^\d\n)', r'\g<1> \g<2>-\g<3> \g<4>'),
         (r'\,\n', ''),
         (r'^\n', ''),
-        (r"(\d{1,2})'[-–—]\s*(\d{1,2})",r'\g<1>1-\g<2>'),
+        (r"(\d{1,2})'[-–—]\s*(\d{1,2})", r'\g<1>1-\g<2>'),
         (r"[-–—]'(\d{1,2})", r'-\g<1>'),
         (r'(\d{1,2}\s*[-–—]\s*)IS', r'\g<1>18'),
         (r"\s'(\d)\s*[-–—]", r' 1\g<1>-'),
@@ -2890,7 +2910,130 @@ def after_extract_salim_assur(text_dict_tr: tuple, pos_s: int):
     else:
         return ([], []), False, pos_s
 
+def extract_sebahat(text: str, start_pos: int, pattern: str, ind: int):
+    text_translate = ""
+    flag_vyp = False
+    transl_from_past = False
+    trlit_from_past = False
+    trlit_to_past = False
+    text_translate_prev = ""
+    global Pattern_search_trlit, Pattern_search_trlit_re, Pattern_search_translate, Pattern_search_translate_re, Pattern_search_translate_end, Pattern_search_translate_end_re
+    global patterns_sebahattin_s, patterns_sebahattin_per_s, patterns_sebahattin_per_e
+    if start_pos < 0 or start_pos >= len(text):
+        return (text_translate, ""), flag_vyp, start_pos
+    end_pos = len(text)
+    if start_pos == 0:
+        pattern = re.compile(pattern)
+        match = pattern.search(text, start_pos)
+        if not match:
+            return (text_translate, ""), flag_vyp, start_pos
+        print(f"Найден поисковый якорь: {match.group()}")
+        text = text[match.end():]
+        start_pos = match.end()
+    text_transliterate, pos_end_trlit, pos_start_trlit = find_translit_by_rows(text, start_pos, len(text))
+    if text_transliterate != "":
+        # --------------------------------------------------------------------------------------------------
+        # проверка наличия перевода в начале текста для зарезервированной транслитерации
+        if pos_start_trlit > 200 and start_pos < 75 and Unfin_Data['trlit'] != "":
+            Pattern_search_translate = patterns_sebahattin_per_s["sebahat_start_per"]
+            Pattern_search_translate_re = re.compile(Pattern_search_translate)
+            match_translate = Pattern_search_translate_re.search(text, start_pos)
+            if match_translate:
+                pos_start_translate = match_translate.start()
+                if pos_start_translate < pos_start_trlit:
+                    Pattern_search_translate_end = patterns_sebahattin_per_e["sebahat_end_per"]
+                    Pattern_search_translate_end_re = re.compile(Pattern_search_translate_end, re.MULTILINE)
+                    match_translate_end = Pattern_search_translate_end_re.search(text, pos_start_translate)
+                    if match_translate_end:
+                        pos_end_translate = match_translate_end.start()
+                        text_translate = text[pos_start_translate:pos_end_translate]
+                    else:
+                        text_translate, pos_end_translate, pos_start_translate = find_translate_by_rows(text,
+                                                                                                        pos_start_translate,
+                                                                                                        len(text))
+                    if text_translate != "" and pos_end_translate <= pos_start_trlit:
+                        text_translate_prev = text_translate
+            if text_translate_prev != "" and Unfin_Data['trlit'] != "":
+                text_transliterate_prev = Unfin_Data['trlit']
+                flag_vyp = True
+                Unfin_Data['trlit'] = ""
+                return (text_translate_prev, text_transliterate_prev), flag_vyp, pos_end_trlit
+        # ----------------------------------------------------------------------------------------------
+        if pos_end_trlit == len(text) or pos_end_trlit == -1:
+            pos_end_trlit = len(text)
+            end_pos = pos_end_trlit
+            # очистка от мусора транслитерации
+            text_transliterate = process_text(text_transliterate)
+            # словарь с ключами номерами и строками транслитерации
+            text_transliterate = renumber_trust_source(text_transliterate)
+            # text_transliterate = parse_numbered_fragments(text_transliterate)
+            Unfin_Data['trlit'] = text_transliterate
+            trlit_to_past = True
+    if Unfin_Data['trlit'] != "" and not trlit_to_past:
+        text_transliterate_prev = Unfin_Data['trlit']
+        trlit_from_past = True
+        if text_transliterate != "":
+            # очистка от мусора транслитерации
+            text_transliterate = process_text(text_transliterate)
+            # словарь с ключами номерами и строками транслитерации
+            text_transliterate = renumber_trust_source(text_transliterate)
+            # text_transliterate = parse_numbered_fragments(text_transliterate)
+            text_transliterate = merge_if_consecutive(text_transliterate_prev, text_transliterate)
+        else:
+            text_transliterate = text_transliterate_prev
+        Unfin_Data['trlit'] = ""
+    if text_transliterate == "" or text_transliterate == {}:
+        return (text_translate, text_transliterate), flag_vyp, end_pos
+    Pattern_search_translate = patterns_sebahattin_per_s["sebahat_start_per"]
+    Pattern_search_translate_re = re.compile(Pattern_search_translate, re.MULTILINE)
+    match_translate = Pattern_search_translate_re.search(text, pos_end_trlit)
+    if match_translate:
+        pos_start_translate = match_translate.start()
+        Pattern_search_translate_end = patterns_sebahattin_per_e["sebahat_end_per"]
+        Pattern_search_translate_end_re = re.compile(Pattern_search_translate_end, re.MULTILINE)
+        match_translate_end = Pattern_search_translate_end_re.search(text, pos_start_translate)
+        if match_translate_end:
+            pos_end_translate = match_translate_end.start()
+            text_translate = text[pos_start_translate:pos_end_translate]
+        else:
+            text_translate, pos_end_translate, pos_start_translate = find_translate_by_rows(text, pos_start_translate,
+                                                                                            len(text))
+            if text_translate == "":
+                pos_end_translate = len(text)
+    else:
+        pos_end_translate = len(text)
+    end_pos = pos_end_translate
 
+    if text_translate != "":
+        # очистка мусора перевода
+        text_translate = process_text(text_translate, False)
+        if not is_clean_akkadian_translation(text_translate):
+            text_translate = ""
+            end_pos = len(text)
+    if text_transliterate != "":
+        if not trlit_from_past and not trlit_to_past:
+            # очистка от мусора транслитерации
+            text_transliterate = process_text(text_transliterate)
+            # словарь с ключами номерами и строками транслитерации
+            text_transliterate = renumber_trust_source(text_transliterate)
+            # text_transliterate = parse_numbered_fragments(text_transliterate)
+            if text_transliterate == {}:
+                end_pos = len(text)
+    if text_translate != "" and text_transliterate != {}:
+        flag_vyp = True
+    #     # очищенный от мусора текст и словарь транслитерации,
+    #     # флаг выполнения, позиция конца перевода
+    return (text_translate, text_transliterate), flag_vyp, end_pos
+
+
+def after_extract_sebahat(text_dict_tr: tuple, pos_s: int):
+    text_translate = text_dict_tr[0]
+    if text_translate != "" and text_dict_tr[1] != "":
+        list_trl_transl = process_text_last(text_translate, text_dict_tr[1])
+        # кортеж списков транслитерации и перевода, флаг, конец перевода
+        return list_trl_transl, True, pos_s
+    else:
+        return ([], []), False, pos_s
 
 
 def normalize_akkadian_determinatives(text: str) -> str:
@@ -3086,24 +3229,27 @@ def process_text_and_build_csv_rows(text: str):
     pattern1 = r'^(?:INDIVIDUAL AND FAMILY IN\s*[O0]\s*LD ASSYRIAN SOCIETY)\n'
     # pattern1 = r'\d{2,}:\s*(?:\d+[-–—]\d+\s*[:,)]\,?\s*[\s\S]{0,80}?)?\s*"'
     # pattern1 = r'\d{2,}:\s*(?:\d+[-–—]\d+[:,)]\s*[^"]{0,80}?)?\s*"'
+    pattern2 = r'TABLETLERI II\n'
+    pattern3 = r'TABLETLERI\n'
     # транслитерация, перевод и наоборот
     pattern4 = r'^'
     pattern5 = r'^'
     pattern6 = r'^'
     pattern7 = r"^(?:Salim-Assur[’']s death|Sadaya[’']s son)"
+    pattern8 = r'^SEBAHATTİN BAYRAM'
+    pattern9 = r'^KÜLTEPE TABLETLERİ VII\n'
     # и то и другое а потом выбирать
-    pattern2 = r'TABLETLERI II\n'
-    pattern3 = r'TABLETLERI\n'
+
     # список списков шаблонов поиска первого блока
-    all_patterns = [pattern1, pattern2, pattern3, pattern4, pattern5, pattern6, pattern7]
+    all_patterns = [pattern1, pattern2, pattern3, pattern4, pattern5, pattern6, pattern7, pattern8]
     len_arr = len(all_patterns)
     # len_arr = 1
     # список функций поиска первого блока соответствует списку списков шаблонов
     # extract_function_1 = [extract_quoted_substring, extract_salim_assur]
-    extract_function_1 = [extract_quoted_substring, extract_ankara, extract_ankara_next, extract_letter_space_digit_colon_space, extract_numbs_and_diapasons, extract_numbs_and_diapasons, extract_salim_assur]
+    extract_function_1 = [extract_quoted_substring, extract_ankara, extract_ankara_next, extract_letter_space_digit_colon_space, extract_numbs_and_diapasons, extract_numbs_and_diapasons, extract_salim_assur, extract_sebahat]
     # список функций поиска второго блока соответствует списку функций поиска первого блока
     # extract_function_2 = [extract_parenthesized_substring, after_extract_salim_assur]
-    extract_function_2 = [extract_parenthesized_substring, extract_after_ankara, extract_after_ankara_next, extract_after_letter_space_digit_colon_space, after_extract_numbs_and_diapasones, after_extract_numbs_and_diapasones, after_extract_salim_assur]
+    extract_function_2 = [extract_parenthesized_substring, extract_after_ankara, extract_after_ankara_next, extract_after_letter_space_digit_colon_space, after_extract_numbs_and_diapasones, after_extract_numbs_and_diapasones, after_extract_salim_assur, after_extract_sebahat]
     str_txt = [""] * len_arr
     str_txt_1 = [""] * len_arr
     # предварительная очистка
@@ -3163,13 +3309,21 @@ def process_text_and_build_csv_rows(text: str):
                             else:
                                 translate_str_arr = str_txt_1[i % len_arr]
                                 accad_str_arr = str_txt[i % len_arr]
-                        case 5:
+                        case 6:
                             if isinstance(str_txt_1[i % len_arr], tuple):
                                 accad_str_arr = str_txt_1[i % len_arr][0]
                                 translate_str_arr = str_txt_1[i % len_arr][1]
                             else:
                                 translate_str_arr = str_txt_1[i % len_arr]
                                 accad_str_arr = str_txt[i % len_arr]
+                        case 7:
+                            if isinstance(str_txt_1[i % len_arr], tuple):
+                                accad_str_arr = str_txt_1[i % len_arr][0]
+                                translate_str_arr = str_txt_1[i % len_arr][1]
+                            else:
+                                translate_str_arr = str_txt_1[i % len_arr]
+                                accad_str_arr = str_txt[i % len_arr]
+
 
                     if isinstance(translate_str_arr, str):
                         translate_str_arr = [translate_str_arr]
@@ -3189,9 +3343,9 @@ def process_text_and_build_csv_rows(text: str):
                         # --------------------------------------------------------------
                         # # 3. Токенизация перевода
                         t_sentences = sent_tokenize(t)
-                        t_sentences = [sent for sent in t_sentences if looks_like_real_translation(sent)]
-                        # определение языка и перевод на английский, если перевод не английский\n",
-                        t_sentences = [translate_to_english(sent) if detect_language(sent) != 'en' else sent for sent in t_sentences]
+                        # t_sentences = [sent for sent in t_sentences if looks_like_real_translation(sent)]
+                        # # определение языка и перевод на английский, если перевод не английский\n",
+                        # t_sentences = [translate_to_english(sent) if detect_language(sent) != 'en' else sent for sent in t_sentences]
                         # ---------------------------------------------------------------------------
                         # 4. Выравнивание + маркеры
                         a = align_and_mark_sentences(a, t_sentences, marker="<sent>")
@@ -3302,8 +3456,8 @@ def split_accad_and_translate(csv_lines, marker="<sent>"):
 
 
 # Завантаження даних з CSV-файлу
-# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
-thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
+# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
 # ----------------------------------------
