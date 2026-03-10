@@ -1139,6 +1139,19 @@ def clear_from_ocr_for_text(text: str) -> str:
     # ----------------------------------------------------
     # если не обёрнуты, оборачивает в скобки
     # pattern = re.compile(r'\(?(\d+)-(\d+)\)?'r'|\b\d{1,3}\b')
+    # pattern = re.compile(r'\(?(\d+)-(\d+)\)?')
+    #
+    # def wrap_if_no_parentheses(match: re.Match) -> str:
+    #     full = match.group(0)  # всё совпадение
+    #     a = match.group(1)
+    #     b = match.group(2)
+    #
+    #     if full.startswith("(") and full.endswith(")"):
+    #         return full  # уже в скобках — оставить как есть
+    #     else:
+    #         return f"({a}-{b})"  # обернуть
+    #
+    # result = pattern.sub(wrap_if_no_parentheses, result)
     pattern = re.compile(r'\(?(\d+)-(\d+)\)?')
 
     def wrap_if_no_parentheses(match: re.Match) -> str:
@@ -1146,18 +1159,17 @@ def clear_from_ocr_for_text(text: str) -> str:
         a = match.group(1)
         b = match.group(2)
 
-        if full.startswith("(") and full.endswith(")"):
-            return full  # уже в скобках — оставить как есть
+        # если нет открывающей скобки слева — оборачиваем
+        if not full.startswith("("):
+            return f"({a}-{b})"
         else:
-            return f"({a}-{b})"  # обернуть
-
-    result = pattern.sub(wrap_if_no_parentheses, result)
+            return full  # оставляем как есть
     return result
 
 
 
 def clear_from_ocr_for_text_last(text: str) -> str:
-    """Окончательно чистит мусор и форматирует по пробелам диапазоны"""
+    """форматирует по пробелам диапазоны"""
     global Pattern_search_translate_re
     # pattern = re.compile(Pattern_search_translate)
     pattern = Pattern_search_translate_re
@@ -1448,6 +1460,7 @@ def cleaning_from_ocr(text: str, trlit: bool = True) -> str:
             (r'(?<=[A-ZÀ-ÖİŞĞÇÜ])0(?=[A-ZÀ-ÖİŞĞÇÜ])', 'O'),
             (r'(?<=[a-zø-ÿışğçü])0', 'o'),
             (r'(?<=[A-ZÀ-ÖİŞĞÇÜ])0', 'O'),
+            (r'(\d+)\s*\)', r'\g<1>)'),
             ]
     for pattern, repl in subs:
         text = re.sub(pattern, repl, text)
@@ -1567,15 +1580,14 @@ def merge_if_consecutive(d1: dict, d2: dict):
     if not d1 or not d2:
         return d2  # если первый пуст — просто вернуть второй
 
-    max1 = max(d1.keys())
-    min2 = min(d2.keys())
+    max1 = max(int(k) for k in d1.keys())
+    min2 = min(int(k) for k in d2.keys())
 
     if min2 == max1 + 1:
         merged = {**d1, **d2}
-        return dict(sorted(merged.items()))
+        return dict(sorted(merged.items(), key=lambda x: int(x[0])))
     else:
         return d2  # первый удаляется
-
 
 def search_for_extract_ankara(text: str, pos_start: int, ind: int):
     # ------------------------------------------------
@@ -1876,13 +1888,15 @@ def renumber_trust_source(text: str) -> Dict[int, str]:
                 # print("в скобках:", m.group())
 
     if not with_parent(inline_pattern):
-        return {1: text.strip()}
+        return split_numbered_text_with_intro(text)
+        # return {1: text.strip()}
     compiled = re.compile(inline_pattern)
     matches = list(compiled.finditer(text))
     # matches = [m.group("number") for m in compiled.finditer(text) if m.group("number")]
 
     if not matches:
-        return {1: text.strip()}
+        return split_numbered_text_with_intro(text)
+        # return {1: text.strip()}
 
     segments = []
     anchors: List[Tuple[int, int]] = []
@@ -1903,7 +1917,41 @@ def renumber_trust_source(text: str) -> Dict[int, str]:
     return {num: seg for num, seg in zip(numbers, segments)}
 
     # return {1: text.strip()}
+# Регулярка для нумерации с разными вариантами кавычек и суффиксов
+pattern_numbers = re.compile(
+    r'\b\(?\d+\)?(?:[`\'’‘ʼʹˈ]\.|[.`\'’‘ʼʹˈ)])?\s+'
+)
 
+# Регулярка для нумерации с кавычками и суффиксами
+pattern = re.compile(
+    r'\b(\(?\d+\)?(?:[`\'’‘ʼʹˈ]\.|[.`\'’‘ʼʹˈ)]?))\s+'
+)
+
+def split_numbered_text_with_intro(text)-> dict:
+    """выводит словарь из текста с последовательно
+     нумерованными участками"""
+    matches = list(pattern.finditer(text))
+    result = {}
+
+    if matches:
+        # первая цифра в нумерации
+        first_num = int(re.search(r'\d+', matches[0].group(1)).group())
+
+        # текст перед первой нумерацией
+        if matches[0].start() > 0:
+            # ключ = первая цифра - 1
+            result[str(first_num - 1)] = text[:matches[0].start()].strip()
+    else:
+        return {1: text.strip()}
+
+    # основной цикл по найденной нумерации
+    for i, m in enumerate(matches):
+        key = int(re.search(r'\d+', m.group(1)).group())
+        start = m.end()  # начинаем после самой нумерации
+        end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+        result[str(key)] = text[start:end].strip()
+
+    return result
 
 
 
@@ -1923,7 +1971,7 @@ def process_text_last(text: str, lines_dict: Dict[int, str]) -> Tuple[List[str],
     # range_pattern = re.compile(r'(\d{1,3})(?:\s*[-–—]\s*(\d{1,3}))?')
     # шаблон диапазона
     # range_pattern = re.compile(Pattern_search_translate)
-    range_pattern_str = r"(\(\s*(?:(?P<start>\d+)\s*[-–—]\s*(?P<end>\d+)|(?P<number>\d+))\s*\))"
+    range_pattern_str = r"(\(?\s*(?:(?P<start>\d+)\s*[-–—]\s*(?P<end>\d+)|(?P<number>\d+))\s*\)?)"
     range_pattern_re = re.compile(range_pattern_str)
     # range_pattern = Pattern_search_translate_re
     # range_pattern = re.compile(r'\b(\d{1,3})\s*[-–—]\s*(\d{1,3})\b|(?<!\d)[-–—]\s*(\d{1,3})\b')
@@ -1939,36 +1987,61 @@ def process_text_last(text: str, lines_dict: Dict[int, str]) -> Tuple[List[str],
     if not matches:
         merged = " ".join(lines_dict.values())
         # удаление из строк словаря нумерации(это, вероятно, уже сделано ранее)
-        cleaned = re.sub(r'\d{1,2}[\.:]\s*', '', merged)
-        dict_results.append(cleaned)
+        # cleaned = re.sub(r'\d{1,2}[\.:]\s*', '', merged)
+        # dict_results.append(cleaned)
+        dict_results.append(merged)
         text_results.append(text.replace("\n", " ").strip())
         return dict_results, text_results
     # перебор текста перевода по диапазонам
+    # for i, match in enumerate(matches):
+    #     if match.group("start") and match.group("end"):
+    #         # начало дапазона
+    #         # start = int(match.group(1))
+    #         start = int(match.group("start"))
+    #         # конец диапазона
+    #         # end = int(match.group(2)) if match.group(2) else start + 1
+    #         # end = int(match.group(2)) if match.group(2) else start
+    #         end = int(match.group("end")) if match.group("end") else start
+    #         # для случая типа 1-4 5-6 7-8
+    #         keys = range(start, end+1)
+    #         # # для случая типа 1-4 4-7 7-10
+    #         # keys = range(start, end)
+    #         # пропуск тех строк транслитерации, что отсутствуют в диапазонах перевода
+    #         # или присутствуют в неполном количестве
+    #         if not all(k in lines_dict for k in keys):
+    #             continue
+    #
+    #         dict_results.append(" ".join(lines_dict[k] for k in keys))
+    #         # сбор текста из участков с диапазонами,
+    #         # которым соответствуют имеющиеся транслитерации
+    #         text_start = match.end() + 1
+    #         text_end = matches[i + 1].start() - 1 if i + 1 < len(matches) else len(text)
+    #         # fragment = text[text_start:text_end].strip(" ()")
+    #         # fragment = text[text_start:text_end].strip()
+    #         fragment = range_pattern_re.sub("", text[text_start:text_end]).strip()
+    #         text_results.append(fragment)
+
     for i, match in enumerate(matches):
         if match.group("start") and match.group("end"):
-            # начало дапазона
-            # start = int(match.group(1))
             start = int(match.group("start"))
-            # конец диапазона
-            # end = int(match.group(2)) if match.group(2) else start + 1
-            # end = int(match.group(2)) if match.group(2) else start
             end = int(match.group("end")) if match.group("end") else start
-            # для случая типа 1-4 5-6 7-8
-            keys = range(start, end+1)
-            # # для случая типа 1-4 4-7 7-10
-            # keys = range(start, end)
-            # пропуск тех строк транслитерации, что отсутствуют в диапазонах перевода
-            # или присутствуют в неполном количестве
+            keys = range(start, end + 1)
+
+            # проверка: все ключи должны быть в lines_dict
             if not all(k in lines_dict for k in keys):
                 continue
 
-            dict_results.append(" ".join(lines_dict[k] for k in keys))
-            # сбор текста из участков с диапазонами,
-            # которым соответствуют имеющиеся транслитерации
+            # сбор текста фрагмента без диапазонов
             text_start = match.end() + 1
             text_end = matches[i + 1].start() - 1 if i + 1 < len(matches) else len(text)
-            # fragment = text[text_start:text_end].strip(" ()")
-            fragment = text[text_start:text_end].strip()
+            fragment = range_pattern_re.sub("", text[text_start:text_end]).strip()
+
+            # пропускаем пустые фрагменты
+            if not fragment:
+                continue
+
+            # только если фрагмент непустой, добавляем в результаты
+            dict_results.append(" ".join(lines_dict[k] for k in keys))
             text_results.append(fragment)
 
     return dict_results, text_results
@@ -3688,8 +3761,8 @@ def split_accad_and_translate(csv_lines, marker="<sent>"):
 
 
 # Завантаження даних з CSV-файлу
-# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
-thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
+# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
 # ----------------------------------------
@@ -3754,7 +3827,7 @@ for i in idx:
     # print(f"{num + 1} пару блоков начинаем искать.\n")
     print(f"Index = {i}\n")
     # if i == 74880:
-    if i == 71047:        #206345:  #17542
+    if i == 5426:        #206345:  #17542
     #не печатает переводы
     # if i == 25:
     # if i == 130319:
