@@ -2148,7 +2148,7 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
         pattern = re.compile(pattern, re.MULTILINE)
         match = pattern.search(text, 0)
         if not match:
-            return (text_translate, text_transliterate), flag_vyp, len(text)
+            return (text_translate, text_transliterate), flag_vyp, end_pos
         print(f"Найден поисковый якорь Ankara: {match.group()}")
         start_search_pos = match.end()
     # Pattern_search_trlit, style, status_trlit = choose_pattern(text, patterns_withaut_diapason_s, True)
@@ -2408,7 +2408,7 @@ def extract_ankara_next(text: str, start_pos: int, pattern: str, ind: int):
         pattern = re.compile(pattern)
         match = pattern.search(text, start_pos)
         if not match:
-            return (text_translate, ""), flag_vyp, len(text)
+            return (text_translate, ""), flag_vyp, end_pos
         print(f"Найден поисковый якорь Ankara: {match.group()}")
         start_pos = match.end()
 
@@ -2571,7 +2571,7 @@ def extract_numbs_and_diapasons(text: str, start_pos: int, pattern: str, ind: in
         pattern = re.compile(pattern)
         match = pattern.search(text, start_pos)
         if not match:
-            return (text_translate, ""), flag_vyp, start_pos
+            return (text_translate, ""), flag_vyp, end_pos
         print(f"Найден поисковый якорь: {match.group()}")
         # text = text[match.end():]
         start_pos = match.end()
@@ -2764,7 +2764,7 @@ def extract_salim_assur(text: str, start_pos: int, pattern: str, ind: int):
         pattern = re.compile(pattern)
         match = pattern.search(text, start_pos)
         if not match:
-            return (text_translate, ""), flag_vyp, start_pos
+            return (text_translate, ""), flag_vyp, end_pos
         print(f"Найден поисковый якорь: {match.group()}")
         text = text[match.end():]
         start_pos = match.end()
@@ -2919,10 +2919,11 @@ def extract_sebahat(text: str, start_pos: int, pattern: str, ind: int):
         pattern = re.compile(pattern)
         match = pattern.search(text, start_pos)
         if not match:
-            return (text_translate, ""), flag_vyp, start_pos
+            return (text_translate, ""), flag_vyp, end_pos
         print(f"Найден поисковый якорь: {match.group()}")
+        start_pos = get_next_line(text, start_pos)[1]
         text = text[match.end():]
-        start_pos = match.end()
+        # start_pos = match.end()
     text_transliterate, pos_end_trlit, pos_start_trlit = find_translit_by_rows(text, start_pos, len(text))
     if text_transliterate != "":
         # --------------------------------------------------------------------------------------------------
@@ -3047,10 +3048,11 @@ def extract_tabletVII(text: str, start_pos: int, pattern: str, ind: int):
         pattern = re.compile(pattern)
         match = pattern.search(text, start_pos)
         if not match:
-            return (text_translate, ""), flag_vyp, start_pos
+            return (text_translate, ""), flag_vyp, end_pos
         print(f"Найден поисковый якорь: {match.group()}")
+        start_pos = get_next_line(text, start_pos)[1]
         text = text[match.end():]
-        start_pos = match.end()
+        # start_pos = match.end()
     text_transliterate, pos_end_trlit, pos_start_trlit = find_translit_by_rows(text, start_pos, len(text))
     if text_transliterate != "":
         # --------------------------------------------------------------------------------------------------
