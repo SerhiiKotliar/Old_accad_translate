@@ -1093,9 +1093,9 @@ def clear_from_ocr_for_text(text: str) -> str:
                         item["a"] = str(int(last_range["b"]) + 1)
                         item["b"] = item["a"]
                 else:
-                    item["a"] = str(int(last_range["b"]) + 1)
                     if last_range["a"] == last_range["b"]:
                         last_range["b"] = str(int(last_range["a"]) + 1)
+                    item["a"] = str(int(last_range["b"]) + 1)
             elif diff > 0:
                 if item["a"] == item["b"]:
                     if diff > 1:
@@ -1216,13 +1216,14 @@ def clear_from_ocr_for_text_last(text: str) -> str:
 
 def cleaning_from_ocr_prelim(text: str) -> str:
     text = re.sub(
-        r'^\s*(?:S\.(?:\s*K\.)?|K\.(?:\s*)?|v|\. v)\s*',
+        r'^(?:\s*(?:S\.(?:\s*K\.)?|K\.(?:\s*)?|v|V|• v|V ~|\. v)\s*)\n',
         '',
         text,
         flags=re.MULTILINE
     )
     text = re.sub(r'^\w\.\s*K\.\s*\w+', '', text, flags=re.MULTILINE)
     subs = [
+        # (r'\s+', ' '),
         (r'(?<=[A-Za-z])6(?=(?:-[A-Za-z]))', 'b'),
         (r'(\d+)([A-Za-z])', r'\g<1> \g<2>'),
         (r'([a-z])ı\s*', r'\g<1>i'),
@@ -1440,6 +1441,7 @@ def cleaning_from_ocr(text: str, trlit: bool = True) -> str:
             (r'(\d)S([A-Z])', r'\g<1>5\g<2>'),
             (r'\s4([a-zа-яà-öø-ÿ])', r' h\g<1>'),
             (r'(\d)\s*/\s*(\d)', r'\g<1>/\g<2>'),
+            (r'(\d+)h', r'\g<1>4'),
             (r'\s*i0\s*', r' 10 '),
             (r'(\d{1,2}\s*)\'(\s*\d{1,2})', r'\g<1>-\g<2>'),
             (r'(?<=[a-zø-ÿışğçü])0(?=[a-zø-ÿışğçü])', 'o'),
@@ -1449,6 +1451,8 @@ def cleaning_from_ocr(text: str, trlit: bool = True) -> str:
             ]
     for pattern, repl in subs:
         text = re.sub(pattern, repl, text)
+    text = re.sub(r'\(\s*(\d+)\s*([-–—])\s*(\d+)\s*\)', r'(\g<1>\g<2>\g<3>)', text)
+    text = re.sub(r'\(\s*(\d+)\s*\)', r'(\g<1>)', text)
     for old, new in CHAR_MAP.items():
         text = text.replace(old, new)
 
@@ -1606,48 +1610,48 @@ def search_for_extract_ankara(text: str, pos_start: int, ind: int):
     if match_trlit:
         pos_start_trlit = match_trlit.start()
         text_transliterate, pos_end_trlit, pos_start_trlit = find_translit_by_rows(text, pos_start_trlit, len(text))
-    else:
-        text_transliterate, pos_end_trlit, pos_start_trlit = find_translit_by_rows(text[:5], pos_start, len(text))
-        if text_transliterate != "":
-            text_transliterate, pos_end_trlit, pos_start_trlit = find_translit_by_rows(text, pos_start, len(text))
-# --------------------------------------------------------------------------------------------------
-    # проверка наличия перевода в начале текста для зарезервированной транслитерации
-    if pos_start_trlit > 200 and pos_start < 75 and Unfin_Data['trlit'] != "" and prov_prev_transl != number_text:
-        prov_prev_transl = number_text
-        Pattern_search_translate = patterns_akt_per_s["plain"]
-        Pattern_search_translate_re = re.compile(Pattern_search_translate)
-        match_translate = Pattern_search_translate_re.search(text, pos_start)
-        if match_translate:
-            pos_start_translate = match_translate.start()
-            if pos_start_translate < pos_start_trlit:
-                Pattern_search_translate_end = patterns_akt_per_e["plain"]
-                Pattern_search_translate_end_re = re.compile(Pattern_search_translate_end, re.MULTILINE)
-                match_translate_end = Pattern_search_translate_end_re.search(text, pos_start_translate)
-                if match_translate_end:
-                    pos_end_translate = match_translate_end.start()
-                    text_translate = text[pos_start_translate:pos_end_translate]
-                else:
-                    text_translate, pos_end_translate, pos_start_translate = find_translate_by_rows(text,
-                                                                                                    pos_start_translate,
-                                                                                                    len(text))
-                if text_translate != "" and pos_end_translate <= pos_start_trlit:
-                    text_translate_prev = text_translate
-        if text_translate_prev != "" and Unfin_Data['trlit'] != "":
-            text_transliterate_prev = Unfin_Data['trlit']
-            flag_vyp = True
-            Unfin_Data['trlit'] = ""
-            return (text_translate_prev, text_transliterate_prev), flag_vyp, pos_end_trlit
-# ----------------------------------------------------------------------------------------------
-    if pos_end_trlit == len(text) or pos_end_trlit == -1:
-        pos_end_trlit = len(text)
-        end_pos = pos_end_trlit
-        # очистка от мусора транслитерации
-        text_transliterate = process_text(text_transliterate)
-        # словарь с ключами номерами и строками транслитерации
-        text_transliterate = renumber_trust_source(text_transliterate)
-        # text_transliterate = parse_numbered_fragments(text_transliterate)
-        Unfin_Data['trlit'] = text_transliterate
-        trlit_to_past = True
+    # else:
+    #     text_transliterate, pos_end_trlit, pos_start_trlit = find_translit_by_rows(text[:5], pos_start, len(text))
+    #     if text_transliterate != "":
+    #         text_transliterate, pos_end_trlit, pos_start_trlit = find_translit_by_rows(text, pos_start, len(text))
+    # --------------------------------------------------------------------------------------------------
+        # проверка наличия перевода в начале текста для зарезервированной транслитерации
+        if pos_start_trlit > 200 and pos_start < 75 and Unfin_Data['trlit'] != "" and prov_prev_transl != number_text:
+            prov_prev_transl = number_text
+            Pattern_search_translate = patterns_akt_per_s["plain"]
+            Pattern_search_translate_re = re.compile(Pattern_search_translate)
+            match_translate = Pattern_search_translate_re.search(text, pos_start)
+            if match_translate:
+                pos_start_translate = match_translate.start()
+                if pos_start_translate < pos_start_trlit:
+                    Pattern_search_translate_end = patterns_akt_per_e["plain"]
+                    Pattern_search_translate_end_re = re.compile(Pattern_search_translate_end, re.MULTILINE)
+                    match_translate_end = Pattern_search_translate_end_re.search(text, pos_start_translate)
+                    if match_translate_end:
+                        pos_end_translate = match_translate_end.start()
+                        text_translate = text[pos_start_translate:pos_end_translate]
+                    else:
+                        text_translate, pos_end_translate, pos_start_translate = find_translate_by_rows(text,
+                                                                                                        pos_start_translate,
+                                                                                                        len(text))
+                    if text_translate != "" and pos_end_translate <= pos_start_trlit:
+                        text_translate_prev = text_translate
+            if text_translate_prev != "" and Unfin_Data['trlit'] != "":
+                text_transliterate_prev = Unfin_Data['trlit']
+                flag_vyp = True
+                Unfin_Data['trlit'] = ""
+                return (text_translate_prev, text_transliterate_prev), flag_vyp, pos_end_trlit
+    # ----------------------------------------------------------------------------------------------
+        if pos_end_trlit == len(text) or pos_end_trlit == -1:
+            pos_end_trlit = len(text)
+            end_pos = pos_end_trlit
+            # очистка от мусора транслитерации
+            text_transliterate = process_text(text_transliterate)
+            # словарь с ключами номерами и строками транслитерации
+            text_transliterate = renumber_trust_source(text_transliterate)
+            # text_transliterate = parse_numbered_fragments(text_transliterate)
+            Unfin_Data['trlit'] = text_transliterate
+            trlit_to_past = True
     if Unfin_Data['trlit'] != "" and not trlit_to_past:
         if text_transliterate_prev == "":
             text_transliterate_prev = Unfin_Data['trlit']
@@ -1797,7 +1801,8 @@ def renumber_trust_source(text: str) -> Dict[int, str]:
     if not text.strip():
         return {}
 
-    pattern_line_start = re.compile(r"^\s*(\d+)\s*[.:]'?")
+    # pattern_line_start = re.compile(r"^\s*(\d+)\s*[.:]'?")
+    pattern_line_start = re.compile(r"^\s*\(?\s*(\d{1,3})\s*(?:['.)\:])")
     # inline_patterns = [
     #     r'\(([^)]*\d+[^)]*)\)',
     #     r'(\d+)\)',
@@ -2140,6 +2145,7 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
     transl_from_past = False
     text_transliterate = ""
     pos_end_trlit = 0
+    pos_start_trlit = 0
     end_pos = len(text)
     global Pattern_search_translate, Pattern_search_trlit, Pattern_search_translate_re, Pattern_search_trlit_re, Pattern_search_translate_end, Pattern_search_translate_end_re
     global patterns_withaut_diapason_s, patterns_withaut_diapason_per_s, patterns_withaut_diapason_per_e
@@ -2158,49 +2164,49 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
     if match_trlit:
         pos_start_trlit = match_trlit.start()
         text_transliterate, pos_end_trlit, pos_start_trlit = find_translit_by_rows(text, pos_start_trlit, len(text))
-    else:
-        text_transliterate, pos_end_trlit, pos_start_trlit = find_translit_by_rows(text[:5], start_search_pos, len(text))
-        if text_transliterate != "":
-            text_transliterate, pos_end_trlit, pos_start_trlit = find_translit_by_rows(text, start_search_pos, len(text))
+    # else:
+    #     text_transliterate, pos_end_trlit, pos_start_trlit = find_translit_by_rows(text[:5], start_search_pos, len(text))
+    #     if text_transliterate != "":
+    #         text_transliterate, pos_end_trlit, pos_start_trlit = find_translit_by_rows(text, start_search_pos, len(text))
     # --------------------------------------------------------------------------------------------------
-    # проверка наличия перевода в начале текста для зарезервированной транслитерации
-    if pos_start_trlit > 200 and start_search_pos < 75 and Unfin_Data['trlit'] != "" and prov_prev_transl != number_text:
-        prov_prev_transl = number_text
-        Pattern_search_translate = patterns_withaut_diapason_per_s["start_per_quote"]
-        Pattern_search_translate_re = re.compile(Pattern_search_translate)
-        match_translate = Pattern_search_translate_re.search(text, start_search_pos)
-        if match_translate:
-            pos_start_translate = match_translate.start()
-            if pos_start_translate < pos_start_trlit:
-                Pattern_search_translate_end = patterns_withaut_diapason_per_e["end_per_quote"]
-                Pattern_search_translate_end_re = re.compile(Pattern_search_translate_end, re.MULTILINE)
-                match_translate_end = Pattern_search_translate_end_re.search(text, pos_start_translate)
-                if match_translate_end:
-                    pos_end_translate = match_translate_end.start()
-                    text_translate = text[pos_start_translate:pos_end_translate]
-                else:
-                    text_translate, pos_end_translate, pos_start_translate = find_translate_by_rows(text,
-                                                                                                    pos_start_translate,
-                                                                                                    len(text))
-                if text_translate != "" and pos_end_translate <= pos_start_trlit:
-                    text_translate_prev = text_translate
-        if text_translate_prev != "" and Unfin_Data['trlit'] != "":
-            text_transliterate_prev = Unfin_Data['trlit']
-            flag_vyp = True
-            Unfin_Data['trlit'] = ""
-            return (text_translate_prev, text_transliterate_prev), flag_vyp, pos_end_trlit
-    # ----------------------------------------------------------------------------------------------
-    if pos_end_trlit == len(text) or pos_end_trlit == -1:
-        pos_end_trlit = len(text)
-        end_pos = pos_end_trlit
-        # if not trlit_from_past:
-        # очистка от мусора транслитерации
-        text_transliterate = process_text(text_transliterate)
-        # словарь с ключами номерами и строками транслитерации
-        text_transliterate = renumber_trust_source(text_transliterate)
-        # text_transliterate = parse_numbered_fragments(text_transliterate)
-        Unfin_Data['trlit'] = text_transliterate
-        trlit_to_past = True
+        # проверка наличия перевода в начале текста для зарезервированной транслитерации
+        if pos_start_trlit > 200 and start_search_pos < 75 and Unfin_Data['trlit'] != "" and prov_prev_transl != number_text:
+            prov_prev_transl = number_text
+            Pattern_search_translate = patterns_withaut_diapason_per_s["start_per_quote"]
+            Pattern_search_translate_re = re.compile(Pattern_search_translate)
+            match_translate = Pattern_search_translate_re.search(text, start_search_pos)
+            if match_translate:
+                pos_start_translate = match_translate.start()
+                if pos_start_translate < pos_start_trlit:
+                    Pattern_search_translate_end = patterns_withaut_diapason_per_e["end_per_quote"]
+                    Pattern_search_translate_end_re = re.compile(Pattern_search_translate_end, re.MULTILINE)
+                    match_translate_end = Pattern_search_translate_end_re.search(text, pos_start_translate)
+                    if match_translate_end:
+                        pos_end_translate = match_translate_end.start()
+                        text_translate = text[pos_start_translate:pos_end_translate]
+                    else:
+                        text_translate, pos_end_translate, pos_start_translate = find_translate_by_rows(text,
+                                                                                                        pos_start_translate,
+                                                                                                        len(text))
+                    if text_translate != "" and pos_end_translate <= pos_start_trlit:
+                        text_translate_prev = text_translate
+            if text_translate_prev != "" and Unfin_Data['trlit'] != "":
+                text_transliterate_prev = Unfin_Data['trlit']
+                flag_vyp = True
+                Unfin_Data['trlit'] = ""
+                return (text_translate_prev, text_transliterate_prev), flag_vyp, pos_end_trlit
+        # ----------------------------------------------------------------------------------------------
+        if pos_end_trlit == len(text) or pos_end_trlit == -1:
+            pos_end_trlit = len(text)
+            end_pos = pos_end_trlit
+            # if not trlit_from_past:
+            # очистка от мусора транслитерации
+            text_transliterate = process_text(text_transliterate)
+            # словарь с ключами номерами и строками транслитерации
+            text_transliterate = renumber_trust_source(text_transliterate)
+            # text_transliterate = parse_numbered_fragments(text_transliterate)
+            Unfin_Data['trlit'] = text_transliterate
+            trlit_to_past = True
     if Unfin_Data['trlit'] != "" and not trlit_to_past:
         # if pos_start_trlit == pos_start:
         text_transliterate_prev = Unfin_Data['trlit']
@@ -2394,11 +2400,13 @@ def parse_numbered_fragments(text: str) -> Dict[int, str]:
 
 def extract_ankara_next(text: str, start_pos: int, pattern: str, ind: int):
     text_translate = ""
+    text_transliterate = ""
     text_translate_prev = ""
     flag_vyp = False
     transl_from_past = False
     trlit_from_past = False
     trlit_to_past = False
+    pos_end_trlit = 0
     global Pattern_search_trlit, Pattern_search_trlit_re, Pattern_search_translate, Pattern_search_translate_re, Pattern_search_translate_end, Pattern_search_translate_end_re
     global patterns_akt2_trl_s, patterns_akt2_per_s, patterns_akt2_per_e, number_text, prov_prev_transl
     if start_pos < 0 or start_pos >= len(text):
@@ -2423,51 +2431,51 @@ def extract_ankara_next(text: str, start_pos: int, pattern: str, ind: int):
     if match_trlit:
         pos_start_trlit = match_trlit.start()
         text_transliterate, pos_end_trlit, pos_start_trlit = find_translit_by_rows(text, pos_start_trlit, len(text))
-    else:
-        text_transliterate, pos_end_trlit, pos_start_trlit = find_translit_by_rows(text[:5], start_pos,
-                                                                                   len(text))
-        if text_transliterate != "":
-            text_transliterate, pos_end_trlit, pos_start_trlit = find_translit_by_rows(text, start_pos,
-                                                                                       len(text))
-    # --------------------------------------------------------------------------------------------------
-    # проверка наличия перевода в начале текста для зарезервированной транслитерации
-    if pos_start_trlit > 200 and start_pos < 75 and Unfin_Data['trlit'] != "" and prov_prev_transl != number_text:
-        prov_prev_transl = number_text
-        Pattern_search_translate = patterns_akt2_per_s["paren_both"]
-        Pattern_search_translate_re = re.compile(Pattern_search_translate)
-        match_translate = Pattern_search_translate_re.search(text, start_pos)
-        if match_translate:
-            pos_start_translate = match_translate.start()
-            if pos_start_translate < pos_start_trlit:
-                Pattern_search_translate_end = patterns_akt2_per_e["zarf"]
-                Pattern_search_translate_end_re = re.compile(Pattern_search_translate_end, re.MULTILINE)
-                match_translate_end = Pattern_search_translate_end_re.search(text, pos_start_translate)
-                if match_translate_end:
-                    pos_end_translate = match_translate_end.start()
-                    text_translate = text[pos_start_translate:pos_end_translate]
-                else:
-                    text_translate, pos_end_translate, pos_start_translate = find_translate_by_rows(text,
-                                                                                                    pos_start_translate,
-                                                                                                    len(text))
-                if text_translate != "" and pos_end_translate <= pos_start_trlit:
-                    text_translate_prev = text_translate
-        if text_translate_prev != "" and Unfin_Data['trlit'] != "":
-            text_transliterate_prev = Unfin_Data['trlit']
-            flag_vyp = True
-            Unfin_Data['trlit'] = ""
-            return (text_translate_prev, text_transliterate_prev), flag_vyp, pos_end_trlit
-    # ----------------------------------------------------------------------------------------------
-    if pos_end_trlit == len(text) or pos_end_trlit == -1:
-        pos_end_trlit = len(text)
-        end_pos = pos_end_trlit
-        # if not trlit_from_past:
-        # очистка от мусора транслитерации
-        text_transliterate = process_text(text_transliterate)
-        # словарь с ключами номерами и строками транслитерации
-        # text_transliterate = renumber_trust_source(text_transliterate)
-        text_transliterate = parse_numbered_fragments(text_transliterate)
-        Unfin_Data['trlit'] = text_transliterate
-        trlit_to_past = True
+    # else:
+    #     text_transliterate, pos_end_trlit, pos_start_trlit = find_translit_by_rows(text[:5], start_pos,
+    #                                                                                len(text))
+    #     if text_transliterate != "":
+    #         text_transliterate, pos_end_trlit, pos_start_trlit = find_translit_by_rows(text, start_pos,
+    #                                                                                    len(text))
+        # --------------------------------------------------------------------------------------------------
+        # проверка наличия перевода в начале текста для зарезервированной транслитерации
+        if pos_start_trlit > 200 and start_pos < 75 and Unfin_Data['trlit'] != "" and prov_prev_transl != number_text:
+            prov_prev_transl = number_text
+            Pattern_search_translate = patterns_akt2_per_s["paren_both"]
+            Pattern_search_translate_re = re.compile(Pattern_search_translate)
+            match_translate = Pattern_search_translate_re.search(text, start_pos)
+            if match_translate:
+                pos_start_translate = match_translate.start()
+                if pos_start_translate < pos_start_trlit:
+                    Pattern_search_translate_end = patterns_akt2_per_e["zarf"]
+                    Pattern_search_translate_end_re = re.compile(Pattern_search_translate_end, re.MULTILINE)
+                    match_translate_end = Pattern_search_translate_end_re.search(text, pos_start_translate)
+                    if match_translate_end:
+                        pos_end_translate = match_translate_end.start()
+                        text_translate = text[pos_start_translate:pos_end_translate]
+                    else:
+                        text_translate, pos_end_translate, pos_start_translate = find_translate_by_rows(text,
+                                                                                                        pos_start_translate,
+                                                                                                        len(text))
+                    if text_translate != "" and pos_end_translate <= pos_start_trlit:
+                        text_translate_prev = text_translate
+            if text_translate_prev != "" and Unfin_Data['trlit'] != "":
+                text_transliterate_prev = Unfin_Data['trlit']
+                flag_vyp = True
+                Unfin_Data['trlit'] = ""
+                return (text_translate_prev, text_transliterate_prev), flag_vyp, pos_end_trlit
+        # ----------------------------------------------------------------------------------------------
+        if pos_end_trlit == len(text) or pos_end_trlit == -1:
+            pos_end_trlit = len(text)
+            end_pos = pos_end_trlit
+            # if not trlit_from_past:
+            # очистка от мусора транслитерации
+            text_transliterate = process_text(text_transliterate)
+            # словарь с ключами номерами и строками транслитерации
+            # text_transliterate = renumber_trust_source(text_transliterate)
+            text_transliterate = parse_numbered_fragments(text_transliterate)
+            Unfin_Data['trlit'] = text_transliterate
+            trlit_to_past = True
     if Unfin_Data['trlit'] != "" and not trlit_to_past:
         # if pos_start_trlit == pos_start:
         text_transliterate_prev = Unfin_Data['trlit']
@@ -2556,7 +2564,9 @@ def extract_after_ankara_next(text_dict_tr: tuple, pos_s: int):
 
 def extract_numbs_and_diapasons(text: str, start_pos: int, pattern: str, ind: int):
     text_translate = ""
+    text_transliterate = ""
     text_translate_prev = ""
+    pos_end_trlit = 0
     flag_vyp = False
     transl_from_past = False
     trlit_from_past = False
@@ -2595,61 +2605,61 @@ def extract_numbs_and_diapasons(text: str, start_pos: int, pattern: str, ind: in
         else:
             pos_start_trlit = match_trlit.start()
         text_transliterate, pos_end_trlit, pos_start_trlit = find_translit_by_rows(text, pos_start_trlit, len(text))
-    else:
-        text_transliterate, pos_end_trlit, pos_start_trlit = find_translit_by_rows(text[:5], start_pos, len(text))
-        if text_transliterate != "":
-            text_transliterate, pos_end_trlit, pos_start_trlit = find_translit_by_rows(text, start_pos, len(text))
+    # else:
+    #     text_transliterate, pos_end_trlit, pos_start_trlit = find_translit_by_rows(text[:5], start_pos, len(text))
+    #     if text_transliterate != "":
+    #         text_transliterate, pos_end_trlit, pos_start_trlit = find_translit_by_rows(text, start_pos, len(text))
     # --------------------------------------------------------------------------------------------------
-    # проверка наличия перевода в начале текста для зарезервированной транслитерации
-    if pos_start_trlit > 200 and start_pos < 75 and Unfin_Data['trlit'] != "" and prov_prev_transl != number_text:
-        prov_prev_transl = number_text
-        match ind:
-            case 4:
-                Pattern_search_translate = patterns_numbs_and_diapasones_per_s["start_numb_per"]
-            case 5:
-                Pattern_search_translate = patterns_numbs_and_diapasones_paren_per_s["start_numb_per"]
-        Pattern_search_translate_re = re.compile(Pattern_search_translate)
-        match_translate = Pattern_search_translate_re.search(text, start_pos)
-        if match_translate:
-            pos_start_translate = match_translate.start()
-            if pos_start_translate < pos_start_trlit:
-                match ind:
-                    case 4:
-                        Pattern_search_translate_end = patterns_numbs_and_diapasones_per_e["end_numb_per"]
-                    case 5:
-                        Pattern_search_translate_end = patterns_numbs_and_diapasones_paren_per_e["end_numb_per"]
-                Pattern_search_translate_end_re = re.compile(Pattern_search_translate_end, re.MULTILINE)
-                match_translate_end = Pattern_search_translate_end_re.search(text, pos_start_translate)
-                if match_translate_end:
-                    pos_end_translate = match_translate_end.start()
-                    text_translate = text[pos_start_translate:pos_end_translate]
-                else:
-                    text_translate, pos_end_translate, pos_start_translate = find_translate_by_rows(text,
-                                                                                                    pos_start_translate,
-                                                                                                    len(text))
-                if text_translate != "" and pos_end_translate <= pos_start_trlit:
-                    text_translate_prev = text_translate
-        if text_translate_prev != "" and Unfin_Data['trlit'] != "":
-            text_transliterate_prev = Unfin_Data['trlit']
-            flag_vyp = True
-            Unfin_Data['trlit'] = ""
-            return (text_translate_prev, text_transliterate_prev), flag_vyp, pos_end_trlit
-    # ----------------------------------------------------------------------------------------------
+        # проверка наличия перевода в начале текста для зарезервированной транслитерации
+        if pos_start_trlit > 200 and start_pos < 75 and Unfin_Data['trlit'] != "" and prov_prev_transl != number_text:
+            prov_prev_transl = number_text
+            match ind:
+                case 4:
+                    Pattern_search_translate = patterns_numbs_and_diapasones_per_s["start_numb_per"]
+                case 5:
+                    Pattern_search_translate = patterns_numbs_and_diapasones_paren_per_s["start_numb_per"]
+            Pattern_search_translate_re = re.compile(Pattern_search_translate)
+            match_translate = Pattern_search_translate_re.search(text, start_pos)
+            if match_translate:
+                pos_start_translate = match_translate.start()
+                if pos_start_translate < pos_start_trlit:
+                    match ind:
+                        case 4:
+                            Pattern_search_translate_end = patterns_numbs_and_diapasones_per_e["end_numb_per"]
+                        case 5:
+                            Pattern_search_translate_end = patterns_numbs_and_diapasones_paren_per_e["end_numb_per"]
+                    Pattern_search_translate_end_re = re.compile(Pattern_search_translate_end, re.MULTILINE)
+                    match_translate_end = Pattern_search_translate_end_re.search(text, pos_start_translate)
+                    if match_translate_end:
+                        pos_end_translate = match_translate_end.start()
+                        text_translate = text[pos_start_translate:pos_end_translate]
+                    else:
+                        text_translate, pos_end_translate, pos_start_translate = find_translate_by_rows(text,
+                                                                                                        pos_start_translate,
+                                                                                                        len(text))
+                    if text_translate != "" and pos_end_translate <= pos_start_trlit:
+                        text_translate_prev = text_translate
+            if text_translate_prev != "" and Unfin_Data['trlit'] != "":
+                text_transliterate_prev = Unfin_Data['trlit']
+                flag_vyp = True
+                Unfin_Data['trlit'] = ""
+                return (text_translate_prev, text_transliterate_prev), flag_vyp, pos_end_trlit
+        # ----------------------------------------------------------------------------------------------
 
-    if pos_end_trlit == len(text) or pos_end_trlit == -1:
-        pos_end_trlit = len(text)
-        end_pos = pos_end_trlit
-        # if not trlit_from_past:
-        # очистка от мусора транслитерации
-        text_transliterate = process_text(text_transliterate)
-        # словарь с ключами номерами и строками транслитерации
-        match ind:
-            case 4:
-                text_transliterate = renumber_trust_source(text_transliterate)
-            case 5:
-                text_transliterate = parse_numbered_fragments(text_transliterate)
-        Unfin_Data['trlit'] = text_transliterate
-        trlit_to_past = True
+        if pos_end_trlit == len(text) or pos_end_trlit == -1:
+            pos_end_trlit = len(text)
+            end_pos = pos_end_trlit
+            # if not trlit_from_past:
+            # очистка от мусора транслитерации
+            text_transliterate = process_text(text_transliterate)
+            # словарь с ключами номерами и строками транслитерации
+            match ind:
+                case 4:
+                    text_transliterate = renumber_trust_source(text_transliterate)
+                case 5:
+                    text_transliterate = parse_numbered_fragments(text_transliterate)
+            Unfin_Data['trlit'] = text_transliterate
+            trlit_to_past = True
     if Unfin_Data['trlit'] != "" and not trlit_to_past:
         # if pos_start_trlit == pos_start:
         text_transliterate_prev = Unfin_Data['trlit']
@@ -2750,6 +2760,9 @@ def after_extract_numbs_and_diapasones(text_dict_tr: tuple, pos_s: int):
 
 def extract_salim_assur(text: str, start_pos: int, pattern: str, ind: int):
     text_translate = ""
+    text_transliterate = ""
+    pos_start_trlit = 0
+    pos_end_trlit = 0
     flag_vyp = False
     transl_from_past = False
     trlit_from_past = False
@@ -2774,51 +2787,51 @@ def extract_salim_assur(text: str, start_pos: int, pattern: str, ind: int):
     if match_trlit:
         pos_start_trlit = match_trlit.end()
         text_transliterate, pos_end_trlit, pos_start_trlit = find_translit_by_rows(text, pos_start_trlit, len(text))
-    else:
-        text_transliterate, pos_end_trlit, pos_start_trlit = find_translit_by_rows(text[:5], start_pos, len(text))
-        if text_transliterate != "":
-            text_transliterate, pos_end_trlit, pos_start_trlit = find_translit_by_rows(text, start_pos, len(text))
+    # else:
+    #     text_transliterate, pos_end_trlit, pos_start_trlit = find_translit_by_rows(text[:5], start_pos, len(text))
+    #     if text_transliterate != "":
+    #         text_transliterate, pos_end_trlit, pos_start_trlit = find_translit_by_rows(text, start_pos, len(text))
 
-    # --------------------------------------------------------------------------------------------------
-    # проверка наличия перевода в начале текста для зарезервированной транслитерации
-    if pos_start_trlit > 200 and start_pos < 75 and Unfin_Data['trlit'] != "" and prov_prev_transl != number_text:
-        prov_prev_transl = number_text
-        Pattern_search_translate = patterns_salim_assur_per_s["salim_start_per"]
-        Pattern_search_translate_re = re.compile(Pattern_search_translate)
-        match_translate = Pattern_search_translate_re.search(text, start_pos)
-        if match_translate:
-            pos_start_translate = match_translate.start()
-            if pos_start_translate < pos_start_trlit:
-                Pattern_search_translate_end = patterns_salim_assur_per_e["salim_end_per"]
-                Pattern_search_translate_end_re = re.compile(Pattern_search_translate_end, re.MULTILINE)
-                match_translate_end = Pattern_search_translate_end_re.search(text, pos_start_translate)
-                if match_translate_end:
-                    pos_end_translate = match_translate_end.start()
-                    text_translate = text[pos_start_translate:pos_end_translate]
-                else:
-                    text_translate, pos_end_translate, pos_start_translate = find_translate_by_rows(text,
-                                                                                                    pos_start_translate,
-                                                                                                    len(text))
-                if text_translate != "" and pos_end_translate <= pos_start_trlit:
-                    text_translate_prev = text_translate
-        if text_translate_prev != "" and Unfin_Data['trlit'] != "":
-            text_transliterate_prev = Unfin_Data['trlit']
-            flag_vyp = True
-            Unfin_Data['trlit'] = ""
-            return (text_translate_prev, text_transliterate_prev), flag_vyp, pos_end_trlit
-    # ----------------------------------------------------------------------------------------------
+        # --------------------------------------------------------------------------------------------------
+        # проверка наличия перевода в начале текста для зарезервированной транслитерации
+        if pos_start_trlit > 200 and start_pos < 75 and Unfin_Data['trlit'] != "" and prov_prev_transl != number_text:
+            prov_prev_transl = number_text
+            Pattern_search_translate = patterns_salim_assur_per_s["salim_start_per"]
+            Pattern_search_translate_re = re.compile(Pattern_search_translate)
+            match_translate = Pattern_search_translate_re.search(text, start_pos)
+            if match_translate:
+                pos_start_translate = match_translate.start()
+                if pos_start_translate < pos_start_trlit:
+                    Pattern_search_translate_end = patterns_salim_assur_per_e["salim_end_per"]
+                    Pattern_search_translate_end_re = re.compile(Pattern_search_translate_end, re.MULTILINE)
+                    match_translate_end = Pattern_search_translate_end_re.search(text, pos_start_translate)
+                    if match_translate_end:
+                        pos_end_translate = match_translate_end.start()
+                        text_translate = text[pos_start_translate:pos_end_translate]
+                    else:
+                        text_translate, pos_end_translate, pos_start_translate = find_translate_by_rows(text,
+                                                                                                        pos_start_translate,
+                                                                                                        len(text))
+                    if text_translate != "" and pos_end_translate <= pos_start_trlit:
+                        text_translate_prev = text_translate
+            if text_translate_prev != "" and Unfin_Data['trlit'] != "":
+                text_transliterate_prev = Unfin_Data['trlit']
+                flag_vyp = True
+                Unfin_Data['trlit'] = ""
+                return (text_translate_prev, text_transliterate_prev), flag_vyp, pos_end_trlit
+        # ----------------------------------------------------------------------------------------------
 
-    if pos_end_trlit == len(text) or pos_end_trlit == -1:
-        pos_end_trlit = len(text)
-        end_pos = pos_end_trlit
-        # if not trlit_from_past:
-        # очистка от мусора транслитерации
-        text_transliterate = process_text(text_transliterate)
-        # словарь с ключами номерами и строками транслитерации
-        text_transliterate = renumber_trust_source(text_transliterate)
-        # text_transliterate = parse_numbered_fragments(text_transliterate)
-        Unfin_Data['trlit'] = text_transliterate
-        trlit_to_past = True
+        if pos_end_trlit == len(text) or pos_end_trlit == -1:
+            pos_end_trlit = len(text)
+            end_pos = pos_end_trlit
+            # if not trlit_from_past:
+            # очистка от мусора транслитерации
+            text_transliterate = process_text(text_transliterate)
+            # словарь с ключами номерами и строками транслитерации
+            text_transliterate = renumber_trust_source(text_transliterate)
+            # text_transliterate = parse_numbered_fragments(text_transliterate)
+            Unfin_Data['trlit'] = text_transliterate
+            trlit_to_past = True
     if Unfin_Data['trlit'] != "" and not trlit_to_past:
         # if pos_start_trlit == pos_start:
         text_transliterate_prev = Unfin_Data['trlit']
@@ -3236,7 +3249,7 @@ def normalize_for_mt(text: str) -> str:
 
     return a
 
-#%%
+# import math
 def align_and_mark_sentences(translit_text: str, translation_sentences: list, marker="<sent>") -> str:
     """
     Точная выравнивающая функция для вставки маркеров конца предложений в транслитерацию.
@@ -3276,6 +3289,84 @@ def align_and_mark_sentences(translit_text: str, translation_sentences: list, ma
         marked_tokens.append(marker)
 
     return " ".join(marked_tokens)
+
+    # def gale_church_align(translit_text, translation_sentences, marker="<sent>"):
+
+    # translit_tokens = translit_text.split()
+    # trans_lengths = [len(s.split()) for s in translation_sentences]
+    #
+    # T = len(translit_tokens)
+    # S = len(trans_lengths)
+    #
+    # if S == 0:
+    #     return translit_text + " " + marker
+    #
+    # avg_ratio = T / sum(trans_lengths)
+    # variance = 6.8  # стандартная эмпирическая константа Gale-Church
+    #
+    # # DP таблица
+    # dp = [[math.inf] * (T + 1) for _ in range(S + 1)]
+    # back = [[None] * (T + 1) for _ in range(S + 1)]
+    #
+    # dp[0][0] = 0
+    #
+    # # возможные типы выравнивания
+    # align_types = [
+    #     (1, 1),
+    #     (1, 2),
+    #     (2, 1),
+    #     (1, 0),
+    #     (0, 1)
+    # ]
+    #
+    # for s in range(S + 1):
+    #     for t in range(T + 1):
+    #
+    #         if dp[s][t] == math.inf:
+    #             continue
+    #
+    #         for ds, dt in align_types:
+    #
+    #             ns = s + ds
+    #             nt = t + dt
+    #
+    #             if ns > S or nt > T:
+    #                 continue
+    #
+    #             len_s = sum(trans_lengths[s:ns])
+    #             len_t = nt - t
+    #
+    #             expected = len_s * avg_ratio
+    #
+    #             z = (len_t - expected) / math.sqrt(variance)
+    #
+    #             cost = z * z
+    #
+    #             val = dp[s][t] + cost
+    #
+    #             if val < dp[ns][nt]:
+    #                 dp[ns][nt] = val
+    #                 back[ns][nt] = (s, t)
+    #
+    # # восстановление
+    # segments = []
+    # s, t = S, T
+    #
+    # while s > 0 or t > 0:
+    #     ps, pt = back[s][t]
+    #     segments.append((pt, t))
+    #     s, t = ps, pt
+    #
+    # segments.reverse()
+    #
+    # marked_tokens = []
+    #
+    # for start, end in segments:
+    #     marked_tokens.extend(translit_tokens[start:end])
+    #     marked_tokens.append(marker)
+    #
+    # return " ".join(marked_tokens)
+
 
 # ----------------------------------------------------------------------------------
 def looks_like_real_translation(text, min_len=10):
@@ -3504,7 +3595,7 @@ def process_text_and_build_csv_rows(text: str):
                         num_i += 1
                     # найден 2 блок, ищем следующие первые
                     start_pos = close_pos + 1
-                    print("Ищем следующий 1 блок")
+                    # print("Ищем следующий 1 блок")
                 else:
                     print("Не найден 2 блок")
                     # не найден 2 блок,
@@ -3533,8 +3624,8 @@ def process_text_and_build_csv_rows(text: str):
         # меняем очерёдность поиска блоков
         i += 1
         # меняем шаблон
-        if i < len_arr:
-            print(f"Переходим на {i + 1} группу шаблонов")
+        # if i < len_arr:
+        #     print(f"Переходим на {i + 1} группу шаблонов")
     return csv_rows
 
 # ----------------------------
