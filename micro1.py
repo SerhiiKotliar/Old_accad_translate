@@ -1,48 +1,36 @@
-def align_and_mark_sentences(translit_text: str, translation_sentences: list, marker="<sent>") -> str:
-    """
-    Точная выравнивающая функция для вставки маркеров конца предложений в транслитерацию.
+import re
 
-    Args:
-        translit_text: Нормализованная транслитерация (str)
-        translation_sentences: Список английских предложений (list of str)
-        marker: Спец-токен конца предложения (default "<sent>")
+BIBLIO_RE = re.compile(
+    r"""
+    No\.?\s*\d+           # No. 309
+    |Nr\.?\s*\d+          # Nr. 309
+    |\b\d+(?:/?[a-z]+)?\s+\d+\b    # 88/k 595 или 88k 595
+    |\d+\s+[A-ZÇĞİÖŞÜ][a-zçğıöşü]+\s*\d{4}   # Фамилия и год, напр. 49 Çeçen 1995
+    """,
+    re.VERBOSE
+)
 
-    Returns:
-        Строка транслитерации с маркерами конца предложений
-    """
-    translit_tokens = translit_text.split()
-    print(translit_tokens)
-    translation_lengths = [len(sent.split()) for sent in translation_sentences]
-    print(translation_lengths)
-    total_translit = len(translit_tokens)
-    print(total_translit)
-    total_translation = sum(translation_lengths)
-    print(total_translation)
-    if total_translation == 0:
-        return translit_text.strip() + " " + marker
-
-    # Вычисляем пропорцию токенов транслитерации на токен перевода
-    tokens_per_translation_token = total_translit / total_translation
-
-    marked_tokens = []
-    idx = 0
-
-    for length in translation_lengths:
-        # Сколько токенов транслитерации примерно для этого предложения
-        num_tokens = max(1, round(length * tokens_per_translation_token))
-        sent_tokens = translit_tokens[idx: idx + num_tokens]
-        marked_tokens.extend(sent_tokens)
-        marked_tokens.append(marker)
-        idx += num_tokens
-
-    # Добавляем остаток токенов, если есть
-    if idx < total_translit:
-        marked_tokens.extend(translit_tokens[idx:])
-        marked_tokens.append(marker)
-
-    return " ".join(marked_tokens)
-
-
-trlit = ''
-translate = "I love you"
-print(align_and_mark_sentences(trlit, translate))
+txt = """Pí-lá-ah-Ištar / a-na Ma-nu<-um>-ba-lúm-A-šur
+ú Šu-zu-zu / iṣ-ba-at-ni-a-tí-ma
+um-ma Pí-lá-ah-Ištar-ma a-na Ma-nu-um-ba-lu-um-A-šur
+ú Šu-zu-zu-ma / a-ha-at-ni
+5.ir-té-be / ba-a-nim / KÙ.BABBAR ma-la
+i-ga-mu-ru 3 né-nu a-na
+ki-iš-da-tí-ni / lu ni-iš-ta-pá-ak-ma
+ú-la É DAM.GÀR-ri-im / KÙ.BABBAR
+a-na ṣí-ib-tim lu ni-il5-qé-ma / gam-ra-am
+10.lu ni-ig-mu-ur / a-ha-at-ni / a-na
+mu-tim / lu ni-dí-in-ší / um-ma Ma-nu-um[-ba-lu-um-A-šu]r-ma
+ú Šu-zu-zu-ma / a-na Pí-lá-ah-Ištar
+KÙ.BABBAR ú-lá ni-šu / a-li-ik
+i-na pí-ni / KÙ.BABBAR ma-lá / ta-ga-mu-ru
+15.É DAM.GÀR-ri-im a-na ṣí-ib-tim
+le-qé-ma / gam-ra-am / gu5-mu-ur-ma
+a-ha-at-ni a-na mu-tim / dí-ší-ma
+KÙ.BABBAR ù ṣí-ba-sú / ša i-na
+É DAM.GÀR-ri-im ta-la-qé-ú-ma
+20.ta-ga-mu-ru gu5-mu-ur-ma
+"""
+# pattern = re.compile(r"\b\d+(?:/?[a-z]+)?\s+\d+\b", re.VERBOSE)
+if BIBLIO_RE.search(txt):
+    print("BIBLIO")

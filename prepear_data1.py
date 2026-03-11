@@ -447,6 +447,16 @@ AKKADIAN_FUNCTION_WORDS = {
     "ištu", "ištu", "ultu", "adi", "u", "šaṭru"
 }
 
+BIBLIO_RE = re.compile(
+    r"""
+    No\.?\s*\d+           # No. 309
+    |Nr\.?\s*\d+          # Nr. 309
+    |\b\d+(?:/?[a-z]+)?\s+\d+\b    # 88/k 595 или 88k 595
+    |\d+?\s+[A-ZÇĞİÖŞÜ][a-zçğıöşü]+\s*\d{4}   # Фамилия и год, напр. 49 Çeçen 1995
+    """,
+    re.VERBOSE
+)
+
 patterns_akt2 = {
         "paren_both": r"\(\s*(?:(?P<start>\d+)\s*[-–—]\s*(?P<end>\d+)|[-–—]\s*(?P<only_end>\d+)|(?P<number>\d+))\s*\)"
 ,  # (12) (12-15)
@@ -577,6 +587,10 @@ def extract_transliteration(text) -> list:
             continue
 
         line_trimmed = line.strip()
+        # библиографические ссылки и номера табличек
+        if BIBLIO_RE.search(line_trimmed):
+            # break
+            continue
 
         # Пропускаем пустые строки
         if not line_trimmed:
@@ -595,7 +609,9 @@ def extract_transliteration(text) -> list:
         #         blocks.append("\n".join(current).strip())
         #         current = []
         #     continue
-
+        # # слишком много цифр и знаков
+        # if re.search(r"\d{2,}.*\d{2,}", line_trimmed):
+        #     is_transliteration = False
         # Проверка 2: Содержит ли иностранные слова?
         has_foreign_words = FOREIGN_WORD_RE.search(line_trimmed)
 
@@ -1296,7 +1312,7 @@ def cleaning_from_ocr_prelim(text: str) -> str:
         (r'(\d)i(\d)', r'\g<1>1\g<2>'),
         (r'^\d+\r?\n(?=Kt)', ''),
         (r'^(\d+)\r?\n(?=[^\n]*\w-\w)', r'\1.'),
-        # (r'^(\d+\.)\r?\n?', r'\g<1>'),
+        (r'^(\d+\.)\r?\n?', r'\g<1>'),
         (r'\s[ÖO](?=[A-ZÀ-ÖØİŞĞÇÜ])', r'0 '),
         (r'(\d{1,2}\s*)\'(\s*\d{1,2})', r'\g<1>-\g<2>'),
         (r'(\d+)\s*[-–—]\s*(\d+)', r' \g<1>-\g<2> '),
@@ -1654,7 +1670,7 @@ def search_for_extract_ankara(text: str, pos_start: int, ind: int):
                 Unfin_Data['trlit'] = ""
                 return (text_translate_prev, text_transliterate_prev), flag_vyp, pos_end_trlit
     # ----------------------------------------------------------------------------------------------
-        if pos_end_trlit == len(text) or pos_end_trlit == -1:
+        if pos_end_trlit == len(text) or pos_end_trlit == -1 or get_next_line(text, pos_end_trlit)[1] ==len(text):
             pos_end_trlit = len(text)
             end_pos = pos_end_trlit
             # очистка от мусора транслитерации
@@ -2269,7 +2285,7 @@ def extract_letter_space_digit_colon_space(text: str, start_search_pos: int, pat
                 Unfin_Data['trlit'] = ""
                 return (text_translate_prev, text_transliterate_prev), flag_vyp, pos_end_trlit
         # ----------------------------------------------------------------------------------------------
-        if pos_end_trlit == len(text) or pos_end_trlit == -1:
+        if pos_end_trlit == len(text) or pos_end_trlit == -1 or get_next_line(text, pos_end_trlit)[1] ==len(text):
             pos_end_trlit = len(text)
             end_pos = pos_end_trlit
             # if not trlit_from_past:
@@ -2538,7 +2554,7 @@ def extract_ankara_next(text: str, start_pos: int, pattern: str, ind: int):
                 Unfin_Data['trlit'] = ""
                 return (text_translate_prev, text_transliterate_prev), flag_vyp, pos_end_trlit
         # ----------------------------------------------------------------------------------------------
-        if pos_end_trlit == len(text) or pos_end_trlit == -1:
+        if pos_end_trlit == len(text) or pos_end_trlit == -1 or get_next_line(text, pos_end_trlit)[1] ==len(text):
             pos_end_trlit = len(text)
             end_pos = pos_end_trlit
             # if not trlit_from_past:
@@ -2719,7 +2735,7 @@ def extract_numbs_and_diapasons(text: str, start_pos: int, pattern: str, ind: in
                 return (text_translate_prev, text_transliterate_prev), flag_vyp, pos_end_trlit
         # ----------------------------------------------------------------------------------------------
 
-        if pos_end_trlit == len(text) or pos_end_trlit == -1:
+        if pos_end_trlit == len(text) or pos_end_trlit == -1 or get_next_line(text, pos_end_trlit)[1] ==len(text):
             pos_end_trlit = len(text)
             end_pos = pos_end_trlit
             # if not trlit_from_past:
@@ -2894,7 +2910,7 @@ def extract_salim_assur(text: str, start_pos: int, pattern: str, ind: int):
                 return (text_translate_prev, text_transliterate_prev), flag_vyp, pos_end_trlit
         # ----------------------------------------------------------------------------------------------
 
-        if pos_end_trlit == len(text) or pos_end_trlit == -1:
+        if pos_end_trlit == len(text) or pos_end_trlit == -1 or get_next_line(text, pos_end_trlit)[1] ==len(text):
             pos_end_trlit = len(text)
             end_pos = pos_end_trlit
             # if not trlit_from_past:
@@ -3040,7 +3056,7 @@ def extract_sebahat(text: str, start_pos: int, pattern: str, ind: int):
                 Unfin_Data['trlit'] = ""
                 return (text_translate_prev, text_transliterate_prev), flag_vyp, pos_end_trlit
         # ----------------------------------------------------------------------------------------------
-        if pos_end_trlit == len(text) or pos_end_trlit == -1:
+        if pos_end_trlit == len(text) or pos_end_trlit == -1 or get_next_line(text, pos_end_trlit)[1] ==len(text):
             pos_end_trlit = len(text)
             end_pos = pos_end_trlit
             # очистка от мусора транслитерации
@@ -3169,7 +3185,7 @@ def extract_tabletVII(text: str, start_pos: int, pattern: str, ind: int):
                 Unfin_Data['trlit'] = ""
                 return (text_translate_prev, text_transliterate_prev), flag_vyp, pos_end_trlit
         # ----------------------------------------------------------------------------------------------
-        if pos_end_trlit == len(text) or pos_end_trlit == -1:
+        if pos_end_trlit == len(text) or pos_end_trlit == -1 or get_next_line(text, pos_end_trlit)[1] ==len(text):
             pos_end_trlit = len(text)
             end_pos = pos_end_trlit
             # очистка от мусора транслитерации
@@ -3648,9 +3664,9 @@ def process_text_and_build_csv_rows(text: str):
                         # --------------------------------------------------------------
                         # # 3. Токенизация перевода
                         t_sentences = sent_tokenize(t)
-                        t_sentences = [sent for sent in t_sentences if looks_like_real_translation(sent)]
-                        # определение языка и перевод на английский, если перевод не английский\n",
-                        t_sentences = [translate_to_english(sent) if detect_language(sent) != 'en' else sent for sent in t_sentences]
+                        # t_sentences = [sent for sent in t_sentences if looks_like_real_translation(sent)]
+                        # # определение языка и перевод на английский, если перевод не английский\n",
+                        # t_sentences = [translate_to_english(sent) if detect_language(sent) != 'en' else sent for sent in t_sentences]
                         # ---------------------------------------------------------------------------
                         # 4. Выравнивание + маркеры
                         a = align_and_mark_sentences(a, t_sentences, marker="<sent>")
@@ -3761,17 +3777,28 @@ def split_accad_and_translate(csv_lines, marker="<sent>"):
 
 
 # Завантаження даних з CSV-файлу
-thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
-# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
+thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
 # ----------------------------------------
 df_trnl = df_trnl.drop_duplicates()
 
-# df_trnl.to_csv("publications_new.csv", index=False)
+# df_trnl.to_csv("train.csv", index=False)
 # # -------------------------------------------
-# # print(df_trnl[df_trnl['has_akkadian']].head(10))  # Перші 5 строк даних
-# # print(df_trnl.shape)  # Dataset Shape
+# csv_file_path = thiscompteca+'/data/test.csv'
+# df_txt = pd.read_csv(csv_file_path)
+# num_row = 0
+# for num_row in range(df_txt.shape[0]):
+#     if num_row > 5:
+#         break
+#     for num_col in range(df_txt.shape[1]):
+#         print(df_txt.iat[num_row, num_col])
+#     print('-' * 50)
+# ----------------------------------------
+# df_trnl = df_trnl.drop_duplicates()
+# print(df_trnl[df_trnl].head(10))  # Перші 5 строк даних
+# print(df_trnl.shape)  # Dataset Shape
 # # print(df_trnl.info())  # Dataset Information
 # # print(df_trnl.describe())   # Statistics
 # # print(df_trnl.isnull().sum())  # Missing Values
@@ -3827,7 +3854,7 @@ for i in idx:
     # print(f"{num + 1} пару блоков начинаем искать.\n")
     print(f"Index = {i}\n")
     # if i == 74880:
-    if i == 5426:        #206345:  #17542
+    if i == 71047:        #206345:  #17542
     #не печатает переводы
     # if i == 25:
     # if i == 130319:
