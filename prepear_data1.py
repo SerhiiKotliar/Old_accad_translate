@@ -451,7 +451,7 @@ BIBLIO_RE = re.compile(
     r"""
     No\.?\s*\d+           # No. 309
     |Nr\.?\s*\d+          # Nr. 309
-    |\b\d+(?:/?[a-z]+)?\s+\d+\b    # 88/k 595 или 88k 595
+    |\b\d+(?:/?[a-z]+)\s+\d+\b    # 88/k 595 или 88k 595
     |\d+?\s+[A-ZÇĞİÖŞÜ][a-zçğıöşü]+\s*\d{4}   # Фамилия и год, напр. 49 Çeçen 1995
     """,
     re.VERBOSE
@@ -885,7 +885,7 @@ def is_clean_akkadian_translation(text: str) -> bool:
 
     # 1. Признаки аккадской транслитерации
     transliteration_patterns = [
-        r'\b[a-z]+-[a-z]+\b',           # a-na, i-na, ša-ma
+        r'\b[a-z]+(?:-[a-z]+){5,}\b',           # a-na, i-na, ša-ma
         # r'[ŠšḪḫṬṭṢṣĀāĒēĪīŪū]',          # диакритика
         r'\b[A-Z]+\.[A-Z.]+\b',         # KÙ.BABBAR
     ]
@@ -913,7 +913,7 @@ def is_clean_akkadian_translation(text: str) -> bool:
 
     # 4. Проверка что текст состоит в основном из букв и обычной пунктуации
     allowed_ratio = len(re.findall(r'[A-Za-zА-Яа-я ,.\-–—?!:;()\n]', text)) / len(text)
-    if allowed_ratio < 0.85:
+    if allowed_ratio < 0.75:
         return False
 
     return True
@@ -1324,6 +1324,7 @@ def cleaning_from_ocr_prelim(text: str) -> str:
         (r'(\d)(^\d+)', r'\g<1> \g<2>'),
         (r'^(\d)\s(\d)(\.)', r'\g<1>\g<2>\g<3>'),
         (r'[-–—]\s*(\d)\s*(\d)\s*', r'-\g<1>\g<2> '),
+        (r'(\s\d)\s\/', r'\g<1>/'),
     ]
     for pattern, repl in subs:
         text = re.sub(pattern, repl, text, flags=re.MULTILINE)
@@ -1860,6 +1861,8 @@ def renumber_trust_source(text: str) -> Dict[int, str]:
             result[num] = content
 
         return result
+    else:
+        return {1: text.strip()}
 
     # --- РЕЖИМ 2: сплошной текст
     # for pat in inline_patterns:
@@ -1975,6 +1978,7 @@ def process_text_last(text: str, lines_dict: Dict[int, str]) -> Tuple[List[str],
     # очистка от мусора текста
     # text = process_text(text, False)
     # global Pattern_search_translate_re
+    matches = []
     # форматирует диапазоны пробелами
     text = clear_from_ocr_for_text_last(text)
     # print("форматирует диапазоны пробелами")
@@ -1992,7 +1996,8 @@ def process_text_last(text: str, lines_dict: Dict[int, str]) -> Tuple[List[str],
     # range_pattern = Pattern_search_translate_re
     # range_pattern = re.compile(r'\b(\d{1,3})\s*[-–—]\s*(\d{1,3})\b|(?<!\d)[-–—]\s*(\d{1,3})\b')
     # разделение текста по диапазонам
-    matches = list(range_pattern_re.finditer(text))
+    if len(lines_dict) > 1:
+        matches = list(range_pattern_re.finditer(text))
 
     dict_results: List[str] = []
     text_results: List[str] = []
@@ -2868,8 +2873,9 @@ def extract_salim_assur(text: str, start_pos: int, pattern: str, ind: int):
         if not match:
             return (text_translate, ""), flag_vyp, end_pos
         print(f"Найден поисковый якорь: {match.group()}")
-        text = text[match.end():]
-        start_pos = match.end()
+        start_pos = text.find("\n", match.end())
+        # text = text[match.end():]
+        # start_pos = match.end()
     Pattern_search_trlit = patterns_salim_assur_s["salim_start_trl"]
     Pattern_search_trlit_re = re.compile(Pattern_search_trlit, re.MULTILINE)
     match_trlit = Pattern_search_trlit_re.search(text, start_pos)
@@ -3023,8 +3029,9 @@ def extract_sebahat(text: str, start_pos: int, pattern: str, ind: int):
         if not match:
             return (text_translate, ""), flag_vyp, end_pos
         print(f"Найден поисковый якорь: {match.group()}")
-        start_pos = get_next_line(text, start_pos)[1]
-        text = text[match.end():]
+        start_pos = text.find("\n", match.end())
+        # start_pos = get_next_line(text, start_pos)[1]
+        # text = text[match.end():]
         # start_pos = match.end()
     text_transliterate, pos_end_trlit, pos_start_trlit = find_translit_by_rows(text, start_pos, len(text))
     if text_transliterate != "":
@@ -3152,9 +3159,7 @@ def extract_tabletVII(text: str, start_pos: int, pattern: str, ind: int):
         if not match:
             return (text_translate, ""), flag_vyp, end_pos
         print(f"Найден поисковый якорь: {match.group()}")
-        start_pos = get_next_line(text, start_pos)[1]
-        text = text[match.end():]
-        # start_pos = match.end()
+        start_pos = text.find("\n", match.end())
     text_transliterate, pos_end_trlit, pos_start_trlit = find_translit_by_rows(text, start_pos, len(text))
     if text_transliterate != "":
         # --------------------------------------------------------------------------------------------------
@@ -3527,19 +3532,19 @@ def process_text_and_build_csv_rows(text: str):
     Обрабатывает текст ячейкеи и возвращает список строк CSV
     (без заголовка)
     """
-    text = re.sub(r'TABLETLER[İI] u', 'TABLETLERI II', text)
-    text = re.sub(r'TABLETLER[!İÏIi]', 'TABLETLERI', text)
-    text = re.sub(r'§alim-A$$ur’s death', 'Salim-Assur’s death', text)
-    text = re.sub(r'^\d+\.\s*[§S]alim-A\$\$ur’s death', 'Salim-Assur’s death', text, flags=re.MULTILINE)
-    text = re.sub(r'^\d+\.\s*KÜLTEPE TABLETLERİ VII', 'KÜLTEPE TABLETLERİ VII', text, flags=re.MULTILINE)
-    text = re.sub(r'^\d+\.\s*SEBAHATTİN BAYRAM', 'SEBAHATTİN BAYRAM', text, flags=re.MULTILINE)
+    text = re.sub(r'TABLETLER[İI] u', 'TABLETLERİ II', text)
+    text = re.sub(r'TABLETLER[!ÏIi]', 'TABLETLERİ', text)
+    # text = re.sub(r'^\d+\.\s*§alim-A$$ur’s death', 'Salim-Assur’s death', text)
+    # text = re.sub(r'^\d+\.\s*[§S]alim-A\$\$ur’s death', 'Salim-Assur’s death', text, flags=re.MULTILINE)
+    # text = re.sub(r'^\d+\.\s*KÜLTEPE TABLETLERİ VII', 'KÜLTEPE TABLETLERİ VII', text, flags=re.MULTILINE)
+    # text = re.sub(r'^\d+\.\s*SEBAHATTİN BAYRAM', 'SEBAHATTİN BAYRAM', text, flags=re.MULTILINE)
     # списки шаблонов поиска якорей для разных вариантов пар первого и второго блоков
     # перевод, транслитерация
     pattern1 = r'^(?:INDIVIDUAL AND FAMILY IN\s*[O0]\s*LD ASSYRIAN SOCIETY)\n'
     # pattern1 = r'\d{2,}:\s*(?:\d+[-–—]\d+\s*[:,)]\,?\s*[\s\S]{0,80}?)?\s*"'
     # pattern1 = r'\d{2,}:\s*(?:\d+[-–—]\d+[:,)]\s*[^"]{0,80}?)?\s*"'
-    pattern2 = r'TABLETLERI II\n'
-    pattern3 = r'TABLETLERI\n'
+    pattern2 = r'TABLETLERİ II\n'
+    pattern3 = r'TABLETLERİ\n'
     # транслитерация, перевод и наоборот
     pattern4 = r'^'
     pattern5 = r'^'
@@ -3563,6 +3568,10 @@ def process_text_and_build_csv_rows(text: str):
     str_txt_1 = [""] * len_arr
     # предварительная очистка
     text = cleaning_from_ocr_prelim(text)
+    text = re.sub(r'^(?:\d+\.)?\s*§alim-A$$ur’s death', 'Salim-Assur’s death', text)
+    text = re.sub(r'^(?:\d+\.)?\s*[§S]alim-A\$\$ur’s death', 'Salim-Assur’s death', text, flags=re.MULTILINE)
+    text = re.sub(r'^\d+\.\s*KÜLTEPE TABLETLERİ VII', 'KÜLTEPE TABLETLERİ VII', text, flags=re.MULTILINE)
+    text = re.sub(r'^\d+\.\s*SEBAHATTİN BAYRAM', 'SEBAHATTİN BAYRAM', text, flags=re.MULTILINE)
 
     i = 0
     csv_rows = []
@@ -3664,9 +3673,9 @@ def process_text_and_build_csv_rows(text: str):
                         # --------------------------------------------------------------
                         # # 3. Токенизация перевода
                         t_sentences = sent_tokenize(t)
-                        # t_sentences = [sent for sent in t_sentences if looks_like_real_translation(sent)]
-                        # # определение языка и перевод на английский, если перевод не английский\n",
-                        # t_sentences = [translate_to_english(sent) if detect_language(sent) != 'en' else sent for sent in t_sentences]
+                        t_sentences = [sent for sent in t_sentences if looks_like_real_translation(sent)]
+                        # определение языка и перевод на английский, если перевод не английский\n",
+                        t_sentences = [translate_to_english(sent) if detect_language(sent) != 'en' else sent for sent in t_sentences]
                         # ---------------------------------------------------------------------------
                         # 4. Выравнивание + маркеры
                         a = align_and_mark_sentences(a, t_sentences, marker="<sent>")
@@ -3777,8 +3786,8 @@ def split_accad_and_translate(csv_lines, marker="<sent>"):
 
 
 # Завантаження даних з CSV-файлу
-# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
-thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
+# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
 # ----------------------------------------
@@ -3854,7 +3863,7 @@ for i in idx:
     # print(f"{num + 1} пару блоков начинаем искать.\n")
     print(f"Index = {i}\n")
     # if i == 74880:
-    if i == 71047:        #206345:  #17542
+    if i == 104318:        #206345:  #17542
     #не печатает переводы
     # if i == 25:
     # if i == 130319:

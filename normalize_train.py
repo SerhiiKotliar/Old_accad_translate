@@ -161,11 +161,11 @@ def normalize_for_mt(text: str) -> str:
 
 
 # -----------------------------------------------------------------
-# твоя функция нормализации
-def normalize_for_mt(text):
-    # пример (замени своей логикой)
-    text = text.lower()
-    return text
+# # твоя функция нормализации
+# def normalize_for_mt(text):
+#     # пример (замени своей логикой)
+#     text = text.lower()
+#     return text
 
 # загрузка файла
 # df = pd.read_csv("train.csv")
