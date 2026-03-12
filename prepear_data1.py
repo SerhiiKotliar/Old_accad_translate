@@ -3300,7 +3300,7 @@ def normalize_for_mt(text: str) -> str:
     table = str.maketrans("", "", chars_to_remove)
     # удаление ненужных символов
     a = a.translate(table)
-    normalize_gaps(a)
+    a = normalize_gaps(a)
     # 4. Удаляем редакторские маркеры
     a = re.sub(r"^Pl-/\s*", "", a)  # Pl-/
     a = a.replace("\\", "")  # перенос строки
