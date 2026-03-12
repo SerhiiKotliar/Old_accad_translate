@@ -183,8 +183,6 @@ df["transliteration"] = df["transliteration"].apply(
 # сохранение нового файла
 df.to_csv("train_normalized.csv", index=False)
 
-import pandas as pd
-
 df1 = pd.read_csv("train_accad.csv")
 df2 = pd.read_csv("train_normalized.csv")
 
@@ -193,3 +191,8 @@ df = pd.concat([df1, df2], ignore_index=True)
 df["oare_id"] = range(len(df))
 
 df.to_csv("train_combined.csv", index=False, encoding="utf-8")
+
+pd.read_csv("train_combined.csv") \
+  .replace(r'^\s*$', pd.NA, regex=True) \
+  .dropna() \
+  .to_csv("train_combined.csv", index=False, encoding="utf-8")

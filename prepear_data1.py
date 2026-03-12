@@ -3788,11 +3788,20 @@ def split_accad_and_translate(csv_lines, marker="<sent>"):
 # Завантаження даних з CSV-файлу
 thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
 # thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
-csv_file_path = thiscompteca+'/data/publications.csv'
+# csv_file_path = thiscompteca+'/data/publications.csv'
+# df_trnl = pd.read_csv(csv_file_path)
+# # ----------------------------------------
+# df_trnl = df_trnl.drop_duplicates()
+# ------------------------------------------------
+csv_file_path = thiscompteca+'/data/train.csv'
 df_trnl = pd.read_csv(csv_file_path)
-# ----------------------------------------
-df_trnl = df_trnl.drop_duplicates()
-
+print(df_trnl.shape[0])
+csv_file_path = thiscompteca+'/train_accad.csv'
+df_trnl = pd.read_csv(csv_file_path)
+print(df_trnl.shape[0])
+csv_file_path = thiscompteca+'/train_combined.csv'
+df_trnl = pd.read_csv(csv_file_path)
+print(df_trnl.shape[0])
 # df_trnl.to_csv("train.csv", index=False)
 # # -------------------------------------------
 # csv_file_path = thiscompteca+'/data/test.csv'
