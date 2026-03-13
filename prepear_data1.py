@@ -688,7 +688,7 @@ def extract_transliteration(text) -> list:
         num_defis = line.count('-')
         num_div = num_morf + num_defis
         # мало дефисов в строке
-        if (num_div > 0 and len(line) / num_div - 1 > 16) or num_div == 0 and not has_basic_format:
+        if (num_div > 0 and len(line) / num_div - 1 > 8) or num_div == 0 and not has_basic_format:
             is_transliteration = False
         # проверка количества цифр в строке
         def more_than_half_digits(line_trimmed):
@@ -786,61 +786,28 @@ def find_translate_by_rows(text: str, pos: int=0, n_dop: int=2):
     pos_start_translate = 0
     end_translate = 0
     result = ""
-    # pattern_end = r"^\d+\.\d+\.\s*(?:(?:\d+\.|[A-Za-z]*\.)?(?:e\.|r\.)|\d+(?:[’'])?)"
     num_row = 0
     while pos < len(text):
-    # if pos < len(text):
         # строка от её первой позиции и позиция конца строки
         n_l, pos_end_of_line = get_next_line(text, pos)
-        # конец транслитерации
-        # match_nl = re.compile(pattern_end).search(n_l)
-        # if match_nl:
-        #     return result, end_translit, pos_start_transliteration
-        # прекращение поиска транслитерации после 2 ложных строк
-        # if num_row > n_dop-1:
-        #     return "", pos_end_of_line, pos_start_per
-        # line_trl = []
-        # if n_l and is_clean_akkadian_translation(n_l):
-            # line_trl = extract_transliteration(n_l)
-        # if line_trl:
-        #     pos_start_translate = pos
-        #     end_translate = pos_end_of_line
-        # end_translit = 0
-        # pos_start_translate = pos
+
         while n_l and is_clean_akkadian_translation(n_l):
             if pos_start_translate == 0:
                 pos_start_translate = pos
-            # end_translate = pos_end_of_line
-            # pos_start_transliteration = pos
             # сборная транслитерация
-            # result += "\n".join(n_l) + "\n"
             result += "".join(n_l)
             end_translate = pos_end_of_line
-            # if (pos_end_of_line - len(n_l) - 1) > 0 and pos_start_trlit == start_detect:
-            #     pos_start_transliteration = pos_end_of_line - len(n_l) - 1
-            #     pos_start_trlit = pos_start_transliteration
-            # else:
-            pos_start_per = pos_end_of_line - len(n_l) - 1
             # строка
             n_l, pos_end_of_line = get_next_line(text, pos_end_of_line)
-            # конец транслитерации
-            # match_nl = re.compile(pattern_end).search(n_l)
-            # if match_nl:
-            #     return result, end_translit, pos_start_transliteration
             if pos_end_of_line == -1:
-                return result, end_translate, pos_start_per
-            # if n_l:
-            #     line_trl = extract_transliteration(n_l)
-            # else:
-            #     line_trl = ""
-            # end_translit = pos_end_of_line
+                return result, end_translate, pos_start_translate
         num_row += 1
         pos = pos_end_of_line
         if result:
             return result, end_translate, pos_start_translate
 
 
-    return "", pos_end_of_line, pos_start_translate
+    return "", len(text), pos_start_translate
 
 
 
@@ -1314,6 +1281,7 @@ def cleaning_from_ocr_prelim(text: str) -> str:
         (r'(^\d,\s)(\d{1,2})\s(\d{1,2})(^\d\n)', r'\g<1> \g<2>-\g<3> \g<4>'),
         (r'\,\n', ''),
         (r'^\n', ''),
+        (r'^\s*[^A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü]?[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü]{1,3}\s*\n', ''),
         (r"(\d{1,2})'[-–—]\s*(\d{1,2})", r'\g<1>1-\g<2>'),
         (r"[-–—]'(\d{1,2})", r'-\g<1>'),
         (r'(\d{1,2}\s*[-–—]\s*)IS', r'\g<1>18'),
@@ -3876,9 +3844,9 @@ def process_text_and_build_csv_rows(text: str):
                         # --------------------------------------------------------------
                         # # 3. Токенизация перевода
                         t_sentences = sent_tokenize(t)
-                        t_sentences = [sent for sent in t_sentences if looks_like_real_translation(sent)]
-                        # определение языка и перевод на английский, если перевод не английский\n",
-                        t_sentences = [translate_to_english(sent) if detect_language(sent) != 'en' else sent for sent in t_sentences]
+                        # t_sentences = [sent for sent in t_sentences if looks_like_real_translation(sent)]
+                        # # определение языка и перевод на английский, если перевод не английский\n",
+                        # t_sentences = [translate_to_english(sent) if detect_language(sent) != 'en' else sent for sent in t_sentences]
                         # ---------------------------------------------------------------------------
                         # 4. Выравнивание + маркеры
                         a = align_and_mark_sentences(a, t_sentences, marker="<sent>")
@@ -3989,8 +3957,8 @@ def split_accad_and_translate(csv_lines, marker="<sent>"):
 
 
 # Завантаження даних з CSV-файлу
-# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
-thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
+thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
+# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate/"
 csv_file_path = thiscompteca+'/data/publications.csv'
 df_trnl = pd.read_csv(csv_file_path)
 # ----------------------------------------
