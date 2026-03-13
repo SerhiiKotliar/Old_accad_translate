@@ -2862,10 +2862,10 @@ def extract_salim_assur(text: str, start_pos: int, pattern: str, ind: int):
     if match_trlit:
         pos_start_trlit = match_trlit.end()
         text_transliterate, pos_end_trlit, pos_start_trlit = find_translit_by_rows(text, pos_start_trlit, len(text))
-    # else:
-    #     text_transliterate, pos_end_trlit, pos_start_trlit = find_translit_by_rows(text[:5], start_pos, len(text))
-    #     if text_transliterate != "":
-    #         text_transliterate, pos_end_trlit, pos_start_trlit = find_translit_by_rows(text, start_pos, len(text))
+    else:
+        text_transliterate, pos_end_trlit, pos_start_trlit = find_translit_by_rows(text[:5], start_pos, len(text))
+        if text_transliterate != "":
+            text_transliterate, pos_end_trlit, pos_start_trlit = find_translit_by_rows(text, start_pos, len(text))
 
         # --------------------------------------------------------------------------------------------------
         # проверка наличия перевода в начале текста для зарезервированной транслитерации
