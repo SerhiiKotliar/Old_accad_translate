@@ -688,7 +688,8 @@ def extract_transliteration(text) -> list:
         num_defis = line.count('-')
         num_div = num_morf + num_defis
         # мало дефисов в строке
-        if (num_div > 0 and len(line) / num_div - 1 > 8) or num_div == 0 and not has_basic_format:
+        count_low = sum(1 for c in line if c.islower())
+        if (num_div > 0 and count_low / num_div - 1 > 8) or num_div == 0 and not has_basic_format:
             is_transliteration = False
         # проверка количества цифр в строке
         def more_than_half_digits(line_trimmed):
@@ -1260,6 +1261,10 @@ def cleaning_from_ocr_prelim(text: str) -> str:
         (r'¥', 'y'),
         (r'ª', 'a'),
         (r'#', 'h'),
+        (r'\s*°', ' '),
+        (r'¿', 'š'),
+        (r'§', 'S'),
+        # (r'\$', 's'),
         (r'\(obv\.\)', ''),
         (r'\(Vs\.\)', ''),
         (r'\st\s*0\s', ' to '),
@@ -1280,6 +1285,7 @@ def cleaning_from_ocr_prelim(text: str) -> str:
         (r'^K\.\s?\r?\n?', ''),
         (r'(^\d,\s)(\d{1,2})\s(\d{1,2})(^\d\n)', r'\g<1> \g<2>-\g<3> \g<4>'),
         (r'\,\n', ''),
+        (r'^\s*\n', ''),
         (r'^\n', ''),
         (r'^\s*[^A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü]?[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü]{1,3}\s*\n', ''),
         (r"(\d{1,2})'[-–—]\s*(\d{1,2})", r'\g<1>1-\g<2>'),
@@ -1305,6 +1311,7 @@ def cleaning_from_ocr_prelim(text: str) -> str:
         (r'^(\d)\s(\d)(\.)', r'\g<1>\g<2>\g<3>'),
         (r'[-–—]\s*(\d)\s*(\d)\s*', r'-\g<1>\g<2> '),
         (r'(\s\d)\s\/', r'\g<1>/'),
+        (r'^...\s*\n', '...')
     ]
     for pattern, repl in subs:
         text = re.sub(pattern, repl, text, flags=re.MULTILINE)
@@ -1436,7 +1443,7 @@ def cleaning_from_ocr(text: str, trlit: bool = True) -> str:
     else:
         subs = [
             (r':', ''),
-            (r'§', 'S'),
+            # (r'§', 'S'),
             # (r'\$', '9'),
             (r'\$', 's'),
             (r'\:', ' '),
@@ -2947,7 +2954,11 @@ def extract_salim_assur(text: str, start_pos: int, pattern: str, ind: int):
                 pos_end_translate = len(text)
         # text_translate = text[pos_start_translate:pos_end_translate]
     else:
-        pos_end_translate = len(text)
+        text_translate, pos_end_translate, pos_start_translate = find_translate_by_rows(text, pos_end_trlit,
+                                                                                        len(text))
+        if text_translate == "":
+            pos_end_translate = len(text)
+        # pos_end_translate = len(text)
         # if Unfin_Data["perevod"] != "":
         #     text_translate = Unfin_Data["perevod"]
         #     Unfin_Data["perevod"] = ""
@@ -3703,7 +3714,7 @@ def process_text_and_build_csv_rows(text: str):
     pattern4 = r'^'
     pattern5 = r'^'
     pattern6 = r'^'
-    pattern7 = r"^(?:Salim-Assur[’']s death|Sadaya[’']s son)"
+    pattern7 = r"^(?:Salim-Assur[’']s|Sadaya[’']s son)"
     pattern8 = r'^SEBAHATTİN BAYRAM'
     pattern9 = r'^KÜLTEPE TABLETLERİ VII'
     pattern10 = r'^S. BAYRAM-R'
@@ -3724,8 +3735,8 @@ def process_text_and_build_csv_rows(text: str):
     str_txt_1 = [""] * len_arr
     # предварительная очистка
     text = cleaning_from_ocr_prelim(text)
-    text = re.sub(r'^(?:\d+\.)?\s*§alim-A$$ur’s death', 'Salim-Assur’s death', text)
-    text = re.sub(r'^(?:\d+\.)?\s*[§S]alim-A\$\$ur’s death', 'Salim-Assur’s death', text, flags=re.MULTILINE)
+    text = re.sub(r'^(?:\d+\.)?\s*[§S]alim-A$$ur’s', 'Salim-Assur’s', text)
+    text = re.sub(r'^(?:\d+\.)?\s*[§S]alim-A\$\$ur’s', 'Salim-Assur’s', text, flags=re.MULTILINE)
     text = re.sub(r'^\d+\.\s*K[Üh]LTEPE TABLETLERİ VII', 'KÜLTEPE TABLETLERİ VII', text, flags=re.MULTILINE)
     text = re.sub(r'^\d+\.\s*SEBAHATTİN BAYRAM', 'SEBAHATTİN BAYRAM', text, flags=re.MULTILINE)
     text = re.sub(r'^\d+\s*S. BAYRAM-R', 'S. BAYRAM-R', text, flags=re.MULTILINE)
@@ -4046,7 +4057,7 @@ for i in idx:
     # print(f"{num + 1} пару блоков начинаем искать.\n")
     print(f"Index = {i}\n")
     # if i == 74880:
-    if i == 104318:        #206345:  #17542
+    if i == 104240:        #206345:  #17542
     #не печатает переводы
     # if i == 25:
     # if i == 130319:
