@@ -1795,167 +1795,168 @@ def _restore_sequence(
         result[i] = last_num + (i - last_idx)
 
     return result
+pattern_line_start = re.compile(
+    r"""
+    ^\s*              # начало строки + пробелы
+    \(?                # необязательная открывающая скобка
+    \s*               
+    (?P<number>\d{1,3})  # число (1-3 цифры)
+    \s*               
+    (?:               # незахватывающая группа для окончания
+        [`'’‘ʼʹˈ]   # любой апостроф/кавычка, 0 или 1
+        \s*          # пробел
+        \.           # точка
+        |            # или
+        [`'’‘ʼʹˈ]   # любой апостроф/кавычка, 0 или 1
+        |             # или
+        \.            # точка
+        |             # или
+        :             # двоеточие
+        |             # или
+        \)?           # необязательная закрывающая скобка
+    )
+    """,
+    re.VERBOSE
+)
+
+pattern_line_start_r = re.compile(
+    r"""
+    ^\s*                  # начало строки + пробелы
+    \(?                    # необязательная открывающая скобка
+    \s*                    
+    (?P<number>\d{1,3})    # число (1-3 цифры)
+    \s*                    
+    (?:                    # незахватывающая группа для окончания
+        \.                 # точка
+        |                   # или
+        [`'’‘ʼʹˈ]         # любой апостроф/кавычка, 0 или 1
+        |                   # или
+        [`'’‘ʼʹˈ]         # любой апостроф/кавычка, 0 или 1
+        \s*                 # пробелы после кавычки
+        \.                 # точка
+        |                   # или
+        :                   # двоеточие
+        |                   # или
+        \)                  # закрывающая скобка
+    )
+    """,
+    re.VERBOSE
+)
 
 
-def renumber_trust_source(text: str) -> Dict[int, str]:
-    """
-    Преобразует текст с частичной нумерацией (кратной 5)
-    в словарь {номер: строка}.
-
-    Поддерживаются форматы:
-    - 10.
-    - 10:
-    - (10)
-    - (abc10xyz)
-    - 10)
-    - 10'
-
-    Если строка не содержит номера,
-    номер восстанавливается по ближайшим якорям.
-    """
-    global Pattern_search_trlit
+def renumber_trust_source(text: str) -> dict:
     if not text.strip():
         return {}
 
-    # pattern_line_start = re.compile(r"^\s*(\d+)\s*[.:]'?")
-    pattern_line_start = re.compile(r"^\s*\(?\s*(\d{1,3})\s*(?:['.)\:])")
-    # inline_patterns = [
-    #     r'\(([^)]*\d+[^)]*)\)',
-    #     r'(\d+)\)',
-    #     r'(\d+)\'',
-    # ]
-    inline_pattern = Pattern_search_trlit
-
-
     lines = text.splitlines()
+    pattern = pattern_line_start_r  # твой универсальный шаблон
 
-    # --- РЕЖИМ 1: текст уже разбит на строки
-    if any(pattern_line_start.match(line) for line in lines):
-        anchors: List[Tuple[int, int]] = []
+    found_numbers: List[int] = []
 
-        for idx, line in enumerate(lines):
-            m = pattern_line_start.match(line)
-            if m:
-                num = _extract_number(m.group(0))
-                if num % 5 == 0:
+    # ищем все номера в начале строк
+    for line in lines:
+        m = pattern.match(line)
+        if m:
+            found_numbers.append(int(m.group("number")))
+
+    result: dict = {}
+
+    if found_numbers:
+        # --- Все номера кратные 5
+        if all(n % 5 == 0 for n in found_numbers):
+            anchors: list[tuple[int, int]] = []
+            for idx, line in enumerate(lines):
+                m = pattern.match(line)
+                if m:
+                    num = int(m.group("number"))
                     anchors.append((idx, num))
+            numbers = _restore_sequence(anchors, len(lines))  # твоя существующая логика
+            for num, line in zip(numbers, lines):
+                content = pattern.sub('', line, count=1).strip()
+                result[num] = content
 
-        numbers = _restore_sequence(anchors, len(lines))
+        # --- Есть обычные номера (не кратные 5)
+        else:
+            result = {}
+            # собираем все позиции с номерами
+            anchors = [(idx, int(pattern.match(line).group("number")))
+                       for idx, line in enumerate(lines) if pattern.match(line)]
 
-        result: Dict[int, str] = {}
-        for num, line in zip(numbers, lines):
-            content = pattern_line_start.sub('', line, count=1).strip()
-            result[num] = content
-
-        return result
-    else:
-        return {1: text.strip()}
-
-    # --- РЕЖИМ 2: сплошной текст
-    # for pat in inline_patterns:
-    #     compiled = re.compile(pat)
-    #     matches = list(compiled.finditer(text))
-    #     if not matches:
-    #         continue
-    #
-    #     segments = []
-    #     anchors: List[Tuple[int, int]] = []
-    #
-    #     for i, match in enumerate(matches):
-    #         num = _extract_number(match.group(0))
-    #         start = match.end()
-    #         end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
-    #         content = text[start:end].strip()
-    #         segments.append(content)
-    #
-    #         if num % 5 == 0:
-    #             anchors.append((i, num))
-    #
-    #     numbers = _restore_sequence(anchors, len(segments))
-    #
-    #     return {num: seg for num, seg in zip(numbers, segments)}
-
-    # for pat in inline_patterns:
-    def with_parent(pattern)-> bool:
-        pattern = re.compile(pattern)
-        text = "(12-15)  18  ( 22 )  30-31"
-        for m in pattern.finditer(text):
-            start, end = m.span()
-            inside_parentheses = (
-                    start > 0 and end < len(text)
-                    and text[start - 1] == '('
-                    and text[end] == ')'
-            )
-            if not inside_parentheses:
-                return False
-                # print("без скобок:", m.group())
+            if not anchors:
+                # вообще нет номеров → обычная последовательность
+                for i, line in enumerate(lines, start=1):
+                    result[i] = line.strip()
             else:
-                return True
-                # print("в скобках:", m.group())
+                # восстанавливаем нумерацию для всех строк
+                for idx, line in enumerate(lines):
+                    # ищем ближайший «якорь» впереди
+                    next_anchor = next(((a_idx, num) for a_idx, num in anchors if a_idx >= idx), None)
+                    if next_anchor:
+                        a_idx, num = next_anchor
+                        key = num - (a_idx - idx)  # уменьшаем от ближайшего номера
+                    else:
+                        # если впереди нет якоря — продолжаем с последнего найденного
+                        last_anchor_num = anchors[-1][1]
+                        key = last_anchor_num + (idx - anchors[-1][0])
 
-    if not with_parent(inline_pattern):
-        return split_numbered_text_with_intro(text)
-        # return {1: text.strip()}
-    compiled = re.compile(inline_pattern)
-    matches = list(compiled.finditer(text))
-    # matches = [m.group("number") for m in compiled.finditer(text) if m.group("number")]
+                    # удаляем номер из строки, если он есть
+                    m = pattern.match(line)
+                    content = pattern.sub('', line, count=1).strip() if m else line.strip()
+                    result[key] = content
+    # --- Номеров нет совсем
+    else:
+        for i, line in enumerate(lines, start=1):
+            result[i] = line.strip()
 
-    if not matches:
-        return split_numbered_text_with_intro(text)
-        # return {1: text.strip()}
+    # проверка на один элемент
+    if len(result) == 1:
+        only_key = next(iter(result))
+        if only_key != 1:
+            result = {1: result[only_key]}
 
-    segments = []
-    anchors: List[Tuple[int, int]] = []
+    return result
 
-    for i, match in enumerate(matches):
-        # num = _extract_number(match.group(0))
-        num = _extract_number(match.group("number"))
-        start = match.end()
-        end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
-        content = text[start:end].strip()
-        segments.append(content)
+#
+# # Регулярка для нумерации с разными вариантами кавычек и суффиксов
+# pattern_numbers = re.compile(
+#     r'\b\(?\d+\)?(?:[`\'’‘ʼʹˈ]\.|[.`\'’‘ʼʹˈ)])?\s+'
+# )
+#
+# # Регулярка для нумерации с кавычками и суффиксами
+# pattern_numbers_1 = re.compile(
+#     r'\b(\(?\d+\)?(?:[`\'’‘ʼʹˈ]\.|[.`\'’‘ʼʹˈ)]?))\s+'
+# )
 
-        if num % 5 == 0:
-            anchors.append((i, num))
+def split_numbered_text_with_intro(text) -> dict:
+    """Выводит словарь из текста с последовательно нумерованными участками.
+       Шаблонные номера удаляются из строк."""
 
-    numbers = _restore_sequence(anchors, len(segments))
-
-    return {num: seg for num, seg in zip(numbers, segments)}
-
-    # return {1: text.strip()}
-# Регулярка для нумерации с разными вариантами кавычек и суффиксов
-pattern_numbers = re.compile(
-    r'\b\(?\d+\)?(?:[`\'’‘ʼʹˈ]\.|[.`\'’‘ʼʹˈ)])?\s+'
-)
-
-# Регулярка для нумерации с кавычками и суффиксами
-pattern = re.compile(
-    r'\b(\(?\d+\)?(?:[`\'’‘ʼʹˈ]\.|[.`\'’‘ʼʹˈ)]?))\s+'
-)
-
-def split_numbered_text_with_intro(text)-> dict:
-    """выводит словарь из текста с последовательно
-     нумерованными участками"""
-    matches = list(pattern.finditer(text))
+    matches = list(pattern_line_start.finditer(text))
     result = {}
 
     if matches:
-        # первая цифра в нумерации
-        first_num = int(re.search(r'\d+', matches[0].group(1)).group())
+        first_num = int(matches[0].group("number"))
 
         # текст перед первой нумерацией
         if matches[0].start() > 0:
-            # ключ = первая цифра - 1
-            result[str(first_num - 1)] = text[:matches[0].start()].strip()
+            result[first_num - 1] = text[:matches[0].start()].strip()
+
+        # основной цикл по найденной нумерации
+        for i, m in enumerate(matches):
+            key = int(m.group("number"))
+            start = m.end()
+            end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+            content = text[start:end].strip()
+            # удаляем номер из строки
+            content_clean = pattern_line_start.sub('', content, count=1).strip()
+            result[key] = content_clean
     else:
         return {1: text.strip()}
-
-    # основной цикл по найденной нумерации
-    for i, m in enumerate(matches):
-        key = int(re.search(r'\d+', m.group(1)).group())
-        start = m.end()  # начинаем после самой нумерации
-        end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
-        result[str(key)] = text[start:end].strip()
+    if len(result) == 1:
+        # получаем единственный ключ
+        only_key = next(iter(result))
+        if only_key != 1:
+            result = {1: result[only_key]}
 
     return result
 
