@@ -169,8 +169,8 @@ def normalize_for_mt(text: str) -> str:
 
 # загрузка файла
 # df = pd.read_csv("train.csv")
-thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
-# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate"
+# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
+thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate"
 # thiscompteca = "C:/Users/arecs/Мій диск (2armnot@gmail.com)/Питон/Конкурси/Old_Assyrian/"
 df = pd.read_csv(thiscompteca+'/data/train.csv')
 # нормализация транслитерации
@@ -179,14 +179,22 @@ df = pd.read_csv(thiscompteca+'/data/train.csv')
 df["transliteration"] = df["transliteration"].apply(
     lambda x: normalize_for_mt(x) if isinstance(x, str) else x
 )
-
 # сохранение нового файла
 df.to_csv("train_normalized.csv", index=False)
 
+df3 = pd.read_csv("aligned_sentences.csv")
+df3["transliteration"] = df3["transliteration"].apply(
+    lambda x: normalize_for_mt(x) if isinstance(x, str) else x
+)
+df3.to_csv("aligned_sentences_normalized.csv", index=False)
+
+
+
 df1 = pd.read_csv("train_accad.csv")
 df2 = pd.read_csv("train_normalized.csv")
+df4 = pd.read_csv("aligned_sentences_normalized.csv")
 
-df = pd.concat([df1, df2], ignore_index=True)
+df = pd.concat([df1, df2, df4], ignore_index=True)
 
 df["oare_id"] = range(len(df))
 
