@@ -5,8 +5,8 @@ import re
 # ======================
 # 1. Загрузка данных
 # ======================
-# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
-thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate"
+thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
+# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate"
 
 # df_main = pd.read_csv("G:/Visual Studio 2010/Projects/Python/Old_accad_translate/data/train.csv")
 df_main = pd.read_csv(thiscompteca+'/data/train.csv')

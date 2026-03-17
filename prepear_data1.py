@@ -1,7 +1,6 @@
 #%%
 import sys
 import pandas as pd
-# import numpy as np
 import re
 import nltk
 from langdetect import detect
@@ -9,8 +8,9 @@ from langdetect import DetectorFactory
 from deep_translator import GoogleTranslator
 translator = GoogleTranslator(source="auto", target="en")
 from typing import Dict, List, Tuple, Match, Pattern
-from collections import defaultdict
-
+# from collections import defaultdict
+import csv
+from io import StringIO
 
 try:
     nltk.data.find('tokenizers/punkt')
@@ -65,7 +65,7 @@ DETERMINATIVE_MAP = {
     "ᴹ": "{m}",
 
     # дерево / деревянное
-    "ᴳᴵŠ": "{geš}",
+    # "ᴳᴵŠ": "{geš}",
     "ᴳᴵŠ": "{ĝeš}",   # при необходимости нормализации
 
     # ткани
@@ -126,12 +126,6 @@ CHAR_MAP = {
 SEPARATOR_RE = re.compile(r'^-+$')
 
 # Разрешенные символы для транслитерации
-# TRANSLIT_LINE_RE = re.compile(
-#     r"^[A-Za-zŠšḫḪṣṢṭṬʾʿ0-9\-ℵ \[\]\.\!⅀⅁ᲟᲠ–]+$"
-# )
-# -----------------------------------------
-# ^(?!\s*\d)                |    # не начинается с чистого номера
-# ---------------------------------------------
 TRANSLIT_LINE_RE = re.compile(r'''
 ^(?!\s*\d+\s*$)            |   # не начинается с чистого номера
 (?=.*(
@@ -378,21 +372,6 @@ FOREIGN_WORD_RE = re.compile(
     re.I
 )
 # Явные признаки аккадской транслитерации
-# AKKADIAN_INDICATOR_RE = re.compile(
-#     r"[ŠšḪḥṢṣṬṭʾʿ⅀⅁ᲟᲠ]|"  # Аккадские специальные символы
-#     r"\[.*?\]|"  # Квадратные скобки
-#     r"\(.*?\)|"  # Круглые скобки
-#     r"\{.*?\}|"  # Фигурные скобки
-#     r"\b[A-Z][a-zšḫṭṣ]+ℵ[a-zšḫṭṣ]+\b|"  # Слова с ℵ, начинающиеся с заглавной
-#     r"\b[a-zšḫṭṣ]+ℵ[a-zšḫṭṣ]+\b|"  # Слова с ℵ из строчных
-#     r"\b[A-Z][a-zšḫṭṣ]+-[a-zšḫṭṣ]+\b|"  # Слова с дефисом, начинающиеся с заглавной
-#     r"\b[a-zšḫṭṣ]+-[a-zšḫṭṣ]+\b|"  # Слова с дефисом из строчных
-#     r"\b\d+[rv]\b|"  # Номера строк: 14r, 15v и т.д.
-#     r"x\+|x\-|x\?|x=\d+|"  # Фрагменты табличек
-#     r"\.\.\.|…|"  # Многоточия
-#     r"\d+['ˈ]|"  # Числа с апострофом
-#     r"–[^ ]"  # Длинное тире не после пробела
-# )
 AKKADIAN_INDICATOR_RE = re.compile(
     r"[ŠšḪḥṢṣṬṭʾʿ⅀⅁ᲟᲠ]|"
     r"[₀₁₂₃₄₅₆₇₈₉]|"
@@ -412,16 +391,6 @@ AKKADIAN_INDICATOR_RE = re.compile(
 
 
 # Признаки, что это НЕ транслитерация (пропускать такие строки)
-# NOT_TRANSLIT_RE = re.compile(
-# #     r"\b[A-Z][a-z]{3,} [A-Z][a-z]{3,}\b|"  # Два заглавных слова подряд (имя собственное)
-# #     r"\b[a-z]{4,} [a-z]{4,} [a-z]{4,}\b|"  # Три длинных слова подряд (предложение)
-# #     r"^\d+ [A-Z][a-z]|"  # Начинается с цифры и заглавной буквы
-# #     r"[a-z]{5,}-[a-z]{4,}[^šḫṭṣʾʿ]|"  # Длинные английские слова с дефисом
-# #     r"[a-zA-ZäöüÄÖÜß]{5,}-[a-zA-ZäöüÄÖÜß]{4,}|" # Длинные немецкие слова с дефисом
-# #     r"[a-zA-ZçğıİöşüÇĞİÖŞÜ]{5,}-[a-zA-ZçğıİöşüÇĞİÖŞÜ]{4,}|" # Длинные турецкие слова с дефисом
-# #     r", |; |: |\. [A-Z]|"  # Знаки пунктуации с пробелом
-# #     r"\b(?:[A-Za-z]+ ){3,}[A-Za-z]+\b"  # Более 3 слов подряд
-# # )
 NOT_TRANSLIT_RE = re.compile(
     r"\b[A-Z][a-z]{3,} [A-Z][a-z]{3,}\b|"        # Два заглавных слова подряд
     r"\b[a-z]{4,} [a-z]{4,} [a-z]{4,}\b|"        # Три длинных слова подряд
@@ -432,8 +401,6 @@ NOT_TRANSLIT_RE = re.compile(
     r", |; |: |\. [A-Z]|"                        # Пунктуация
     r"\b(?:[A-Za-z]+ ){3,}[A-Za-z]+\b"           # 3+ слов подряд
 )
-
-
 
 WORD_RE = re.compile(
     r"[A-Za-zÀ-ÖØ-öø-ÿĞğŞşİıÇçÜüÖöÄäßÉéÈèÊêÂâÎîÔôÛûšṣṭḫʾʿ]{2,}"
@@ -602,14 +569,14 @@ def extract_transliteration(text) -> list:
     current = []
 
     for line in lines:
-        # Пропускаем разделители
-        if SEPARATOR_RE.match(line):
-            continue
-
         line_trimmed = line.strip()
+
         # библиографические ссылки и номера табличек
         if BIBLIO_RE.search(line_trimmed):
-            # break
+            break
+
+        # Пропускаем разделители
+        if SEPARATOR_RE.match(line):
             continue
 
         # Пропускаем пустые строки
@@ -624,28 +591,17 @@ def extract_transliteration(text) -> list:
         )
         if has_basic_format:
             is_transliteration = True
-        # if not has_basic_format:
-        #     if current:
-        #         blocks.append("\n".join(current).strip())
-        #         current = []
-        #     continue
-        # # слишком много цифр и знаков
-        # if re.search(r"\d{2,}.*\d{2,}", line_trimmed):
-        #     is_transliteration = False
+
         # Проверка 2: Содержит ли иностранные слова?
         has_foreign_words = FOREIGN_WORD_RE.search(line_trimmed)
 
         # Проверка 4: Содержит ли признаки аккадской транслитерации?
         has_akkadian_indicators = AKKADIAN_INDICATOR_RE.search(line_trimmed)
-        # if not has_foreign_words and has_basic_format and has_akkadian_indicators:
-        #     if ':' in line_trimmed:
-        #         line_trimmed = line_trimmed.replace(":", "")
+
         # Проверка 3: Содержит ли явные признаки НЕ транслитерации?
         is_not_translit = False
         if not is_transliteration:
             is_not_translit = NOT_TRANSLIT_RE.search(line_trimmed)
-        # else:
-        #     is_not_translit = False
 
         # # Короткие токены (ša, ina, a-na и т.п.)
         is_tokens = False
@@ -687,13 +643,6 @@ def extract_transliteration(text) -> list:
         # # Особый случай: если есть аккадские индикаторы, принимаем даже с некоторыми иностранными словами
         # if has_akkadian_indicators and has_basic_format and not is_not_translit:
         #     is_transliteration = True
-
-        # num_morf = text.count("ℵ")
-        # num_defis = text.count('-')
-        # num_div = max(num_morf, num_defis)
-        # # мало дефисов в строке
-        # if (num_div > 0 and len(text) / num_div - 1 > 12) or num_div == 0:
-        #     is_transliteration = False
         num_morf = line.count("ℵ")
         num_defis = line.count('-')
         num_div = num_morf + num_defis
@@ -713,12 +662,6 @@ def extract_transliteration(text) -> list:
             current.append(line_trimmed)
         else:
             break
-            # if blocks:
-            #     return blocks
-            # return []
-            # if current:
-            #     blocks.append("\n".join(current).strip())
-            #     current = []
 
     if current:
         blocks.append("\n".join(current).strip())
@@ -737,7 +680,6 @@ def find_translit_by_rows(text: str, pos: int=0, n_dop: int=2):
     pattern_end = r"^\d+\.\d+\.\s*(?:(?:\d+\.|[A-Za-z]*\.)?(?:e\.|r\.)|\d+(?:[’'])?)"
     num_row = 0
     while pos < len(text):
-    # if pos < len(text):
         # строка от её первой позиции и позиция конца строки
         n_l, pos_end_of_line = get_next_line(text, pos)
         # конец транслитерации
@@ -750,21 +692,13 @@ def find_translit_by_rows(text: str, pos: int=0, n_dop: int=2):
         line_trl = []
         if n_l:
             line_trl = extract_transliteration(n_l)
-        # if line_trl:
-            # pos_start_transliteration = pos
-            # end_translit = pos_end_of_line
-        # end_translit = 0
+
         while line_trl:
             if pos_start_transliteration == 0:
                 pos_start_transliteration = pos
             # сборная транслитерация
             result += "\n".join(line_trl) + "\n"
             end_translit = pos_end_of_line
-            # if (pos_end_of_line - len(n_l) - 1) > 0 and pos_start_trlit == start_detect:
-            #     pos_start_transliteration = pos_end_of_line - len(n_l) - 1
-            #     pos_start_trlit = pos_start_transliteration
-            # else:
-            # pos_start_trlit = pos_end_of_line - len(n_l) - 1
             # строка
             n_l, pos_end_of_line = get_next_line(text, pos_end_of_line)
             pos_start_trlit = pos_end_of_line - len(n_l) - 1
@@ -778,12 +712,10 @@ def find_translit_by_rows(text: str, pos: int=0, n_dop: int=2):
                 line_trl = extract_transliteration(n_l)
             else:
                 line_trl = ""
-            # end_translit = pos_end_of_line
         num_row += 1
         pos = pos_end_of_line
         if result:
             return result, end_translit, pos_start_transliteration
-
 
     return "", pos_end_of_line, pos_start_transliteration
 
@@ -793,7 +725,6 @@ def find_translate_by_rows(text: str, pos: int=0, n_dop: int=2):
     возвращает транслитерацию или "" и её позиции конца и начала"""
     pos_end_of_line = 0
     pos_start_per = pos
-    # start_detect = pos_start_per
     pos_start_translate = 0
     end_translate = 0
     result = ""
@@ -817,50 +748,48 @@ def find_translate_by_rows(text: str, pos: int=0, n_dop: int=2):
         if result:
             return result, end_translate, pos_start_translate
 
-
     return "", len(text), pos_start_translate
 
 
 
 
-def is_translation(text: str, one_word: bool=False) -> bool:
-    """подтверждает что строка есть перевод"""
-    if not text or len(text) < 10:
-        return False
+# def is_translation(text: str, one_word: bool=False) -> bool:
+#     """подтверждает что строка есть перевод"""
+#     if not text or len(text) < 10:
+#         return False
+#
+#     text = text.strip()
+#
+#     # Морфемные цепочки → почти наверняка транслитерация
+#     if MORPHEME_CHAIN_RE.search(text):
+#         return False
+#
+#     # Слова длиной ≥ 2
+#     words = WORD_RE.findall(text)
+#     if len(words)< 2 and not one_word:
+#         return False
+#
+#     # # Короткие токены (ša, ina, a-na и т.п.)
+#     tokens = re.findall(r"[A-Za-zšṣṭḫʾʿ]+", text.lower())
+#     if tokens:
+#         short_tokens = [t for t in tokens if len(t) <= 3]
+#         if len(short_tokens) / len(tokens) > 0.6:
+#             return False
+#
+#     # # Частотные служебные слова аккадского
+#     # if sum(1 for t in tokens if t in AKKADIAN_FUNCTION_WORDS) >= 2:
+#     #     return False
+#     # якоря начала перевода, служебные пометки номеров каталогов
+#     all_anchors = []
+#     for key, value in patterns_withaut_diapason_s.items():
+#         anchors = re.findall(value, text)
+#         all_anchors.extend(anchors)
+#     if len(all_anchors) > 0:
+#         return False
+#
+#     return True
 
-    text = text.strip()
 
-    # Морфемные цепочки → почти наверняка транслитерация
-    if MORPHEME_CHAIN_RE.search(text):
-        return False
-
-    # Слова длиной ≥ 2
-    words = WORD_RE.findall(text)
-    if len(words)< 2 and not one_word:
-        return False
-
-    # # Короткие токены (ša, ina, a-na и т.п.)
-    tokens = re.findall(r"[A-Za-zšṣṭḫʾʿ]+", text.lower())
-    if tokens:
-        short_tokens = [t for t in tokens if len(t) <= 3]
-        if len(short_tokens) / len(tokens) > 0.6:
-            return False
-
-    # # Частотные служебные слова аккадского
-    # if sum(1 for t in tokens if t in AKKADIAN_FUNCTION_WORDS) >= 2:
-    #     return False
-    # якоря начала перевода, служебные пометки номеров каталогов
-    all_anchors = []
-    for key, value in patterns_withaut_diapason_s.items():
-        anchors = re.findall(value, text)
-        all_anchors.extend(anchors)
-    if len(all_anchors) > 0:
-        return False
-
-    return True
-
-
-import re
 
 def is_clean_akkadian_translation(text: str) -> bool:
     """
@@ -921,70 +850,53 @@ def get_next_line(text: str, start_pos: int):
         return text[pos:end], end
     # позиция старта совпадает с переводом строки
     if pos == end and pos < len(text):
-        # return text[pos:end+1], end+1
         pos = end + 1
         end = text.find('\n', pos)
         if end == -1 and pos <= len(text):
             end = len(text)
             return text[pos:end], end
-    # if end == pos and pos < len(text):
-    #     pos = end + 1
-    #     end = text.find('\n', pos)
-    #     if end == -1 and pos <= len(text):
-    #         end = len(text)
     # достигнут конец текста
     if end == pos and pos >= len(text):
         return "", len(text)
     str_line = text[pos:end]
-    # str_line = re.sub(
-    #     r'^\s*(?:[SK]\.|S\. K\.|v|\. v)\s*(?:\r?\n|$)',
-    #     '',
-    #     str_line,
-    #     flags=re.MULTILINE
-    # )
-    # str_line = re.sub(
-    #     r'(?m)^\s*\d{1,2}\.\s*',
-    #     '',
-    #     str_line
-    # )
 
     return str_line, end+1
 
 def count_words(text):
     return len(re.findall(r"[A-Za-zÀ-ÖØ-öø-ÿА-Яа-яЁё]+", text))
 
-def detect_translate(text: str, start_pos: int):
-    """подтверждает что  очищенная строка есть перевод
-    выводит флаг и строку"""
-    global Pattern_search_translate
-    is_translate = False
-    one_word = False
-    # # начало строки поиска
-    # pos = None if start_pos == len(text) else start_pos
-    # if pos  is None:
-    #     return is_translate, ""
-    # # конец строки поиска
-    # end = text.find('\n', pos)
-    # if end == -1 and pos < len(text):
-    #     end = len(text)
-    # # if end == -1:
-    # #     return is_translate, text[pos:end]
-    # str_line = text[pos:end]
-    # уборка мусора
-    str_line = text
-    str_line = cleaning_from_ocr(str_line)
-
-    # шаблон диапазона страниц
-    # pattern = r'\b\d{1,3}\s*[-–—-]\s*\d{1,3}\b'
-
-    str_line, count = re.subn(Pattern_search_translate, '', str_line)
-    if count_words(str_line) == 1:
-        one_word = True
-    if count > 2 and is_translation(str_line, one_word):
-        is_translate = True
-    # print("Количество замен:", count)
-
-    return is_translate, str_line
+# def detect_translate(text: str, start_pos: int):
+#     """подтверждает что  очищенная строка есть перевод
+#     выводит флаг и строку"""
+#     global Pattern_search_translate
+#     is_translate = False
+#     one_word = False
+#     # # начало строки поиска
+#     # pos = None if start_pos == len(text) else start_pos
+#     # if pos  is None:
+#     #     return is_translate, ""
+#     # # конец строки поиска
+#     # end = text.find('\n', pos)
+#     # if end == -1 and pos < len(text):
+#     #     end = len(text)
+#     # # if end == -1:
+#     # #     return is_translate, text[pos:end]
+#     # str_line = text[pos:end]
+#     # уборка мусора
+#     str_line = text
+#     str_line = cleaning_from_ocr(str_line)
+#
+#     # шаблон диапазона страниц
+#     # pattern = r'\b\d{1,3}\s*[-–—-]\s*\d{1,3}\b'
+#
+#     str_line, count = re.subn(Pattern_search_translate, '', str_line)
+#     if count_words(str_line) == 1:
+#         one_word = True
+#     if count > 2 and is_translation(str_line, one_word):
+#         is_translate = True
+#     # print("Количество замен:", count)
+#
+#     return is_translate, str_line
 
 
 # RANGE_RE = re.compile(
@@ -997,22 +909,11 @@ def clear_from_ocr_for_text(text: str) -> str:
     и оборачивает в круглые скобки"""
     # --- 1. OCR-мусор: " 3A" → "3-A"
     global Pattern_search_translate_re
-    # text = re.sub(r'(\s\d)\s*(\d\w)', r'\1-\2', text)
 
-    # token_pattern = re.compile(
-    #     r'\(?\s*\d{1,3}\s*[-–—]\s*\d{1,3}\s*\)?'
-    #     r'|\(?\s*\d{1,3}\s*\)?'
-    #     r'|(?<!\d)[–—-]\s*\d{1,3}'
-    #     r'|\b\d{1,3}\b'    # шаблон отдельного числа
-    # )
-    # token_pattern = re.compile(Pattern_search_translate)
     token_pattern = Pattern_search_translate_re
     tokens = []
     for m in token_pattern.finditer(text):
-        # if m.group("start"):
         if "start" in m.re.groupindex and m.group("start"):
-            # print("полный диапазон")
-            # print(m.group("start"), m.group("end"))
             tokens.append({
                 "type": "range",
                 "a": m.group("start"),
@@ -1020,11 +921,7 @@ def clear_from_ocr_for_text(text: str) -> str:
                 "start": m.span()[0],
                 "end": m.span()[1],
             })
-
-        # elif m.group("only_end"):
         elif "only_end" in m.re.groupindex and m.group("only_end"):
-            # print("неполный диапазон")
-            # print("end =", m.group("only_end"))
             tokens.append({
                 "type": "broken",
                 "b": m.group("only_end"),
@@ -1032,8 +929,6 @@ def clear_from_ocr_for_text(text: str) -> str:
                 "end": m.span()[1],
             })
         else:
-            # print("одиночное число")
-            # print("number =", m.group("number"))
             tokens.append({
                 "type": "single",
                 "a": m.group("number"),
@@ -1043,26 +938,7 @@ def clear_from_ocr_for_text(text: str) -> str:
     parsed = tokens
     if len(tokens) == 0:
         return text
-    # --- 2. Разбираем токены в диапазоны
-    # parsed = []
-    # for t in tokens:
-    #     s = t["text"]
-    #     # m = re.match(r'\(?\s*(\d{1,3})\s*[-–—]\s*(\d{1,3})\s*\)?'r'|\(?\s*\d{1,3}\s*\)?', s)
-    #     m = re.match(Pattern_search, s)
-    #     # m = re.match(r'\(?[^\S\n]*(\d{1,3})[^\S\n]*[-–—][^\S\n]*(\d{1,3})[^\S\n]*\)?(?=[A-Za-zÀ-ÖØ-öø-ÿİıŞşĞğÇçÜü])', s)
-    #     if m:
-    #         parsed.append({"type": "range", "a": int(m.group(1)), "b": int(m.group(2)), **t})
-    #         continue
-    #
-    #     m = re.match(r'[–—-]\s*(\d{1,3})', s)
-    #     if m:
-    #         parsed.append({"type": "broken", "b": int(m.group(1)), **t})
-    #         continue
-    #     # ----------------------------------------------------------
-    #     # собирает отдельные числа
-    #     # parsed.append({"type": "single", "n": int(s), **t})
-    #     parsed.append({"type": "single", "a": int(s), **t})
-    #     # -------------------------------------------------------------
+
     # --- 3. Исправляем логику (исправляем ПРЕДЫДУЩИЙ диапазон)
     last_range = None
     merged = []
@@ -1122,7 +998,6 @@ def clear_from_ocr_for_text(text: str) -> str:
         if not is_del:
             last_range = item
     merged.append(last_range)
-    # parsed = [item for i, item in enumerate(parsed) if i not in del_items]
     merged = [item for i, item in enumerate(merged) if i not in del_items]
     parsed = merged
         # ------------------------------------------------------
@@ -1130,14 +1005,7 @@ def clear_from_ocr_for_text(text: str) -> str:
     chars = list(text)
 
     for item in reversed(parsed):
-        # if item["type"] == "range":
         repl = f"{item['a']}-{item['b']}"
-        # учитывает отдельные числа
-        # elif item["type"] == "single":
-        #     repl = str(item["n"])
-        # else:
-        #     continue
-
         chars[item["start"]:item["end"]] = repl
     result = "".join(chars)
     # ----------------------------------------------------
@@ -1156,18 +1024,18 @@ def clear_from_ocr_for_text(text: str) -> str:
     #         return f"({a}-{b})"  # обернуть
     #
     # result = pattern.sub(wrap_if_no_parentheses, result)
-    pattern = re.compile(r'\(?(\d+)-(\d+)\)?')
-
-    def wrap_if_no_parentheses(match: re.Match) -> str:
-        full = match.group(0)  # всё совпадение
-        a = match.group(1)
-        b = match.group(2)
-
-        # если нет открывающей скобки слева — оборачиваем
-        if not full.startswith("("):
-            return f"({a}-{b})"
-        else:
-            return full  # оставляем как есть
+    # pattern = re.compile(r'\(?(\d+)-(\d+)\)?')
+    #
+    # def wrap_if_no_parentheses(match: re.Match) -> str:
+    #     full = match.group(0)  # всё совпадение
+    #     a = match.group(1)
+    #     b = match.group(2)
+    #
+    #     # если нет открывающей скобки слева — оборачиваем
+    #     if not full.startswith("("):
+    #         return f"({a}-{b})"
+    #     else:
+    #         return full  # оставляем как есть
     return result
 
 
@@ -1770,7 +1638,7 @@ def is_tablet(text: str)-> tuple[bool, tuple[str, dict[int, str]], int]:
 
 
 # import re
-from typing import Dict, List, Tuple
+# from typing import Dict, List, Tuple
 
 
 def _extract_number(text: str) -> int:
@@ -4036,16 +3904,16 @@ def process_text_and_build_csv_rows(text: str):
                         # t_sentences = [sent for sent in t_sentences if looks_like_real_translation(sent)]
                         # # определение языка и перевод на английский, если перевод не английский\n",
                         # t_sentences = [translate_to_english(sent) if detect_language(sent) != 'en' else sent for sent in t_sentences]
-                        t_sentences = [
-                            sent.strip()
-                            for sent in t_sentences
-                            if looks_like_real_translation(sent)
-                        ]
-
-                        t_sentences = [
-                            translate_to_english(sent)
-                            for sent in t_sentences
-                        ]
+                        # t_sentences = [
+                        #     sent.strip()
+                        #     for sent in t_sentences
+                        #     if looks_like_real_translation(sent)
+                        # ]
+                        #
+                        # t_sentences = [
+                        #     translate_to_english(sent)
+                        #     for sent in t_sentences
+                        # ]
                         # ---------------------------------------------------------------------------
                         # 4. Выравнивание + маркеры
                         a = align_and_mark_sentences(a, t_sentences, marker="<sent>")
@@ -4073,7 +3941,7 @@ def process_text_and_build_csv_rows(text: str):
                         # меняем шаблон
                         start_pos = close_pos + 1
                     else:
-                        print("Прошли текст, меняем шаблон")
+                        # print("Прошли текст, меняем шаблон")
                         # прошли текст, меняем шаблон
                         work = False
                         start_pos = 0
@@ -4086,7 +3954,7 @@ def process_text_and_build_csv_rows(text: str):
                     # продолжаем идти по тексту
                     start_pos = next_pos + 1
                 else:
-                    print("Прошли текст, меняем шаблон")
+                    # print("Прошли текст, меняем шаблон")
                     # прошли текст, меняем шаблон
                     work = False
                     start_pos = 0
@@ -4108,8 +3976,8 @@ def naive_sent_tokenize(text):
     sentences = re.split(r'(?<=[.!?])\s+', text)
     return [s.strip() for s in sentences if s.strip()]
 #%%
-import csv
-from io import StringIO
+# import csv
+# from io import StringIO
 
 def parse_csv_line(line: str):
     reader = csv.reader(StringIO(line))
@@ -4272,6 +4140,14 @@ for i in idx:
     # list_row = process_text_and_build_csv_rows(val)
     for row in list_row:
         if row not in all_rows:
+            # print(row)
+            # print(len(row))
+            # trl, transl = row
+            # for line in row:
+            # trl, transl = parse_csv_line(str(row))
+            # print(f"\nТранслитерация{num_i + 1}-{num_i+1}\n {trl}")
+            # print(f"\nПеревод{num_i + 1}-{num_i+1}\n {transl}")
+            # print("-" * 50)
             all_rows.append(row)
             # print(f"{num + 1} пара блоков найдена.\n")
             # print(row)

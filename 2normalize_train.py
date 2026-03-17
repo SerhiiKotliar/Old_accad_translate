@@ -161,16 +161,9 @@ def normalize_for_mt(text: str) -> str:
 
 
 # -----------------------------------------------------------------
-# # твоя функция нормализации
-# def normalize_for_mt(text):
-#     # пример (замени своей логикой)
-#     text = text.lower()
-#     return text
 
-# загрузка файла
-# df = pd.read_csv("train.csv")
-# thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
-thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate"
+thiscompteca = "D:/Projects/Python/Конкурсы/Old_accad_translate"
+# thiscompteca = "G:/Visual Studio 2010/Projects/Python/Old_accad_translate"
 # thiscompteca = "C:/Users/arecs/Мій диск (2armnot@gmail.com)/Питон/Конкурси/Old_Assyrian/"
 df = pd.read_csv(thiscompteca+'/data/train.csv')
 # нормализация транслитерации
@@ -191,16 +184,20 @@ df3.to_csv("aligned_sentences_normalized.csv", index=False)
 
 
 df1 = pd.read_csv("train_accad.csv")
+print("Количество строк файла данных ", len(df1))
 df2 = pd.read_csv("train_normalized.csv")
+print("Количество строк нормализованного train файла данных ", len(df2))
 df4 = pd.read_csv("aligned_sentences_normalized.csv")
+print("Количество строк откорректированного предложениями файла данных ", len(df4))
+df5 = pd.concat([df1, df2, df4], ignore_index=True)
 
-df = pd.concat([df1, df2, df4], ignore_index=True)
+df5["oare_id"] = range(len(df5))
 
-df["oare_id"] = range(len(df))
-
-df.to_csv("train_combined.csv", index=False, encoding="utf-8")
+df5.to_csv("train_combined.csv", index=False, encoding="utf-8")
 
 pd.read_csv("train_combined.csv") \
   .replace(r'^\s*$', pd.NA, regex=True) \
   .dropna() \
   .to_csv("train_combined.csv", index=False, encoding="utf-8")
+
+print("Количество строк комбинированного файла данных ", len(df5))
